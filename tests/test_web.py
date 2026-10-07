@@ -109,6 +109,34 @@ def test_template_download(base):
     assert Image.open(io.BytesIO(body)).size == (128, 80)
 
 
+def test_frontend_is_wired_up():
+    """Every element app.js looks up by id has to exist in index.html."""
+    import re
+
+    static = ROOT / "armorhelper" / "web" / "static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "app.js").read_text(encoding="utf-8")
+
+    ids = set(re.findall(r'id="([^"]+)"', html))
+    refs = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', script))
+    assert refs, "app.js should look elements up by id"
+    assert not (refs - ids), f"app.js references missing ids: {sorted(refs - ids)}"
+
+    # data-i18n keys must all exist in both languages
+    from armorhelper.i18n import MESSAGES
+
+    keys = set(re.findall(r'data-i18n(?:-placeholder)?="([^"]+)"', html))
+    assert keys
+    for language, table in MESSAGES.items():
+        missing = sorted(key for key in keys if key not in table)
+        assert not missing, f"{language} is missing {missing}"
+
+    # no external requests (offline capable)
+    for text in (html, script, (static / "style.css").read_text(encoding="utf-8")):
+        assert "http://" not in text.replace("http://127.0.0.1", "")
+        assert "https://" not in text
+
+
 def test_i18n_and_targets(base):
     _, payload = get_json(base + "/api/i18n")
     assert "messages" in payload and "zh_CN" in payload["messages"]
