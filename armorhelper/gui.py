@@ -14,7 +14,6 @@ them): a glow mask switch, a player skin index and the path to the game's
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
@@ -31,17 +30,18 @@ except ImportError as error:  # pragma: no cover
         "    python -m armorhelper --help"
     ) from error
 
-from . import __version__
-from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
-from .i18n import tr
+from . import __version__, i18n
+from .config import CONFIG_NAME, UiState
+from .config import load as load_config
+from .config import save as save_config
+from .export import TARGETS, ExportSettings, export_template
+from .i18n import get_language, tr
 from .layout import ArmorTemplateError, bundled_template, load_template, template_bytes
 from .preview import find_images_dir
 from .reverse import reverse_from_images
-from .vanilla import all_sets, find_set
+from .vanilla import all_sets, find_set, sanitize_filename
 
 log = logging.getLogger("armorhelper")
-
-CONFIG_NAME = "config.json"
 
 #: The original tool recreated its template next to the executable on startup;
 #: we do the same so the file is always easy to find.
@@ -143,15 +143,9 @@ class ReverseDialog(wx.Dialog):
         self._pick()
 
     def _fill_choices(self) -> None:
-        needle = self.search.GetValue().strip().lower().replace(" ", "")
-        self.visible = [
-            item
-            for item in self.sets
-            if not needle
-            or needle in item.name.lower()
-            or needle in str(item.body)
-        ]
-        self.choice.Set([f"{item.name}  ({item.body})" for item in self.visible])
+        needle = self.search.GetValue()
+        self.visible = [item for item in self.sets if item.matches(needle)]
+        self.choice.Set([item.label() for item in self.visible])
         if self.visible:
             self.choice.SetSelection(0)
 
@@ -210,18 +204,21 @@ class ArmorHelperFrame(wx.Frame):
 
         self.entries: list[Entry] = []
         self.working = False
+        self.state = load_config(CONFIG_NAME)
 
         self._restore_template()
         self._build_menu()
         self._build()
         self.SetMinSize(wx.Size(740, 560))
-        self.Centre()
+        self._apply_geometry()
         self._apply_icon()
         self.SetDropTarget(_FileDropTarget(self._add_paths))
 
-        self._load_config()
+        self._apply_state()
         self._refresh()
         self.Bind(wx.EVT_CLOSE, self._on_close)
+        self.Bind(wx.EVT_MOVE, self._on_geometry_changed)
+        self.Bind(wx.EVT_SIZE, self._on_geometry_changed)
 
     # ------------------------------------------------------------------ ui --
     def _build_menu(self) -> None:
@@ -235,6 +232,15 @@ class ArmorHelperFrame(wx.Frame):
         template_menu = wx.Menu()
         template_menu.Append(self.template_id, tr("menu.template.save"))
 
+        self.language_ids = {}
+        language_menu = wx.Menu()
+        for code, label in (("zh_CN", "中文"), ("en", "English")):
+            item_id = wx.NewIdRef()
+            self.language_ids[int(item_id)] = code
+            language_menu.AppendRadioItem(item_id, label).Check(code == get_language())
+        view_menu = wx.Menu()
+        view_menu.AppendSubMenu(language_menu, tr("menu.language"))
+
         self.forum_id = wx.NewIdRef()
         help_menu = wx.Menu()
         help_menu.Append(wx.ID_ABOUT, tr("menu.help.about"))
@@ -243,6 +249,7 @@ class ArmorHelperFrame(wx.Frame):
         bar = wx.MenuBar()
         bar.Append(file_menu, tr("menu.file"))
         bar.Append(template_menu, tr("menu.template"))
+        bar.Append(view_menu, tr("menu.view"))
         bar.Append(help_menu, tr("menu.help"))
         self.SetMenuBar(bar)
 
@@ -251,6 +258,7 @@ class ArmorHelperFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda _e: self.Close(True), id=wx.ID_EXIT)
         self.Bind(wx.EVT_MENU, lambda _e: self._save_template(), id=self.template_id)
         self.Bind(wx.EVT_MENU, lambda _e: self._about(), id=wx.ID_ABOUT)
+        self.Bind(wx.EVT_MENU, self._on_language_menu)
         self.Bind(wx.EVT_MENU, lambda _e: wx.LaunchDefaultBrowser(FORUM_URL), id=self.forum_id)
 
     def _build(self) -> None:
@@ -301,7 +309,7 @@ class ArmorHelperFrame(wx.Frame):
             panel, choices=[tr(f"target.{name}") for name in TARGETS], size=(-1, 210)
         )
         for index, name in enumerate(TARGETS):
-            self.target_box.Check(index, name in DEFAULT_TARGETS)
+            self.target_box.Check(index, self.state.targets.get(name, False))
         self.target_box.Bind(wx.EVT_CHECKLISTBOX, lambda _e: self._on_options_changed())
         options.Add(self.target_box, 1, wx.EXPAND | wx.ALL, 4)
         right.Add(options, 1, wx.EXPAND | wx.ALL, 6)
@@ -378,27 +386,80 @@ class ArmorHelperFrame(wx.Frame):
         except OSError:
             log.debug("could not restore %s", TEMPLATE_NAME, exc_info=True)
 
+    # ------------------------------------------------------------ geometry --
+    def _apply_geometry(self) -> None:
+        window = self.state.window
+        width = int(window.get("width") or 0) or None
+        height = int(window.get("height") or 0) or None
+        if width and height:
+            self.SetSize(wx.Size(max(width, 740), max(height, 560)))
+        else:
+            self.Fit()
+            self.SetSize(wx.Size(780, 600))
+
+        x, y = window.get("x"), window.get("y")
+        if x is None or y is None or not self._is_on_screen(int(x), int(y)):
+            self.Centre()
+        else:
+            self.Move(wx.Point(int(x), int(y)))
+        if window.get("maximized"):
+            self.Maximize(True)
+
+    @staticmethod
+    def _is_on_screen(x: int, y: int) -> bool:
+        for index in range(wx.Display.GetCount()):
+            area = wx.Display(index).GetGeometry()
+            if area.Contains(wx.Point(x, y)):
+                return True
+        return False
+
+    def _capture_geometry(self) -> None:
+        if self.IsMaximized():
+            self.state.window.update({"maximized": True})
+            return
+        position = self.GetPosition()
+        size = self.GetSize()
+        self.state.window.update(
+            {
+                "x": position.x,
+                "y": position.y,
+                "width": size.width,
+                "height": size.height,
+                "maximized": False,
+            }
+        )
+
+    def _on_geometry_changed(self, event) -> None:
+        if event.GetEventType() in (wx.EVT_SIZE.typeId, wx.EVT_MOVE.typeId):
+            self._capture_geometry()
+        event.Skip()
+
     # ------------------------------------------------------------- inputs --
     def _choose_inputs(self) -> None:
         with wx.FileDialog(
             self,
             tr("dialog.chooseInputs"),
+            defaultDir=self._dialog_dir(),
             wildcard=tr("dialog.imagesFilter"),
             style=wx.FD_OPEN | wx.FD_MULTIPLE | wx.FD_FILE_MUST_EXIST,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self._add_paths([Path(name) for name in dialog.GetPaths()])
+                self._remember_dir(dialog.GetPath())
 
-    def _add_paths(self, paths) -> None:
+    def _add_paths(self, paths, *, persist: bool = True) -> None:
         known = {entry.path for entry in self.entries}
+        added = False
         for path in paths:
             path = Path(path)
-            if path in known:
+            if path in known or not path.exists():
                 continue
             self.entries.append(Entry(path))
             self.input_list.add(path.name)
             known.add(path)
-        self._save_config()
+            added = True
+        if persist and added:
+            self._save_config()
         self._refresh()
 
     def _remove_selected(self) -> None:
@@ -414,6 +475,7 @@ class ArmorHelperFrame(wx.Frame):
         with wx.FileDialog(
             self,
             tr("dialog.saveTemplate"),
+            defaultDir=self._dialog_dir(),
             defaultFile=TEMPLATE_NAME,
             wildcard="PNG (*.png)|*.png",
             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
@@ -422,21 +484,40 @@ class ArmorHelperFrame(wx.Frame):
                 return
             target = Path(dialog.GetPath())
             target.write_bytes(template_bytes())
+            self._remember_dir(target)
         self._set_status(tr("status.templateSaved", path=target), STALE_COLOUR)
 
     def _choose_output(self) -> None:
-        with wx.DirDialog(self, tr("dialog.chooseOutput"), style=wx.DD_DEFAULT_STYLE) as dialog:
+        with wx.DirDialog(
+            self, tr("dialog.chooseOutput"), defaultPath=self._dialog_dir(), style=wx.DD_DEFAULT_STYLE
+        ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self.output_ctrl.SetValue(dialog.GetPath())
+                self._remember_dir(dialog.GetPath())
                 self._save_config()
                 self._refresh()
 
     def _choose_images(self) -> None:
-        with wx.DirDialog(self, tr("dialog.chooseImages")) as dialog:
+        with wx.DirDialog(
+            self, tr("dialog.chooseImages"), defaultPath=self._dialog_dir()
+        ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self.images_ctrl.SetValue(dialog.GetPath())
+                self._remember_dir(dialog.GetPath())
                 self._save_config()
                 self._refresh()
+
+    def _dialog_dir(self) -> str:
+        if self.state.last_dir and Path(self.state.last_dir).is_dir():
+            return self.state.last_dir
+        for candidate in (self.images_ctrl.GetValue(), self.output_ctrl.GetValue()):
+            if candidate and Path(candidate).is_dir():
+                return candidate
+        return str(Path.cwd())
+
+    def _remember_dir(self, path: str) -> None:
+        folder = Path(path)
+        self.state.last_dir = str(folder if folder.is_dir() else folder.parent)
 
     # -------------------------------------------------------------- state --
     def _set_status(self, text: str, colour: wx.Colour) -> None:
@@ -574,18 +655,23 @@ class ArmorHelperFrame(wx.Frame):
             return
 
         guessed = find_set(body=body)
-        name = (guessed.name if guessed and guessed.body == body else None) or str(body)
+        if guessed is not None and guessed.body != body:
+            guessed = None
+        name = (guessed.name if guessed else None) or str(body)
+        label = sanitize_filename((guessed.zh if guessed and guessed.zh else name) or name)
 
         with wx.FileDialog(
             self,
             tr("reverse.save"),
-            defaultFile=f"ArmorTemplate_{name}_{body}.png",
+            defaultDir=self._dialog_dir(),
+            defaultFile=f"ArmorTemplate_{label}_{body}.png",
             wildcard="PNG (*.png)|*.png",
             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
         ) as save:
             if save.ShowModal() != wx.ID_OK:
                 return
             target = Path(save.GetPath())
+            self._remember_dir(target)
 
         try:
             result = reverse_from_images(images, body=body, head=head, legs=legs, set_name=name)
@@ -604,6 +690,17 @@ class ArmorHelperFrame(wx.Frame):
         else:
             self._set_status(tr("reverse.done", path=target), OK_COLOUR)
 
+    def _on_language_menu(self, event) -> None:
+        code = self.language_ids.get(event.GetId())
+        if not code or code == get_language():
+            return
+        i18n.set_language(code)
+        self._save_config()
+        # Rebuild the window so every label picks up the new language.
+        replacement = ArmorHelperFrame()
+        replacement.Show()
+        self.Destroy()
+
     # --------------------------------------------------------------- misc --
     def _about(self) -> None:
         info = wx.adv.AboutDialogInfo()
@@ -615,68 +712,79 @@ class ArmorHelperFrame(wx.Frame):
         wx.adv.AboutBox(info)
 
     # ------------------------------------------------------------- config --
-    def _save_config(self) -> None:
-        config = {
-            "exportFolder": self.output_ctrl.GetValue(),
-            "imagesFolder": self.images_ctrl.GetValue(),
-            "glow": bool(self.glow_check.GetValue()),
-            "skin": self.skin_spin.GetValue(),
-            "exportCheckbox": {
-                name: self.target_box.IsChecked(index) for index, name in enumerate(TARGETS)
-            },
-            "ids": {
-                "id_head": self.id_head.GetValue(),
-                "id_body": self.id_body.GetValue(),
-                "id_legs": self.id_legs.GetValue(),
-            },
+    def _collect_state(self) -> UiState:
+        """Snapshot every widget that should survive a restart."""
+        state = self.state
+        state.export_folder = self.output_ctrl.GetValue()
+        state.images_folder = self.images_ctrl.GetValue()
+        state.glow = bool(self.glow_check.GetValue())
+        state.skin = self.skin_spin.GetValue()
+        state.language = get_language()
+        state.targets = {
+            name: self.target_box.IsChecked(index) for index, name in enumerate(TARGETS)
         }
-        try:
-            Path(CONFIG_NAME).write_text(json.dumps(config, indent=4), encoding="utf-8")
-        except OSError:
-            log.debug("could not write %s", CONFIG_NAME, exc_info=True)
+        state.ids = {
+            "id_head": self.id_head.GetValue(),
+            "id_body": self.id_body.GetValue(),
+            "id_legs": self.id_legs.GetValue(),
+        }
+        state.inputs = [str(entry.path) for entry in self.entries]
+        state.last_export = {
+            str(entry.path): entry.last_export
+            for entry in self.entries
+            if entry.last_export is not None
+        }
+        state.columns = [self.input_list.GetColumnWidth(0), self.input_list.GetColumnWidth(1)]
+        self._capture_geometry()
+        return state
 
-    def _load_config(self) -> None:
-        path = Path(CONFIG_NAME)
-        if path.exists():
-            try:
-                config = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                config = {}
+    def _save_config(self) -> None:
+        save_config(self._collect_state(), CONFIG_NAME)
 
-            for key, ctrl in (
-                ("exportFolder", self.output_ctrl),
-                ("imagesFolder", self.images_ctrl),
-            ):
-                value = config.get(key) or ""
-                if value:
-                    ctrl.SetValue(value)
-            self.glow_check.SetValue(bool(config.get("glow", False)))
-            try:
-                self.skin_spin.SetValue(int(config.get("skin", 0)))
-            except (TypeError, ValueError):
-                pass
+    def _apply_state(self) -> None:
+        state = self.state
+        for key, ctrl in (
+            ("exportFolder", self.output_ctrl),
+            ("imagesFolder", self.images_ctrl),
+        ):
+            value = getattr(state, "export_folder" if key == "exportFolder" else "images_folder")
+            if value:
+                ctrl.SetValue(value)
 
-            for name, checked in (config.get("exportCheckbox") or {}).items():
-                if name in TARGETS:
-                    self.target_box.Check(TARGETS.index(name), bool(checked))
-            for key, ctrl in (
-                ("id_head", self.id_head),
-                ("id_body", self.id_body),
-                ("id_legs", self.id_legs),
-            ):
-                value = (config.get("ids") or {}).get(key)
-                if value:
-                    ctrl.SetValue(str(value))
+        self.glow_check.SetValue(state.glow)
+        self.skin_spin.SetValue(state.skin)
+        for key, ctrl in (
+            ("id_head", self.id_head),
+            ("id_body", self.id_body),
+            ("id_legs", self.id_legs),
+        ):
+            if state.ids.get(key):
+                ctrl.SetValue(state.ids[key])
 
-        if not self.images_ctrl.GetValue():
-            detected = find_images_dir()
-            if detected:
+        if len(state.columns) == 2:
+            self.input_list.SetColumnWidth(0, state.columns[0])
+            self.input_list.SetColumnWidth(1, state.columns[1])
+
+        # Restore the input list, dropping files that have gone away.
+        restored = []
+        for raw in state.inputs:
+            path = Path(raw)
+            if path.exists():
+                restored.append(path)
+            else:
+                log.debug("dropping missing input %s", path)
+        if restored:
+            self._add_paths(restored, persist=False)
+        for entry in self.entries:
+            entry.last_export = state.last_export.get(str(entry.path))
+
+        # The game folder is a good default for both the output and the previews.
+        detected = find_images_dir()
+        if detected:
+            if not self.images_ctrl.GetValue():
                 self.images_ctrl.SetValue(str(detected))
-
-        if not self.output_ctrl.GetValue():
-            detected_output = find_images_dir()
-            if detected_output:
-                self.output_ctrl.SetValue(str(detected_output))
+            if not self.output_ctrl.GetValue():
+                self.output_ctrl.SetValue(str(detected))
 
     def _on_close(self, event) -> None:
         self._save_config()

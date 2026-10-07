@@ -58,7 +58,8 @@ generator is a pure pixel copy plus a nearest neighbour upscale, it can be undon
 ```bash
 # which head/legs ids belong to body 190?
 python3 -m armorhelper sets --search stardust
-#   StardustPlate (body 190, head 189, legs 130)  [name]
+#   星尘板甲  StardustPlate (body 190, head 189, legs 130)  [name]
+python3 -m armorhelper sets --search 星尘      # Chinese search works too
 
 # rebuild the drawing template (head/legs are looked up automatically)
 python3 -m armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
@@ -69,7 +70,8 @@ python3 -m armorhelper reverse --images "..." --all -o templates/
 ```
 
 In the GUI it is the **从原版 ID 还原模板...** button, with a searchable list of every known
-set.
+set.  Each entry reads ``中文名  英文名  (身体 ID)`` — e.g. ``星尘板甲  StardustPlate  (190)`` —
+and the search box matches the Chinese name, the English name or any of the ids.
 
 How accurate is it?
 
@@ -84,9 +86,15 @@ across all 748 armor textures: 0% of the 2x2 blocks are non-uniform), which is w
 template is enough to describe them.
 
 The set table lives in `armorhelper/data/armor_sets.json`.  Terraria does not store armor sets
-as data, so `tools/build_armor_sets.py` derives it from the game sources: sets with a bonus come
-straight out of `ArmorSetBonuses.cs` (authoritative, marked `set-bonus`), the rest are matched
-by the vanilla naming convention (marked `name`/`prefix`).  Regenerate it with:
+as data, so `tools/build_armor_sets.py` derives it from the game sources:
+
+* sets with a bonus come straight out of `ArmorSetBonuses.cs` (authoritative, marked `set-bonus`);
+* the rest are matched by the vanilla naming convention (marked `name`/`prefix`);
+* the localized names come from the body piece, found by parsing the `bodySlot = n;` assignments
+  in `Item.cs` and looking the item up in `Terraria.Localization.Content.zh-Hans.Items.json`
+  (202 of 204 sets have a Chinese name).
+
+Regenerate it with:
 
 ```bash
 python3 tools/build_armor_sets.py /path/to/decompiled/Terraria
@@ -107,8 +115,12 @@ the path to the game's `Content/Images`).
 * The input list shows `Never exported` / `Last export was Ns ago`, colour coded green,
   yellow and red, just like the original.
 * The *Options* checklist covers every output listed in the table above, including the GIFs.
-* Every setting is remembered in `config.json` next to the working directory, and the game's
-  `Content/Images` folder is auto-detected on first start.
+* Every setting is remembered in `config.json` next to the working directory — options, ids,
+  glow, skin, **the input file list, window size/position, column widths, the interface
+  language, the folder the dialogs start in and the last export time of each file** — so the
+  window reopens exactly where you left it.  Old ArmorHelper v1 configs are still read.
+* The game's `Content/Images` folder is auto-detected on first start.
+* *视图 → 界面语言* switches between 中文 and English and is remembered.
 * Exports run on a worker thread, so the window stays responsive.
 * The *反向还原* box rebuilds a template from a vanilla armor id.
 

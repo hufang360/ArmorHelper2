@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 
-__all__ = ["ArmorSet", "all_sets", "find_set", "search_sets", "describe"]
+__all__ = ["ArmorSet", "all_sets", "find_set", "search_sets", "describe", "sanitize_filename"]
 
 
 @dataclass(frozen=True)
@@ -22,16 +22,35 @@ class ArmorSet:
     head: int | None
     legs: int | None
     name: str
+    zh: str = ""
     confidence: str = "name"
 
     @property
     def complete(self) -> bool:
         return self.head is not None and self.legs is not None
 
+    def label(self) -> str:
+        """``中文名  英文名  (身体 ID)`` — used by the UI lists."""
+        parts = [part for part in (self.zh, self.name) if part]
+        return f"{'  '.join(parts)}  ({self.body})"
+
+    def matches(self, needle: str) -> bool:
+        """Case/space insensitive search over every field."""
+        needle = needle.strip().lower().replace(" ", "")
+        if not needle:
+            return True
+        if needle in self.name.lower() or needle in self.zh.lower():
+            return True
+        if needle.lstrip("-").isdigit():
+            wanted = int(needle)
+            return wanted in (self.body, self.head, self.legs)
+        return False
+
 
 def describe(item: ArmorSet) -> str:
+    label = item.zh or item.name
     return (
-        f"{item.name} (body {item.body}"
+        f"{label}  {item.name} (body {item.body}"
         f", head {item.head if item.head is not None else '?'}"
         f", legs {item.legs if item.legs is not None else '?'})"
         f"  [{item.confidence}]"
@@ -53,6 +72,7 @@ def all_sets() -> tuple[ArmorSet, ...]:
             head=None if entry.get("head") is None else int(entry["head"]),
             legs=None if entry.get("legs") is None else int(entry["legs"]),
             name=str(entry.get("name") or entry["body"]),
+            zh=str(entry.get("zh") or ""),
             confidence=str(entry.get("confidence") or "name"),
         )
         for entry in _data()["sets"]
@@ -74,8 +94,7 @@ def find_set(
             return None
         candidates = exact
     if name:
-        needle = name.strip().lower().replace(" ", "")
-        named = [item for item in candidates if needle in item.name.lower()]
+        named = [item for item in candidates if item.matches(name)]
         if named:
             candidates = named
     if head is not None:
@@ -90,19 +109,19 @@ def find_set(
     return candidates[0]
 
 
+#: Characters that are not safe in a file name on some platform.
+_UNSAFE = set('\\/:*?"<>|\r\n\t')
+
+
+def sanitize_filename(name: str, fallback: str = "ArmorTemplate") -> str:
+    """Make ``name`` safe to use as a file name on every supported platform."""
+    cleaned = "".join("_" if char in _UNSAFE else char for char in name).strip(" .")
+    return cleaned or fallback
+
+
 def search_sets(text: str) -> list[ArmorSet]:
-    """Fuzzy search by set name, id, or any of the three slot ids."""
-    needle = text.strip().lower().replace(" ", "")
-    if not needle:
-        return list(all_sets())
-    found = []
-    for item in all_sets():
-        haystack = [item.name.lower()]
-        if needle.isdigit():
-            haystack += [str(item.body), str(item.head), str(item.legs)]
-        if any(needle in value for value in haystack):
-            found.append(item)
-    return found
+    """Fuzzy search by Chinese/English name, id, or any of the three slot ids."""
+    return [item for item in all_sets() if item.matches(text)]
 
 
 def source_info() -> dict:

@@ -70,6 +70,51 @@ def parse_item_ids(source: Path) -> dict[int, str]:
     }
 
 
+def parse_item_slots(source: Path) -> dict[int, dict[str, int]]:
+    """``itemID -> {"headSlot": n, "bodySlot": n, ...}`` from ``Item.cs``.
+
+    Item defaults are split over ``SetDefaults1..5`` in 1.4.4+, so every one of
+    them is scanned.  The slot assignments sit right at the top of each ``case``
+    block.
+    """
+    text = read(source / "Terraria/Item.cs")
+    bounds = [
+        (m.start(), m.group(1))
+        for m in re.finditer(
+            r"\n\t(?:public|private|internal|protected) void (SetDefaults\w*)\(int [a-zA-Z]+\)", text
+        )
+    ]
+    bounds.append((len(text), "END"))
+
+    slots: dict[int, dict[str, int]] = {}
+    for index in range(len(bounds) - 1):
+        segment = text[bounds[index][0] : bounds[index + 1][0]]
+        labels = [(m.start(), int(m.group(1))) for m in re.finditer(r"\n\t+case (\d+):", segment)]
+        for position, (start, item_id) in enumerate(labels):
+            stop = labels[position + 1][0] if position + 1 < len(labels) else len(segment)
+            chunk = segment[start:stop]
+            found = {}
+            for key in ("headSlot", "bodySlot", "legSlot"):
+                match = re.search(rf"\b{key} = (\d+);", chunk)
+                if match:
+                    found[key] = int(match.group(1))
+            if found:
+                slots.setdefault(item_id, {}).update(found)
+    return slots
+
+
+def parse_localization(path: Path) -> dict[str, str]:
+    """``ItemID constant name -> translated item name`` (zh-Hans by default)."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    names = data.get("ItemName")
+    return names if isinstance(names, dict) else {}
+
+
 def parse_set_bonuses(source: Path) -> list[list[int]]:
     text = read(source / "Terraria.DataStructures/ArmorSetBonuses.cs")
     groups = []
@@ -118,11 +163,29 @@ def guess_slot(body_name: str, table: dict[str, int], suffixes: tuple[str, ...])
     return None, None, None
 
 
-def build(source: Path) -> dict:
+def build(source: Path, *, localization: Path | None = None) -> dict:
     armor = parse_armor_ids(source)
     item_names = parse_item_ids(source)
     heads, bodies, legs = armor["head"], armor["body"], armor["legs"]
     body_names = {value: name for name, value in bodies.items()}
+
+    # Chinese (or whatever the localization is) names, keyed by armor slot id.
+    translated = parse_localization(
+        localization or source / "Terraria.Localization.Content.zh-Hans.Items.json"
+    )
+    item_to_body = {
+        entry["bodySlot"]: item_id
+        for item_id, entry in parse_item_slots(source).items()
+        if "bodySlot" in entry
+    }
+
+    def localized(body_id: int) -> str:
+        item_id = item_to_body.get(body_id)
+        name = item_names.get(item_id) if item_id is not None else None
+        if name is None:
+            # Fall back to the identically named item, if there is one.
+            name = body_names.get(body_id)
+        return translated.get(name, "") if name else ""
 
     by_name: dict[str, dict[str, int]] = {}
     for key, table in (("head", heads), ("body", bodies), ("legs", legs)):
@@ -148,6 +211,7 @@ def build(source: Path) -> dict:
             "head": triple.get("head"),
             "legs": triple.get("legs"),
             "name": body_names.get(body_id, str(body_id)),
+            "zh": localized(body_id),
             "confidence": "set-bonus",
         }
 
@@ -169,6 +233,7 @@ def build(source: Path) -> dict:
             "head": head_id,
             "legs": leg_id,
             "name": body_name,
+            "zh": localized(body_id),
             "confidence": confidence,
         }
 
@@ -185,6 +250,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="path to a decompiled Terraria source tree")
     parser.add_argument(
+        "--localization",
+        type=Path,
+        default=None,
+        help="localization json (default: <source>/Terraria.Localization.Content.zh-Hans.Items.json)",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         type=Path,
@@ -192,13 +263,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    data = build(args.source)
+    data = build(args.source, localization=args.localization)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
     complete = sum(1 for s in data["sets"] if s["head"] is not None and s["legs"] is not None)
+    translated = sum(1 for s in data["sets"] if s.get("zh"))
     print(f"wrote {args.output}")
     print(f"  {data['count']} body armors, {complete} with both a head and a legs guess")
+    print(f"  {translated} with a localized name")
     from collections import Counter
 
     print("  confidence:", dict(Counter(s["confidence"] for s in data["sets"])))

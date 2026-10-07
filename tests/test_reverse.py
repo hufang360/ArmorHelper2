@@ -22,7 +22,13 @@ from armorhelper.reverse import (  # noqa: E402
     reverse_template,
     texture_paths,
 )
-from armorhelper.vanilla import all_sets, find_set, search_sets  # noqa: E402
+from armorhelper.vanilla import (  # noqa: E402
+    all_sets,
+    describe,
+    find_set,
+    sanitize_filename,
+    search_sets,
+)
 
 
 @pytest.fixture(scope="module")
@@ -199,3 +205,54 @@ def test_search_by_name_and_id():
     assert any(item.body == 190 for item in search_sets("stardust"))
     assert any(item.body == 190 for item in search_sets("190"))
     assert search_sets("") == list(all_sets())
+
+
+# --------------------------------------------------------------------------- #
+# Localized names
+# --------------------------------------------------------------------------- #
+
+
+def test_sets_have_localized_names():
+    sets = all_sets()
+    translated = [item for item in sets if item.zh]
+    assert len(translated) >= len(sets) - 5, "almost every set should have a translated name"
+    assert find_set(body=190).zh == "星尘板甲"
+    assert find_set(body=1).zh == "铜链甲"
+
+
+def test_search_works_in_chinese():
+    found = search_sets("星尘")
+    assert [item.body for item in found] == [190]
+    assert any(item.body == 1 for item in search_sets("铜"))
+
+
+def test_label_shows_chinese_english_and_id():
+    label = find_set(body=190).label()
+    assert label.startswith("星尘板甲")
+    assert "StardustPlate" in label
+    assert "(190)" in label
+
+
+def test_label_falls_back_to_english():
+    from armorhelper.vanilla import ArmorSet
+
+    assert ArmorSet(body=7, head=None, legs=None, name="Foo").label() == "Foo  (7)"
+
+
+def test_describe_mentions_the_ids():
+    text = describe(find_set(body=190))
+    assert "星尘板甲" in text and "189" in text and "130" in text
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("星尘板甲", "星尘板甲"),
+        ("A/B:C*D?E", "A_B_C_D_E"),
+        ("  trailing. ", "trailing"),
+        ("", "ArmorTemplate"),
+        ("///", "___"),
+    ],
+)
+def test_sanitize_filename(raw, expected):
+    assert sanitize_filename(raw) == expected

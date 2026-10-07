@@ -95,6 +95,35 @@ def test_settings_are_read_from_the_widgets(frame, tmp_path):
     assert (settings.id_head, settings.id_body, settings.id_legs) == (190, 190, 190)
 
 
+def test_reverse_dialog_lists_chinese_english_and_id(frame):
+    from armorhelper.gui import ReverseDialog
+
+    dialog = ReverseDialog(frame)
+    try:
+        dialog.search.SetValue("星尘")
+        wx.Yield()
+        entries = [dialog.choice.GetString(i) for i in range(dialog.choice.GetCount())]
+        assert entries == ["星尘板甲  StardustPlate  (190)"]
+
+        dialog._pick()
+        assert dialog.values() == (189, 190, 130)
+    finally:
+        dialog.Destroy()
+
+
+def test_reverse_dialog_search_accepts_english(frame):
+    from armorhelper.gui import ReverseDialog
+
+    dialog = ReverseDialog(frame)
+    try:
+        dialog.search.SetValue("stardust")
+        wx.Yield()
+        assert dialog.choice.GetCount() == 1
+        assert "StardustPlate" in dialog.choice.GetString(0)
+    finally:
+        dialog.Destroy()
+
+
 def test_export_writes_the_selected_sheets(frame, tmp_path):
     import time
 
