@@ -111,7 +111,7 @@ Regenerate it with:
 python3 tools/build_armor_sets.py /path/to/decompiled/Terraria
 ```
 
-## Graphical interface
+## Graphical interface (desktop)
 
 ```bash
 python3 -m armorhelper gui        # or: armorhelper-gui
@@ -134,6 +134,32 @@ the path to the game's `Content/Images`).
 * *视图 → 界面语言* switches between 中文 and English and is remembered.
 * Exports run on a worker thread, so the window stays responsive.
 * The *反向还原* box rebuilds a template from a vanilla armor id.
+
+## Web interface
+
+No wxPython needed — a local HTTP server plus a single page app, standard library only:
+
+```bash
+python3 -m armorhelper web --open          # http://127.0.0.1:8765/
+python3 -m armorhelper web --port 9000 --host 127.0.0.1
+```
+
+The browser never does any image work; the server calls the same `armorhelper` package the
+desktop version uses, so both produce **byte identical output**.
+
+* Drag & drop one or more 128x80 templates, tick what to export, hit **导出**.
+* Results come back as a 20 frame sheet preview, a GIF, per-file download links and a
+  **zip** — and are still written into the **Output Folder** so you can point that straight at
+  the game's `Content/Images`.
+* The *反向还原* tab has the searchable armor-set list (中文名 / English / id), single-set
+  reverse and **还原全部套装** into `<output>/ArmorTemplate/`.
+* Folder pickers browse the server's file system, so you can point it at your extracted
+  `Content/Images` without typing paths.
+* Settings live in `web-config.json`, seeded from the desktop `config.json` on first run, so
+  the two never fight over the same file.
+* Chinese by default, English in the top-right dropdown.
+
+See [`docs/Web版需求文档.md`](docs/Web版需求文档.md) for the full specification.
 
 ## Outputs
 

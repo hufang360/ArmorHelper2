@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArmorHelper Web</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="/static/favicon.png">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="/static/favicon.png" alt="" width="40" height="56">
+    <div>
+      <h1>ArmorHelper <span id="version" class="muted"></span></h1>
+      <p class="muted" data-i18n="web.subtitle"></p>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab is-active" data-tab="export" data-i18n="web.tab.export"></button>
+    <button class="tab" data-tab="reverse" data-i18n="web.tab.reverse"></button>
+    <button class="tab" data-tab="settings" data-i18n="web.tab.settings"></button>
+  </nav>
+
+  <div class="lang">
+    <select id="language" title="Language">
+      <option value="zh_CN">中文</option>
+      <option value="en">English</option>
+    </select>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ 导出 ============================ -->
+  <section class="panel is-active" id="tab-export">
+    <div class="row">
+      <div class="card grow">
+        <h2 data-i18n="group.inputs"></h2>
+        <div id="drop" class="drop">
+          <p data-i18n="web.drop"></p>
+          <input type="file" id="file-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
+        </div>
+        <p class="muted small" id="file-summary"></p>
+        <ul id="file-list" class="filelist"></ul>
+        <div class="actions">
+          <button class="ghost" id="clear-files" data-i18n="web.clear"></button>
+          <a class="ghost link" href="/api/template" download="ArmorTemplate_v1.png"
+             data-i18n="web.downloadTemplate"></a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="web.options"></h2>
+        <div id="targets" class="checklist"></div>
+
+        <h2 class="spaced" data-i18n="web.previewOptions"></h2>
+        <label class="check"><input type="checkbox" id="opt-female"><span data-i18n="web.female"></span></label>
+        <label class="check"><input type="checkbox" id="opt-player"><span data-i18n="web.player"></span></label>
+
+        <button class="primary wide" id="do-export" data-i18n="web.export"></button>
+      </div>
+    </div>
+
+    <div class="card" id="results-card">
+      <h2 data-i18n="web.results"></h2>
+      <div id="results"></div>
+    </div>
+  </section>
+
+  <!-- ========================== 反向还原 ========================== -->
+  <section class="panel" id="tab-reverse">
+    <div class="row">
+      <div class="card grow">
+        <h2 data-i18n="web.reverseTitle"></h2>
+
+        <label class="field">
+          <span data-i18n="reverse.search"></span>
+          <input type="search" id="set-search" data-i18n-placeholder="web.reverseSearch">
+        </label>
+
+        <label class="field">
+          <span data-i18n="web.reverseSet"></span>
+          <select id="set-select" size="8"></select>
+        </label>
+
+        <div class="ids">
+          <label class="field"><span data-i18n="details.idHead"></span>
+            <input type="number" id="rev-head" min="0" max="999"></label>
+          <label class="field"><span data-i18n="details.idBody"></span>
+            <input type="number" id="rev-body" min="0" max="999"></label>
+          <label class="field"><span data-i18n="details.idLegs"></span>
+            <input type="number" id="rev-legs" min="0" max="999"></label>
+        </div>
+        <p class="muted small" data-i18n="web.idsHint"></p>
+
+        <div class="actions">
+          <button class="primary" id="do-reverse" data-i18n="web.reverseDo"></button>
+          <button class="ghost" id="do-reverse-all" data-i18n="web.reverseAll"></button>
+        </div>
+        <p class="muted small" data-i18n="web.reverseAllHint"></p>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="web.previewSheet"></h2>
+        <div id="reverse-result" class="results"><p class="muted" data-i18n="web.empty"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 设置 ============================ -->
+  <section class="panel" id="tab-settings">
+    <div class="card">
+      <h2 data-i18n="web.settingsTitle"></h2>
+
+      <label class="field">
+        <span data-i18n="group.output"></span>
+        <div class="inputrow">
+          <input type="text" id="set-export" dir="ltr">
+          <button class="ghost" data-browse="set-export" data-i18n="web.browse"></button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span data-i18n="details.images"></span>
+        <div class="inputrow">
+          <input type="text" id="set-images" dir="ltr">
+          <button class="ghost" data-browse="set-images" data-i18n="web.browse"></button>
+          <button class="ghost" id="detect-images" data-i18n="web.detect"></button>
+        </div>
+      </label>
+
+      <div class="ids">
+        <label class="field"><span data-i18n="details.idHead"></span>
+          <input type="number" id="set-head" min="0" max="999"></label>
+        <label class="field"><span data-i18n="details.idBody"></span>
+          <input type="number" id="set-body" min="0" max="999"></label>
+        <label class="field"><span data-i18n="details.idLegs"></span>
+          <input type="number" id="set-legs" min="0" max="999"></label>
+        <label class="field"><span data-i18n="details.skin"></span>
+          <input type="number" id="set-skin" min="0" max="9"></label>
+      </div>
+
+      <label class="check"><input type="checkbox" id="set-glow">
+        <span data-i18n="details.glow"></span></label>
+
+      <div class="actions">
+        <button class="primary" id="save-settings" data-i18n="web.saveSettings"></button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="statusbar">
+  <span id="status" class="ok">…</span>
+</footer>
+
+<!-- 目录选择器 -->
+<div class="modal" id="browser" hidden>
+  <div class="modal-box">
+    <h2 data-i18n="web.browseTitle"></h2>
+    <div class="inputrow">
+      <button class="ghost" id="browse-up" data-i18n="web.browseUp"></button>
+      <input type="text" id="browse-path" dir="ltr" readonly>
+    </div>
+    <div id="browse-shortcuts" class="shortcuts"></div>
+    <ul id="browse-list" class="browser"></ul>
+    <div class="actions right">
+      <button class="ghost" id="browse-cancel" data-i18n="web.cancel"></button>
+      <button class="primary" id="browse-use" data-i18n="web.browseUse"></button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

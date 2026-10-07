@@ -18,6 +18,7 @@ from armorhelper import layout as L  # noqa: E402
 
 DOC = ROOT / "docs" / "贴图裁切说明.md"
 REQUIREMENTS = ROOT / "docs" / "需求文档.md"
+WEB_REQUIREMENTS = ROOT / "docs" / "Web版需求文档.md"
 README = ROOT / "README.md"
 
 CELL_W = L.FRAME_W * 2  # 40
@@ -89,5 +90,16 @@ def test_docs_point_at_the_reverse_tool():
 
 def test_the_ui_never_says_hujia():
     """The interface and the docs consistently use 盔甲."""
-    for path in (README, DOC, REQUIREMENTS):
+    for path in (README, DOC, REQUIREMENTS, WEB_REQUIREMENTS):
         assert "护甲" not in path.read_text(encoding="utf-8"), path
+
+
+def test_web_requirements_is_linked_and_complete():
+    text = WEB_REQUIREMENTS.read_text(encoding="utf-8")
+    assert "Web版需求文档.md" in REQUIREMENTS.read_text(encoding="utf-8")
+    assert "Web版需求文档.md" in README.read_text(encoding="utf-8")
+    # every web requirement has an id and appears in the acceptance table
+    for prefix in ("WG-", "WFR-", "WUI-", "WNFR-", "WC-", "WL-"):
+        assert prefix in text, prefix
+    assert "/api/generate" in text and "/api/reverse-all" in text
+    assert "armorhelper web" in text
