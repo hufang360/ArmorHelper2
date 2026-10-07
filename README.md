@@ -238,6 +238,13 @@ The frame → cell mapping is taken from `PlayerDrawSet.CreateCompositeData` in 
 * `--glow` copies rows 0..3 into rows 4..7, giving a fully glowing armor that you can then
   erase down to just the parts that should glow.
 
+### Reference
+
+* [`docs/贴图裁切说明.md`](docs/贴图裁切说明.md) — how to crop `Armor_1.png` (every one of the
+  9x4 cells annotated), `Armor_Head_1.png` and `Armor_Legs_1.png`, with the exact
+  `crop(left, upper, right, lower)` numbers and the cell → body frame mapping.
+* [`docs/需求文档.md`](docs/需求文档.md) — the full specification.
+
 `tools/inspect_armor.py` renders any 1.4.4+ body texture the way the game does, which is handy
 for comparing a generated sheet with a vanilla one:
 
