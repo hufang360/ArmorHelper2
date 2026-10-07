@@ -1,0 +1,425 @@
+"""The web app must agree with the Python package, pixel for pixel.
+
+This runs the JavaScript core under Node (`web/tests/run.mjs`) over the bundled
+template and compares every sheet it produces with the Python output.
+
+The test is skipped when Node is not installed.
+"""
+
+from __future__ import annotations
+
+import functools
+import http.server
+import json
+import shutil
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parent.parent
+WEB = ROOT / "web"
+sys.path.insert(0, str(ROOT))
+
+from armorhelper.compose import full_armor_frames, gif_frame_order  # noqa: E402
+from armorhelper.generate import (  # noqa: E402
+    generate_arms,
+    generate_body_composite,
+    generate_body_legacy,
+    generate_head,
+    generate_legs,
+)
+from armorhelper.layout import load_template  # noqa: E402
+from armorhelper.reverse import reverse_template  # noqa: E402
+
+NODE = shutil.which("node")
+
+pytestmark = pytest.mark.skipif(NODE is None, reason="node is not installed")
+
+
+@pytest.fixture(scope="module")
+def template():
+    return load_template()
+
+
+def load_rgba(path: Path, size: tuple[int, int]) -> Image.Image:
+    return Image.frombytes("RGBA", size, path.read_bytes())
+
+
+@pytest.fixture(scope="module")
+def js_output(tmp_path_factory, template):
+    """Prepare the work directory, run the Node harness and read the results."""
+    workdir = tmp_path_factory.mktemp("webtest")
+    (workdir / "input.rgba").write_bytes(template.tobytes())
+
+    python_outputs = {
+        "py_head": generate_head(template),
+        "py_legs": generate_legs(template),
+        "py_body": generate_body_composite(template),
+    }
+    for name, image in python_outputs.items():
+        (workdir / f"{name}.rgba").write_bytes(image.tobytes())
+
+    result = subprocess.run(
+        [NODE, str(WEB / "tests" / "run.mjs"), str(workdir)],
+        capture_output=True,
+        text=True,
+        cwd=WEB,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        pytest.fail(f"node harness failed:\n{result.stdout}\n{result.stderr}")
+    return workdir
+
+
+def compare(workdir: Path, name: str, expected: Image.Image) -> None:
+    produced = load_rgba(workdir / name, expected.size)
+    if produced.tobytes() == expected.tobytes():
+        return
+    differences = sum(1 for a, b in zip(produced.getdata(), expected.getdata()) if a != b)
+    pytest.fail(f"{name} differs from the Python output in {differences} pixels")
+
+
+# --------------------------------------------------------------------------- #
+# Sheets
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "name, builder",
+    [
+        ("js_head.rgba", generate_head),
+        ("js_legs.rgba", generate_legs),
+        ("js_arms.rgba", generate_arms),
+        ("js_body_legacy.rgba", generate_body_legacy),
+        ("js_body.rgba", generate_body_composite),
+    ],
+)
+def test_generated_sheets_match_python(js_output, template, name, builder):
+    compare(js_output, name, builder(template))
+
+
+def test_glow_sheet_matches_python(js_output, template):
+    compare(js_output, "js_body_glow.rgba", generate_body_composite(template, glow_rows=4))
+
+
+def test_composed_frames_match_python(js_output, template):
+    frames = full_armor_frames(template)
+    assert len(frames) == 20
+    for index, expected in enumerate(frames):
+        compare(js_output, f"js_frame{index}.rgba", expected)
+
+
+# --------------------------------------------------------------------------- #
+# Reverse
+# --------------------------------------------------------------------------- #
+
+
+def test_reverse_matches_python(js_output, template):
+    expected = reverse_template(
+        head=generate_head(template),
+        body=generate_body_composite(template),
+        legs=generate_legs(template),
+    ).template
+    compare(js_output, "js_reversed.rgba", expected)
+
+
+def test_reverse_result_regenerates_the_sheets(js_output, template):
+    """Round trip through the JavaScript reverse must still match Python."""
+    rebuilt = load_rgba(js_output / "js_reversed.rgba", (128, 80))
+    compare(js_output, "js_body.rgba", generate_body_composite(template))
+    assert rebuilt.getbbox() is not None
+
+
+# --------------------------------------------------------------------------- #
+# Codecs
+# --------------------------------------------------------------------------- #
+
+
+def test_png_is_pixel_identical(js_output, template):
+    produced = Image.open(js_output / "js_head.png")
+    assert produced.size == (40, 1120)
+    assert produced.mode in ("RGBA", "P")
+    assert produced.convert("RGBA").tobytes() == generate_head(template).tobytes()
+
+
+def test_contact_sheet_png_is_readable(js_output):
+    produced = Image.open(js_output / "js_sheet.png")
+    assert produced.mode == "RGBA"
+    assert produced.width > 0 and produced.height > 0
+
+
+def test_gif_matches_the_python_frames(js_output, template):
+    produced = Image.open(js_output / "js_preview.gif")
+    order = gif_frame_order()
+    frames = full_armor_frames(template)
+    assert produced.n_frames == len(order)
+    assert produced.size == frames[0].size
+
+    for index in range(produced.n_frames):
+        produced.seek(index)
+        assert produced.convert("RGBA").tobytes() == frames[order[index]].tobytes(), f"frame {index}"
+
+
+def test_zip_has_the_expected_structure(js_output):
+    import io
+    import zipfile
+
+    with zipfile.ZipFile(io.BytesIO((js_output / "js_bundle.zip").read_bytes())) as archive:
+        assert archive.testzip() is None
+        assert archive.namelist() == [
+            "Armor_Head_189.png",
+            "Armor/Armor_190.png",
+            "notes.txt",
+        ]
+        assert archive.read("notes.txt").decode("utf-8") == "hello 盔甲"
+        with Image.open(io.BytesIO(archive.read("Armor/Armor_190.png"))) as image:
+            assert image.size == (360, 224)
+
+
+# --------------------------------------------------------------------------- #
+# The checked in data and the front end
+# --------------------------------------------------------------------------- #
+
+
+def test_exported_data_is_up_to_date(tmp_path):
+    """`tools/export_web.py` must reproduce what is checked in."""
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "export_web.py"), "-o", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    for name in ("layout.json", "armor_sets.json", "i18n.json", "ArmorTemplate_v1.png"):
+        checked_in = (WEB / "data" / name).read_bytes()
+        assert (tmp_path / name).read_bytes() == checked_in, f"{name} is stale"
+
+
+def test_layout_data_covers_every_frame():
+    layout = json.loads((WEB / "data" / "layout.json").read_text(encoding="utf-8"))
+    assert layout["frame"] == {"w": 20, "h": 28, "count": 20}
+    assert layout["templateSize"] == [128, 80]
+    assert len(layout["layers"]["frontArm"]) == 20
+    assert len(layout["cells"]["frontArm"]) == 20
+    assert len(layout["cells"]["backArm"]) == 20
+    assert len(layout["legMapping"]) == 10
+    assert "head" in layout["targets"]["all"]
+
+
+def test_frontend_files_exist_and_are_wired():
+    import re
+
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    script = (WEB / "app.js").read_text(encoding="utf-8")
+
+    ids = set(re.findall(r'id="([^"]+)"', html))
+    refs = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', script))
+    assert refs
+    assert not (refs - ids), f"app.js references missing ids: {sorted(refs - ids)}"
+
+    # every module the app imports has to exist
+    for target in re.findall(r'from "([^"]+)"', script):
+        assert (WEB / target).is_file(), target
+
+    # data-i18n keys must exist in both languages
+    messages = json.loads((WEB / "data" / "i18n.json").read_text(encoding="utf-8"))["messages"]
+    keys = set(re.findall(r'data-i18n(?:-placeholder)?="([^"]+)"', html))
+    assert keys
+    for language in ("zh_CN", "en"):
+        missing = sorted(key for key in keys if key not in messages[language])
+        assert not missing, f"{language} is missing {missing}"
+
+    # no external requests: the page must work offline / on Pages
+    for name in ("index.html", "style.css", "app.js"):
+        text = (WEB / name).read_text(encoding="utf-8")
+        assert "https://" not in text
+        assert "http://" not in text
+
+
+def test_no_python_left_in_the_web_app():
+    """The two versions are separate: the web app must be pure static files."""
+    for path in WEB.rglob("*"):
+        if path.is_file():
+            assert path.suffix != ".py", path
+    assert not (ROOT / "armorhelper" / "web").exists()
+
+
+# --------------------------------------------------------------------------- #
+# A real browser run
+# --------------------------------------------------------------------------- #
+
+CHROME_CANDIDATES = (
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+)
+
+
+def find_chrome() -> str | None:
+    for candidate in CHROME_CANDIDATES:
+        found = shutil.which(candidate) if "/" not in candidate else candidate
+        if found and Path(found).exists():
+            return found
+    return None
+
+
+HARNESS = """<!doctype html>
+<meta charset="utf-8"><title>harness</title>
+<iframe id="frame" src="/" style="width:1100px;height:820px"></iframe>
+<script>
+const report = (payload) =>
+  fetch("/__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+const frame = document.getElementById("frame");
+let ticks = 0;
+const timer = setInterval(() => {
+  ticks += 1;
+  try {
+    const doc = frame.contentDocument;
+    const status = doc.querySelector("#status");
+    const text = status ? status.textContent.trim() : "";
+    if (text && text !== "…") {
+      clearInterval(timer);
+      report({
+        status: text,
+        sets: doc.querySelectorAll("#set-select option").length,
+        checkboxes: doc.querySelectorAll("input[type=checkbox]").length,
+        targets: doc.querySelectorAll("#targets input").length,
+        tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
+        subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
+      });
+      return;
+    }
+  } catch (error) {
+    clearInterval(timer);
+    report({ error: String(error) });
+    return;
+  }
+  if (ticks > 2000) {
+    clearInterval(timer);
+    report({ error: "timeout waiting for the app" });
+  }
+}, 20);
+</script>
+"""
+
+
+class HarnessHandler(http.server.SimpleHTTPRequestHandler):
+    """Serve `web/` and collect the page's own completion report."""
+
+    done = None  # threading.Event
+    payload = None
+
+    def log_message(self, *args):  # noqa: A003 - stdlib name
+        pass
+
+    def _send(self, body: bytes, content_type: str) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):  # noqa: N802
+        if self.path.startswith("/__harness.html"):
+            return self._send(HARNESS.encode("utf-8"), "text/html; charset=utf-8")
+        return super().do_GET()
+
+    def do_POST(self):  # noqa: N802
+        if not self.path.startswith("/__done"):
+            return self.send_error(404)
+        length = int(self.headers.get("Content-Length") or 0)
+        type(self).payload = self.rfile.read(length).decode("utf-8")
+        self._send(b"ok", "text/plain")
+        type(self).done.set()
+
+
+@pytest.fixture()
+def browser_server():
+    """Serve `web/` over HTTP the way GitHub Pages would, plus the harness."""
+    HarnessHandler.done = threading.Event()
+    HarnessHandler.payload = None
+    handler = functools.partial(HarnessHandler, directory=str(WEB))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}", HarnessHandler
+    server.shutdown()
+    server.server_close()
+
+
+def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
+    """Open `url`, wait for the page to report back, and return its payload."""
+    profile = tmp_path / "chrome-profile"
+    process = subprocess.Popen(
+        [
+            chrome,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            f"--user-data-dir={profile}",
+            # No --virtual-time-budget: the page reports back over HTTP, so the
+            # run is driven by real time and stays deterministic.
+            url,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        if not wait_for.wait(timeout=120):
+            pytest.fail("the page never reported back")
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=20)
+        except subprocess.TimeoutExpired:  # pragma: no cover
+            process.kill()
+    return json.loads(HarnessHandler.payload)
+
+
+def test_browser_smoke_test(browser_server, tmp_path):
+    """Run the web core in a real browser (Chrome/Chromium), if one is present."""
+    chrome = find_chrome()
+    if chrome is None:
+        pytest.skip("no Chrome/Chromium available")
+
+    base, handler = browser_server
+    payload = open_in_browser(chrome, f"{base}/tests/smoke.html", tmp_path, handler.done)
+
+    assert not payload.get("error"), payload.get("error")
+    failures = [item for item in payload["results"] if not item["ok"]]
+    assert not failures, "\n".join(f"{item['name']}: {item['detail']}" for item in failures)
+    assert payload["total"] >= 15
+    assert payload["failures"] == 0
+
+
+def test_browser_renders_the_app(browser_server, tmp_path):
+    """The single page app must boot and fill itself in."""
+    chrome = find_chrome()
+    if chrome is None:
+        pytest.skip("no Chrome/Chromium available")
+
+    base, handler = browser_server
+    payload = open_in_browser(chrome, f"{base}/__harness.html", tmp_path, handler.done)
+
+    assert not payload.get("error"), payload.get("error")
+    assert "已连接" in payload["status"]
+    assert payload["sets"] > 150
+    assert payload["targets"] == 12
+    assert payload["checkboxes"] == 16
+    assert payload["tabs"] == ["导出贴图", "反向还原", "设置"]
+    assert "网页版" in payload["subtitle"]
+
+
+def test_pages_workflow_publishes_the_web_folder():
+    workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+    assert "path: web" in workflow
+    assert "tools/export_web.py" in workflow
+    assert (WEB / ".nojekyll").exists()

@@ -29,10 +29,10 @@ armorhelper = "armorhelper.cli:main"
 armorhelper-gui = "armorhelper.gui:run"
 
 [tool.setuptools]
-packages = ["armorhelper", "armorhelper.web"]
+packages = ["armorhelper"]
 
 [tool.setuptools.package-data]
-armorhelper = ["data/*.png", "web/static/*"]
+armorhelper = ["data/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

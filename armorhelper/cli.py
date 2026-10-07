@@ -39,9 +39,6 @@ examples:
 
   # Look up which head/legs ids belong to a body armor
   armorhelper sets --search stardust
-
-  # Browser interface (local only, no extra dependency)
-  armorhelper web --open
 """
 
 
@@ -83,13 +80,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="interface language (default: zh_CN, or ARMORHELPER_LANG)",
     )
 
-    web_parser = sub.add_parser("web", help="serve the browser interface")
-    web_parser.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
-    web_parser.add_argument("--port", type=int, default=8765, help="port (default: 8765, 0 = random)")
-    web_parser.add_argument("-o", "--open", action="store_true", help="open the browser")
-    web_parser.add_argument(
-        "--config", default=None, metavar="PATH", help="settings file (default: web-config.json)"
-    )
 
     return parser
 
@@ -308,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not argv:
         argv = ["gui"]
-    elif argv[0] not in {"export", "reverse", "sets", "template", "targets", "gui", "web", "-h", "--help", "--version"}:
+    elif argv[0] not in {"export", "reverse", "sets", "template", "targets", "gui", "-h", "--help", "--version"}:
         # Allow ``armorhelper -i foo.png -o out`` without the sub command.
         argv.insert(0, "export")
 
@@ -356,20 +346,6 @@ def main(argv: list[str] | None = None) -> int:
         from .gui import run
 
         return run()
-    if command == "web":
-        from . import i18n
-        from .web import serve
-        from .web.api import Api
-
-        if getattr(args, "lang", None):
-            i18n.set_language(args.lang)
-        serve(
-            args.host,
-            args.port,
-            open_browser=args.open,
-            api=Api(config_path=args.config) if args.config else Api(),
-        )
-        return 0
 
     parser.print_help()
     return 0

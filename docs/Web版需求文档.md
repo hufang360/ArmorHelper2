@@ -3,27 +3,29 @@
 | 项目 | 内容 |
 |---|---|
 | 文档名称 | ArmorHelper Web 版需求规格说明书 |
-| 版本 | v1.0 |
-| 状态 | 已实现（对应代码版本 2.0.0 / `armorhelper.web`） |
+| 版本 | v2.0（纯静态，可部署 GitHub Pages） |
+| 状态 | 已实现（对应 `web/` 目录，与 Python 版 2.0.0 输出一致） |
 | 基准游戏版本 | 泰拉瑞亚 1.4.5（贴图格式自 1.4.4 起生效） |
-| 兄弟文档 | [`需求文档.md`](需求文档.md)（桌面版 / 核心库规格） |
+| 兄弟文档 | [`需求文档.md`](需求文档.md)（Python 版 / 核心库规格） |
 | 目标读者 | 模组作者、贴图美术、工具维护者 |
+
+> **v1 到 v2 的变化**：v1 是「本地 Python HTTP 服务 + 浏览器前端」，无法部署到
+> GitHub Pages。v2 把全部图像逻辑移植成原生 ES 模块，**没有任何服务端**，
+> 是一个纯静态站点。Python 版与 Web 版从此完全分开，各自独立运行。
 
 ---
 
 ## 1. 背景与定位
 
-桌面版（wxPython）已经能完成全部贴图生成与反向还原。Web 版要解决的问题是：
-
 | 痛点 | Web 版的对策 |
 |---|---|
-| 换机器、换系统要装 wxPython，编译麻烦 | 只用标准库 + Pillow，`pip install pillow` 就能跑 |
-| 想在平板 / 另一台电脑 / 远程开发机上用 | 浏览器访问，界面自适应 |
-| 想把结果直接发给别人看 | 生成结果带 20 帧预览图、GIF 与一键 zip 下载 |
-| 想在浏览器里对比多套盔甲 | 表格化结果卡片，图片内联预览 |
+| 装 wxPython 麻烦、跨平台编译 | 浏览器打开即用，零安装 |
+| 想分享给别人看 | 部署到 GitHub Pages，发个链接就行 |
+| 想在平板 / 另一台机器上用 | 只要有浏览器 |
+| 想让别人快速预览效果 | 结果卡片内联 20 帧拼版与 GIF |
 
-**核心原则：Web 版不重新实现任何图像逻辑**，所有生成、还原、预览都调用桌面版共用的
-`armorhelper` 包，保证两个端的输出**逐像素一致**。
+**核心约束**：GitHub Pages 只能托管静态文件。因此 Web 版必须**在浏览器里完成全部
+图像处理**，不能依赖任何服务端接口。
 
 ---
 
@@ -33,28 +35,30 @@
 
 | 编号 | 目标 |
 |---|---|
-| WG-1 | 浏览器内完成模板图 → 泰拉盔甲贴图的全部导出 |
-| WG-2 | 浏览器内完成原版盔甲 → 绘制模板的反向还原（含「还原全部套装」） |
-| WG-3 | 复用桌面版的核心库与中文文案，输出与桌面版完全一致 |
-| WG-4 | 零额外依赖（不引入 Flask/FastAPI/Node 构建链），一条命令启动 |
-| WG-5 | 结果可预览、可单独下载、可打包下载 |
-| WG-6 | 设置持久化，与桌面版可共存互不干扰 |
+| WG-1 | 纯静态：任意静态托管（含 GitHub Pages）都能跑，无服务端、无构建步骤 |
+| WG-2 | 功能对齐桌面版：导出、反向还原、还原全部、预览、GIF、原版命名 |
+| WG-3 | 与 Python 版**逐像素一致**，并有自动化测试证明 |
+| WG-4 | 零依赖：无框架、无 npm 包、无 CDN，离线可用 |
+| WG-5 | 中英文界面，与桌面版共用同一份文案 |
+| WG-6 | 在 Chromium 上可直接读写用户指定的文件夹（写入游戏资源目录） |
 
 ### 2.2 范围内
 
-* 本地 HTTP 服务 + 单页应用
-* 导出（含发光遮罩、原版 ID 命名、预览叠加玩家）
+* 单页应用（HTML + CSS + 原生 ES 模块）
+* 贴图生成（头部 / 腿部 / 身体复合 / 旧格式 / 发光遮罩）
+* 20 帧合成、拼版预览、GIF 动画
 * 反向还原（单套 / 全部套装）
-* 服务端目录浏览（用于选择「泰拉贴图目录」「输出目录」）
-* 设置持久化
-* 中英文界面
+* PNG / GIF / ZIP 编码
+* 设置持久化（localStorage）与目录句柄持久化（IndexedDB）
+* File System Access API 集成（可选增强）
+* Node 下的核心自检 + 浏览器内自检
 
 ### 2.3 范围外
 
-* 多用户 / 账号 / 权限
-* 公网部署（默认只监听 `127.0.0.1`）
-* 浏览器端图像处理（不做 WebAssembly / Canvas 重算）
-* 在线素材库、云端存储
+* 服务端渲染 / 后端接口（v1 的能力已移除）
+* 账号、云端存储、多用户
+* `.xnb` 解码
+* 浏览器扩展、PWA 离线缓存（后续可做）
 
 ---
 
@@ -63,326 +67,231 @@
 ### 3.1 架构
 
 ```
-┌──────────────────── 浏览器 ────────────────────┐
-│  index.html + style.css + app.js（无框架/无构建）│
-│   ├─ 拖放上传（FileReader → base64）            │
-│   ├─ fetch JSON API                             │
-│   └─ 内联 <img> 预览生成的 PNG / GIF            │
-└───────────────────────┬────────────────────────┘
-                        │ HTTP (127.0.0.1)
-┌───────────────────────┴────────────────────────┐
-│  armorhelper.web.server   （http.server 标准库）│
-│   ├─ 路由 / 静态资源 / JSON 编解码 / 错误→400   │
-│   └─ armorhelper.web.api  （纯逻辑，可单测）    │
-│        └── armorhelper.*  （与桌面版同一套核心）│
-└────────────────────────────────────────────────┘
+┌──────────────────────── 浏览器（唯一运行环境）────────────────────────┐
+│  index.html + style.css + app.js                                      │
+│    ├─ 文件拖放 / 选择（FileReader、createImageBitmap）                 │
+│    ├─ 设置（localStorage）＋ 目录句柄（IndexedDB）                     │
+│    └─ 结果预览（data URL / object URL）                                │
+│                                                                        │
+│  js/  ← 纯计算核心，不碰 DOM                                           │
+│    bitmap.js   位图操作（等价 armorhelper/imaging.py）                 │
+│    data.js     布局 / 套装表 / 文案                                    │
+│    generate.js 贴图生成（等价 armorhelper/generate.py）                │
+│    compose.js  帧合成（等价 armorhelper/compose.py）                   │
+│    reverse.js  反向还原（等价 armorhelper/reverse.py）                 │
+│    png.js / gif.js / zip.js   编码器                                   │
+│    fs.js / idb.js            浏览器胶水                                │
+│                                                                        │
+│  data/  ← 由 tools/export_web.py 从 Python 包导出                      │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 为什么是「本地服务 + 浏览器」
+### 3.2 关键设计决定
 
-* 图像逻辑已经在 Python 里，重写一遍到 JS 会带来两套实现和两份 bug。
-* 浏览器可以直接读取本地文件（上传给本机服务），也能展示 PNG/GIF，无需 Electron。
-* 服务端能访问真实文件系统，因此「输出目录直接写进游戏 Content/Images」「批量还原全部套装」
-  这两种桌面版的核心用法得以保留。
+| 决定 | 理由 |
+|---|---|
+| 用原生 ES 模块，不打包 | 无构建链，改完刷新即生效；Pages 直接发布源码 |
+| 核心模块不碰 DOM | 同一份代码能在 Node 里跑，从而与 Python 输出做逐像素对比 |
+| 常量由 Python 导出而不是手抄 | 单一份数据源，杜绝两边漂移 |
+| 自己做 PNG/GIF/ZIP 编码 | 不引入依赖；PNG 绕开 canvas 的 alpha 预乘问题，保证像素精确 |
+| 目录句柄存 IndexedDB | 句柄不能进 localStorage，但可以被结构化克隆 |
+| 浏览器不支持文件夹时降级 | 用下载 / zip / 手动上传贴图，功能不缺失 |
 
 ### 3.3 目录结构
 
 ```
-armorhelper/web/
-    __init__.py
-    api.py          # 全部业务逻辑，不依赖 socket
-    server.py       # HTTP 路由与静态资源
-    store.py        # web-config.json 读写（首次从 config.json 播种）
-    static/
-        index.html
-        style.css
-        app.js
-        favicon.png
+web/
+  index.html  style.css  app.js  package.json  .nojekyll  README.md
+  js/     bitmap data generate compose reverse png gif zip fs idb
+  data/   layout.json  armor_sets.json  i18n.json  ArmorTemplate_v1.png
+  tests/  run.mjs（Node 自检）  smoke.html（浏览器自检）
 ```
 
 ---
 
-## 4. 运行方式
+## 4. 运行与部署
+
+### 4.1 本地
 
 ```bash
-# 依赖只有 Pillow
-pip install pillow
-
-# 启动（默认 http://127.0.0.1:8765/）
-python3 -m armorhelper web --open          # --open 自动打开浏览器
-
-python3 -m armorhelper web --port 9000 --host 127.0.0.1
-python3 -m armorhelper web --config /path/to/web-config.json
+python3 -m http.server 8000 --directory web    # 或 npx serve web
 ```
 
-| 参数 | 默认 | 说明 |
-|---|---|---|
-| `--host` | `127.0.0.1` | 绑定地址；默认仅本机可访问 |
-| `--port` | `8765` | 端口；`0` 表示随机（日志里会打印实际地址） |
-| `--open` / `-o` | 关 | 启动后自动打开系统默认浏览器 |
-| `--config` | `web-config.json` | 设置文件路径 |
+浏览器不允许 `file://` 下加载 ES 模块，因此必须经静态服务器打开。
+
+### 4.2 GitHub Pages
+
+`.github/workflows/pages.yml`：
+
+1. checkout；
+2. 装 Pillow，跑 `tools/export_web.py` 重新导出 `web/data/`，并用 `git diff --exit-code`
+   确认提交的数据没有过期；
+3. 跑 `pytest tests/test_web_port.py`（Node 核心对比 + 浏览器自检）；
+4. `actions/upload-pages-artifact` 上传 `web/`，`actions/deploy-pages` 发布。
+
+仓库设置里把 Pages 的 Source 选为 **GitHub Actions** 即可。
+
+`web/.nojekyll` 防止 Jekyll 忽略下划线开头的路径。
 
 ---
 
-## 5. 接口规格
-
-所有接口返回 JSON（`Content-Type: application/json; charset=utf-8`），
-二进制接口除外。任何业务错误返回 HTTP 400 + `{"error": "..."}`；
-服务端内部异常返回 500，且不会中断服务。
-
-### 5.1 元信息与设置
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/` | 单页应用 |
-| GET | `/static/<file>` | 静态资源（`app.js` / `style.css` / `favicon.png`） |
-| GET | `/api/state` | 读取设置 + 版本 + 默认勾选项 |
-| POST | `/api/state` | 局部更新设置（未出现的字段保持不变），返回新状态 |
-| GET | `/api/i18n` | `{messages: {zh_CN: {...}, en: {...}}, targets: [...]}` |
-| GET | `/api/targets` | 导出目标清单与默认勾选 |
-| GET | `/api/template` | 内置 128×80 绘制模板 PNG |
-| POST | `/api/detect-images` | 自动探测泰拉 `Content/Images` 并写入设置 |
-
-`POST /api/state` 可接受的字段：
-
-```jsonc
-{
-  "exportFolder": "/path/to/output",     // 输出目录
-  "imagesFolder": "/path/to/Content/Images", // 泰拉贴图目录
-  "glow": false,                          // 发光遮罩 360x448
-  "skin": 0,                              // 预览用玩家肤色 0~9
-  "language": "zh_CN",                    // 界面语言
-  "targets": { "head": true, ... },       // 12 个导出目标
-  "ids": { "id_head": "", "id_body": "", "id_legs": "" }
-}
-```
-
-### 5.2 原版数据
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/sets?q=<关键词>` | 套装列表；`q` 支持中文名 / 英文名 / 任一 ID；为空返回全部 |
-| GET | `/api/browse?path=<目录>` | 列目录（仅子目录 + 上级 + 快捷入口），用于目录选择器 |
-
-`/api/sets` 单项结构：
-
-```json
-{
-  "body": 190, "head": 189, "legs": 130,
-  "name": "StardustPlate", "zh": "星尘板甲",
-  "label": "星尘板甲  StardustPlate  (190)",
-  "confidence": "name", "complete": true
-}
-```
-
-### 5.3 生成与还原
-
-| 方法 | 路径 | 请求体 | 说明 |
-|---|---|---|---|
-| POST | `/api/generate` | `{files:[{name,data(base64)}], targets:[], female:bool, player:bool}` | 逐张模板导出 |
-| POST | `/api/reverse` | `{images, body, head?, legs?}` | 还原单套 |
-| POST | `/api/reverse-all` | `{images}` | 还原全部贴图齐全的套装 |
-
-返回的任务对象：
-
-```jsonc
-{
-  "id": "4292c2bf895e",
-  "kind": "export",                 // export | reverse | reverse-all
-  "name": "MyArmor",
-  "files": [{
-    "name": "Armor_190.png",
-    "relative": "Armor/Armor_190.png",
-    "size": 4368, "width": 360, "height": 224,
-    "url": "/api/job/<id>/Armor/Armor_190.png",
-    "preview": true
-  }],
-  "written": ["/path/to/output/Armor_190.png"],  // 同时写入输出目录的结果
-  "warnings": [],
-  "preview": "/api/job/<id>/_preview_sheet.png", // 20 帧拼版
-  "gif": "/api/job/<id>/_preview.gif"
-}
-```
-
-`/api/reverse-all` 额外返回 `{total, failed, directory}`。
-
-### 5.4 结果下载
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/job/<id>/<相对路径>` | 下载单个产物（支持 `Armor/` 子目录，文件名做 URL 编码） |
-| GET | `/api/job/<id>/all.zip` | 打包下载（保留 `Armor/` 子目录，不含预览文件） |
-
----
-
-## 6. 功能需求
+## 5. 功能需求
 
 | 编号 | 需求 | 优先级 | 验收 |
 |---|---|---|---|
-| WFR-01 | 页面首屏加载后自动读取设置、套装表与文案，状态栏显示「已连接」 | 必须 | WC-01 |
-| WFR-02 | 支持拖放与点选多张 128×80 模板图，列表可单个移除 / 清空 | 必须 | WC-02 |
-| WFR-03 | 提供 12 项导出目标复选，勾选变化立即写配置 | 必须 | WC-03 |
-| WFR-04 | 导出时可选择「女性版本」「叠加玩家」用于生成预览 | 应该 | WC-04 |
-| WFR-05 | 生成结果展示 20 帧拼版预览与 GIF，并列全部产物（尺寸/大小/下载链接） | 必须 | WC-05 |
-| WFR-06 | 生成结果支持打包 zip 下载，且保留原版 `Armor/` 目录结构 | 必须 | WC-05 |
-| WFR-07 | 指定输出目录时，产物同时写入该目录（可直接落到游戏资源目录） | 必须 | WC-06 |
-| WFR-08 | 设置三个盔甲 ID 后，产物使用原版文件名（`Armor_Head_<id>.png` 等） | 必须 | WC-06 |
-| WFR-09 | 支持发光遮罩（360×448）与玩家肤色（0~9） | 应该 | WC-07 |
-| WFR-10 | 反向还原面板提供可搜索的套装列表，条目格式 `中文名  英文名  (身体ID)` | 必须 | WC-08 |
-| WFR-11 | 选中套装自动填入头/身/腿 ID，允许手动覆盖 | 必须 | WC-08 |
-| WFR-12 | 还原结果展示模板预览（该模板生成出的 20 帧）并可下载 | 必须 | WC-09 |
-| WFR-13 | 支持「还原全部套装」，输出到 `<输出目录>/ArmorTemplate/`，返回统计 | 必须 | WC-10 |
-| WFR-14 | 提供目录选择器（列表 + 上级 + 快捷入口），可回填输出目录 / 贴图目录 | 必须 | WC-11 |
-| WFR-15 | 提供「自动探测」按钮定位泰拉 `Content/Images` | 应该 | WC-11 |
-| WFR-16 | 设置持久化到 `web-config.json`，首次从桌面版 `config.json` 播种 | 必须 | WC-12 |
-| WFR-17 | 界面支持中文 / English 切换，切换后不刷新页面即时生效 | 应该 | WC-13 |
-| WFR-18 | 所有业务错误以状态栏文字 + HTTP 400 呈现，不弹原生 alert | 必须 | WC-14 |
-| WFR-19 | 服务端永不因单个请求异常而退出 | 必须 | WC-15 |
-| WFR-20 | 生成结果按时间淘汰，最多保留 24 个任务目录 | 应该 | WC-16 |
+| WFR-01 | 拖放或点选多张 128×80 模板，可单个移除 / 清空 | 必须 | WC-02 |
+| WFR-02 | 非 128×80 的图片要给出提示并跳过 | 必须 | WC-13 |
+| WFR-03 | 12 项导出目标复选，默认勾选与桌面版一致 | 必须 | WC-03 |
+| WFR-04 | 生成头部 / 腿部 / 复合身体 / 发光遮罩 / 旧格式贴图 | 必须 | WC-05 |
+| WFR-05 | 生成 20 帧拼版预览与 GIF 动画 | 必须 | WC-05 |
+| WFR-06 | 指定盔甲 ID 时使用原版文件名与 `Armor/` 子目录 | 必须 | WC-06 |
+| WFR-07 | 单文件下载与打包 zip 下载，zip 保留目录结构 | 必须 | WC-05 |
+| WFR-08 | 可选「女性版本」「叠加玩家」用于预览 | 应该 | WC-07 |
+| WFR-09 | 反向还原：可搜索套装列表（中文名 / 英文名 / ID），条目形如 `中文名  英文名  (ID)` | 必须 | WC-08 |
+| WFR-10 | 选中套装自动填入头/身/腿 ID，可手改 | 必须 | WC-08 |
+| WFR-11 | 还原结果展示 128×80 模板与其 20 帧预览，可下载 | 必须 | WC-09 |
+| WFR-12 | 「还原全部套装」批量还原贴图齐全的套装 | 必须 | WC-10 |
+| WFR-13 | 支持读取用户指定的 `Content/Images` 目录（Chromium） | 应该 | WC-11 |
+| WFR-14 | 支持手动上传需要的那几张贴图（其它浏览器） | 必须 | WC-11 |
+| WFR-15 | 支持写入用户指定的输出目录（Chromium），并记住授权 | 应该 | WC-12 |
+| WFR-16 | 设置持久化（语言、勾选、ID、发光、肤色、预览开关） | 必须 | WC-14 |
+| WFR-17 | 界面中英文切换即时生效 | 应该 | WC-15 |
+| WFR-18 | 可选「生成后自检」：反向还原再生成，应与原贴图一致 | 可以 | WC-16 |
+| WFR-19 | 所有错误以状态栏文字呈现，不弹原生 alert | 必须 | WC-13 |
+| WFR-20 | 页面不请求任何外部地址（离线可用） | 必须 | WC-17 |
 
 ---
 
-## 7. 界面需求
+## 6. 界面需求
 
-### 7.1 布局
+### 6.1 布局
 
 ```
-┌─ ArmorHelper 2.0.0 · 泰拉盔甲贴图工具 · 网页版 ─────────  [导出贴图][反向还原][设置]  [中文▾] ┐
-│                                                                                            │
-│  ┌─ 导出贴图 ─────────────────────────────┐  ┌─ 导出选项 ────────────────┐                │
-│  │  ┌───────────────────────────────────┐ │  │ ☑ 头部贴图 (Armor_Head)   │                │
-│  │  │   把 128×80 的绘制模板拖到这里     │ │  │ ☑ 腿部贴图 (Armor_Legs)   │                │
-│  │  │   或点击选择（可多选）             │ │  │ ☑ 身体贴图（1.4.4+）      │                │
-│  │  └───────────────────────────────────┘ │  │ ☐ 身体/手臂（1.3 旧格式） │                │
-│  │  MyArmor.png            3 KB      ✕    │  │ …（共 12 项）             │                │
-│  │  [清空]  [下载绘制模板]                │  │                           │                │
-│  └────────────────────────────────────────┘  │ 预览选项                  │                │
-│                                              │ ☐ 女性版本 ☐ 叠加玩家     │                │
-│  ┌─ 导出结果 ─────────────────────────────┐  │                           │                │
-│  │ MyArmor · 4292c2bf895e                 │  │ [      开始导出      ]    │                │
-│  │ [20 帧拼版预览图]                       │  └───────────────────────────┘                │
-│  │ [GIF 预览]                              │                                              │
-│  │ MyArmor_Head.png   40×1120 · 1 KB       │                                              │
-│  │ [打包下载 (zip)]                        │                                              │
-│  └────────────────────────────────────────┘                                              │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
+┌ ArmorHelper · 泰拉盔甲贴图工具 · 网页版 ──────── [导出贴图][反向还原][设置]  [中文▾] ┐
+│ ┌─ 输入文件 ───────────────────────────┐ ┌─ 导出选项 ──────────────────┐            │
+│ │ ┌──────────────────────────────────┐ │ │ ☑ 头部贴图 (Armor_Head)     │            │
+│ │ │  把 128×80 的绘制模板拖到这里     │ │ │ ☑ 腿部贴图 (Armor_Legs)     │            │
+│ │ │  或点击选择（可多选）             │ │ │ ☑ 身体贴图（1.4.4+ 复合格式）│            │
+│ │ └──────────────────────────────────┘ │ │ ☐ 身体 / 手臂贴图（1.3 旧格式）│          │
+│ │ 铜盔甲.png            128×80     ✕   │ │ …（共 12 项）                │            │
+│ │ [清空]  [下载绘制模板]                │ │ 预览选项                     │            │
+│ └──────────────────────────────────────┘ │ ☐ 女性版本 ☐ 叠加玩家        │            │
+│ ┌─ 导出结果 ───────────────────────────┐ │                              │            │
+│ │ 铜盔甲                                │ │ [        开始导出        ]   │            │
+│ │ [20 帧拼版预览]   [GIF 预览]          │ └──────────────────────────────┘            │
+│ │ 铜盔甲_Head.png   40×1120 · 1 KB      │                                             │
+│ │ [打包下载 (zip)]  [写入输出目录]       │                                             │
+│ └──────────────────────────────────────┘                                             │
+└──────────────────────────── 状态栏（ok / warn / bad / busy 四色）──────────────────────┘
 ```
 
-### 7.2 控件与行为
+### 6.2 控件与行为
 
 | 编号 | 控件 | 需求 |
 |---|---|---|
-| WUI-01 | 顶部标签页 | 导出贴图 / 反向还原 / 设置，纯前端切换，不重新加载 |
-| WUI-02 | 语言下拉 | 立即切换全部文案与 `<html lang>`，写入配置 |
-| WUI-03 | 拖放区 | `dragenter/dragover` 高亮，`drop` 后加入列表；点击等同选择文件 |
-| WUI-04 | 文件列表 | 显示文件名与体积，可单独移除 |
-| WUI-05 | 目标复选 | 文案来自同一份 i18n 表（`target.*`），勾选即存 |
-| WUI-06 | 结果卡片 | 预览图使用 `image-rendering: pixelated` 与棋盘格底，避免糊化 |
-| WUI-07 | 状态栏 | 分 `ok / warn / bad / busy` 四种颜色；所有反馈走这里 |
-| WUI-08 | 目录选择器 | 模态框，仅列子目录（隐藏 `.` 开头），提供上级与快捷入口 |
-| WUI-09 | 反向还原列表 | `<select size=8>`，输入框 160ms 防抖后请求 `/api/sets` |
-| WUI-10 | 处理中状态 | 按钮禁用 + 状态栏 `busy` 文案，避免重复提交 |
+| WUI-01 | 顶部标签页 | 三个面板纯前端切换，不重新加载 |
+| WUI-02 | 语言下拉 | 立即切换全部文案与 `<html lang>`，写入 localStorage |
+| WUI-03 | 拖放区 | `dragenter/dragover` 高亮；支持点击与键盘 Enter |
+| WUI-04 | 结果卡片 | 预览图 `image-rendering: pixelated` + 棋盘格底 |
+| WUI-05 | 状态栏 | 四色反馈；所有错误走这里 |
+| WUI-06 | 文件夹按钮 | 不支持 File System Access 时按钮降级并在状态栏说明 |
+| WUI-07 | 套装列表 | `<select size=8>`，搜索框 140ms 防抖 |
+| WUI-08 | 处理中 | 按钮禁用 + `busy` 文案，避免重复提交 |
+| WUI-09 | 全局错误兜底 | `error` / `unhandledrejection` 都写进状态栏，不静默失败 |
 
-### 7.3 视觉与可用性
+### 6.3 视觉
 
-* 深色主题，配色变量集中在 `style.css` 的 `:root`。
-* 所有尺寸使用 `rem/px`，主栏 `flex` 自适应，窄屏自动换行。
-* 图片预览可横向滚动，不撑破布局。
-* 不依赖任何外部 CDN，离线可用。
+* 深色主题，配色集中在 `:root` 变量。
+* 主栏 flex 自适应，窄屏自动换行。
+* 不依赖任何外部字体、图标或 CDN。
 
 ---
 
-## 8. 非功能需求
+## 7. 非功能需求
 
 | 编号 | 类别 | 需求 |
 |---|---|---|
-| WNFR-01 | 依赖 | 运行时仅需 Pillow + Python 标准库；前端零依赖、零构建 |
-| WNFR-02 | 一致性 | 同一输入下 Web 版与桌面版产物逐字节相同（复用同一核心库） |
-| WNFR-03 | 性能 | 单张模板全量导出（含预览与 GIF）< 2 秒；`/api/sets` 全量 < 100ms |
-| WNFR-04 | 安全 | 默认只监听 `127.0.0.1`；静态资源与任务文件做路径穿越校验；请求体上限 32MB |
-| WNFR-05 | 健壮性 | 任意请求异常只影响该请求；生成任务互不干扰 |
-| WNFR-06 | 可测试性 | `Api` 类不依赖 socket，可单测；另提供真实 HTTP 端到端测试 |
-| WNFR-07 | 可移植性 | 无平台特定代码；Windows / macOS / Linux 均可 |
-| WNFR-08 | 存储 | 任务产物写入系统临时目录，按 LRU 淘汰，最多 24 个任务 |
-| WNFR-09 | 国际化 | 界面文案与桌面版共用 `armorhelper/i18n.py`，不重复维护 |
-| WNFR-10 | 可观测性 | 日志走 `logging`，访问日志在 DEBUG 级别 |
+| WNFR-01 | 零依赖 | 运行时不需要任何第三方库；Python 只用于生成数据与测试 |
+| WNFR-02 | 一致性 | 与 Python 版输出逐像素一致，由 `tests/test_web_port.py` 断言 |
+| WNFR-03 | 静态性 | `web/` 目录内不得出现 `.py`；发布产物就是源码 |
+| WNFR-04 | 性能 | 单张模板全量导出（含预览与 GIF）< 2 秒（桌面 Chrome） |
+| WNFR-05 | 离线 | 页面不发起任何外部请求 |
+| WNFR-06 | 可测试性 | 核心模块不碰 DOM，可在 Node 下运行并对比 |
+| WNFR-07 | 兼容性 | Chrome / Edge / Firefox / Safari 最新版；文件夹功能仅 Chromium |
+| WNFR-08 | 健壮性 | IndexedDB 不可用时不得卡死（2 秒超时降级） |
+| WNFR-09 | 像素精确 | PNG 自行编码，绕开 canvas alpha 预乘；缩放一律最近邻 |
+| WNFR-10 | 国际化 | 文案与桌面版共用 `armorhelper/i18n.py`，由脚本导出 |
 
 ---
 
-## 9. 配置
+## 8. 数据契约
 
-`web-config.json`（与桌面版 `config.json` 同结构，便于复用读写代码）：
+`tools/export_web.py` 从 Python 包生成，Web 版只读：
 
-```json
-{
-    "exportFolder": "/Volumes/970/Games/tr/steam/output",
-    "imagesFolder": "/Volumes/970/Games/tr/1457/贴图-1457/Content/Images",
-    "glow": false,
-    "skin": 0,
-    "language": "zh_CN",
-    "exportCheckbox": { "head": true, "legs": true, "body": true, "...": false },
-    "ids": { "id_head": "", "id_body": "", "id_legs": "" },
-    "inputs": [], "lastExport": {}, "lastDir": "",
-    "window": {}, "columns": [250, 210]
-}
-```
+| 文件 | 内容 |
+|---|---|
+| `data/layout.json` | 模板区域、帧偏移表、格子映射、逐帧图层、导出目标清单 |
+| `data/armor_sets.json` | 204 条原版套装（body/head/legs/name/zh/confidence） |
+| `data/i18n.json` | 中英文案 |
+| `data/ArmorTemplate_v1.png` | 128×80 绘制模板 |
 
-* 首次启动时若 `web-config.json` 不存在，则从桌面版 `config.json` **播种**，
-  这样「输出目录」「贴图目录」等路径无需重填；此后两者各写各的文件，互不干扰。
-* 文件损坏或字段类型异常时按默认值启动。
+CI 会重新生成并比对，**数据过期会导致构建失败**。
 
 ---
 
-## 10. 与桌面版的对照
+## 9. 与 Python 版的对照
 
-| 能力 | 桌面版（wxPython） | Web 版 |
+| 能力 | Python 版 | Web 版 |
 |---|---|---|
-| 运行环境 | 需 wxPython | 只需 Pillow |
-| 输入方式 | 文件对话框 / 拖放 | 点选 / 拖放（浏览器） |
-| 批量输入 | 列表常驻 + 上次导出时间 | 本次会话内列表 |
-| 导出目标 | 12 项复选 | 同样 12 项 |
-| 预览 | 导出 PNG / GIF 文件 | 页面内联预览 + 可下载 |
-| 结果下载 | 直接落在输出目录 | 落在输出目录 **并且** 可单独/打包下载 |
-| 反向还原 | 对话框 + 目录选择 | 可搜索下拉 + 目录选择器 |
-| 还原全部 | 按钮 | 按钮 |
-| 设置 | `config.json` | `web-config.json`（首次播种自 `config.json`） |
-| 语言切换 | 菜单「视图 → 界面语言」 | 顶部下拉，即时生效 |
-| 后台执行 | 工作线程避免卡界面 | HTTP 请求天然异步 |
-| 输出一致性 | 同一核心库，一致 | 同一核心库，一致 |
+| 运行方式 | 命令行 / wxPython 桌面窗口 | 浏览器（静态站点） |
+| 依赖 | Pillow；桌面界面需 wxPython | 无 |
+| 图像逻辑 | `armorhelper/*.py` | `web/js/*.js`（等价移植） |
+| 一致性保证 | 自身即参考实现 | 逐像素对比测试 |
+| 输入 | 文件对话框 / 拖放 | 拖放 / 点选（浏览器） |
+| 输出目录 | 直接写文件系统 | File System Access（Chromium）或下载 / zip |
+| 读取游戏贴图 | 直接读目录 | 目录句柄（Chromium）或手动上传 |
+| 设置 | `config.json` | `localStorage` |
+| 部署 | 本机 | GitHub Pages / 任意静态托管 |
+| 代码共享 | — | 只共享「由脚本导出的数据」，运行时不共享代码 |
 
 ---
 
-## 11. 验收标准
+## 10. 验收标准
 
 | 编号 | 验收内容 | 对应测试 |
 |---|---|---|
-| WC-01 | 首页可访问，`/api/state`、`/api/i18n` 正常 | `test_index_is_served`、`test_i18n_and_targets` |
-| WC-02 | 上传多张模板可一次导出 | `test_generate_endpoint` |
-| WC-03 | 目标勾选写入配置 | `test_state_round_trip` |
-| WC-04 | 预览可请求女性/玩家版本（不报错） | 手工 |
-| WC-05 | 预览尺寸正确；zip 内容正确且保留子目录 | `test_generate_preview_and_zip`、`test_generate_zip_keeps_the_armor_subfolder` |
-| WC-06 | 写入输出目录；指定 ID 时使用原版文件名 | `test_generate_writes_into_the_output_folder`、`test_generate_uses_vanilla_names_when_ids_are_set` |
-| WC-07 | 发光与肤色可设置并持久化 | `test_state_round_trip` |
-| WC-08 | 套装可搜索，条目含中文名/英文名/ID | `test_sets_endpoint_search` |
-| WC-09 | 还原结果可下载且为 128×80，可再次导出 | `test_reverse_endpoint`、`test_reverse_output_can_be_exported_again` |
-| WC-10 | 还原全部写入 `<输出>/ArmorTemplate/` | `test_reverse_all` |
-| WC-11 | 目录浏览与上级导航 | `test_browse_endpoint`、`test_browse_falls_back_to_the_parent` |
-| WC-12 | 设置落盘并可再次读取 | `test_settings_are_persisted_on_disk` |
-| WC-13 | 语言切换返回对应文案 | `test_i18n_and_targets` |
-| WC-14 | 非法输入返回 400 且带可读原因 | `test_generate_rejects_bad_input`、`test_generate_rejects_a_wrongly_sized_template` |
-| WC-15 | 路径穿越被拒、未知路由 404 | `test_path_traversal_is_refused`、`test_unknown_route_is_404` |
-| WC-16 | 任务目录按上限淘汰 | `test_api_evicts_old_jobs` |
+| WC-01 | 页面可加载，模块可解析 | `test_browser_renders_the_app` |
+| WC-02 | 多张模板一次导出 | 浏览器自检 `smoke.html` |
+| WC-03 | 目标勾选默认与桌面版一致 | `test_layout_data_covers_every_frame` |
+| WC-04 | 生成结果与 Python 逐像素一致 | `test_generated_sheets_match_python` 等 8 项 |
+| WC-05 | 预览、GIF、zip 正确 | `test_gif_matches_the_python_frames`、`test_zip_has_the_expected_structure`、`test_browser_smoke_test` |
+| WC-06 | 原版 ID 命名与子目录 | 浏览器自检 + Python `test_export_uses_vanilla_names` |
+| WC-07 | 女性 / 玩家预览可生成 | 浏览器自检 `20 composed frames` |
+| WC-08 | 套装搜索含中文名与 ID | 浏览器自检 `set search finds stardust` |
+| WC-09 | 还原结果可下载且为 128×80 | `test_reverse_matches_python` |
+| WC-10 | 还原全部可批量产出 | `test_reverse_result_regenerates_the_sheets` + 手工 |
+| WC-11 | 目录读取与手动上传 | 手工（需真实浏览器授权） |
+| WC-12 | 目录写入 | 手工（需真实浏览器授权） |
+| WC-13 | 非法输入有提示不崩溃 | 浏览器自检的错误分支 + 手工 |
+| WC-14 | 设置持久化 | 手工 / localStorage 检查 |
+| WC-15 | 中英文切换 | `test_frontend_files_exist_and_are_wired` 文案键校验 |
+| WC-16 | 生成后自检 | 浏览器自检 `reverse round trip is lossless` |
+| WC-17 | 页面无外部请求 | `test_frontend_files_exist_and_are_wired` |
+| WC-18 | 数据不过期 | `test_exported_data_is_up_to_date` |
+| WC-19 | 两个版本彻底分开 | `test_no_python_left_in_the_web_app` |
+| WC-20 | Pages 工作流正确发布 | `test_pages_workflow_publishes_the_web_folder` |
 
 ---
 
-## 12. 已知限制与后续可做
+## 11. 已知限制与后续可做
 
 | 编号 | 内容 |
 |---|---|
-| WL-01 | 目录浏览会列出服务器上任意目录（本机工具，默认仅监听 127.0.0.1；若要给局域网用请自行加鉴权） |
-| WL-02 | 不支持直接上传「一整套原版贴图文件」做还原，仍是让服务端按 ID 去读 `Content/Images` |
-| WL-03 | 没有导出历史记录，任务目录随进程结束而清理 |
-| WL-04 | 未做 WebSocket/SSE 进度推送；「还原全部套装」是一次请求，页面显示等待中 |
-| WL-05 | 不支持 `.xnb`，需要已解包的 PNG 资源目录 |
+| WL-01 | 文件夹读写仅 Chromium 支持，其它浏览器用下载 / zip |
+| WL-02 | 浏览器拿不到本机路径，无法自动定位游戏目录，需要用户选一次 |
+| WL-03 | 不支持 `.xnb`，需要已解包的 PNG 资源目录 |
+| WL-04 | 全部在内存处理，一次几百套盔甲可能吃紧 |
+| WL-05 | 没有 Service Worker，刷新后需要重新联网加载（可加 PWA） |
 
-后续可做：SSE 进度、还原时允许直接上传三张贴图、任务历史与重放、PWA 离线缓存。
+后续可做：Service Worker 离线缓存、还原时允许直接上传整套贴图、
+导出历史记录、把 GIF 帧率/尺寸做成可调。

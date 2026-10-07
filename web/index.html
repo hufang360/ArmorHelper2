@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ArmorHelper Web</title>
-<link rel="stylesheet" href="/static/style.css">
-<link rel="icon" href="/static/favicon.png">
+<title>ArmorHelper · Web</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data/ArmorTemplate_v1.png">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <img src="/static/favicon.png" alt="" width="40" height="56">
+    <img src="data/ArmorTemplate_v1.png" alt="" width="40" height="56" class="pixel">
     <div>
-      <h1>ArmorHelper <span id="version" class="muted"></span></h1>
+      <h1>ArmorHelper</h1>
       <p class="muted" data-i18n="web.subtitle"></p>
     </div>
   </div>
@@ -34,12 +34,12 @@
 
 <main>
 
-  <!-- ============================ 导出 ============================ -->
+  <!-- ============================= 导出 ============================= -->
   <section class="panel is-active" id="tab-export">
     <div class="row">
       <div class="card grow">
         <h2 data-i18n="group.inputs"></h2>
-        <div id="drop" class="drop">
+        <div id="drop" class="drop" tabindex="0">
           <p data-i18n="web.drop"></p>
           <input type="file" id="file-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
         </div>
@@ -47,7 +47,7 @@
         <ul id="file-list" class="filelist"></ul>
         <div class="actions">
           <button class="ghost" id="clear-files" data-i18n="web.clear"></button>
-          <a class="ghost link" href="/api/template" download="ArmorTemplate_v1.png"
+          <a class="ghost link" href="data/ArmorTemplate_v1.png" download="ArmorTemplate_v1.png"
              data-i18n="web.downloadTemplate"></a>
         </div>
       </div>
@@ -59,25 +59,36 @@
         <h2 class="spaced" data-i18n="web.previewOptions"></h2>
         <label class="check"><input type="checkbox" id="opt-female"><span data-i18n="web.female"></span></label>
         <label class="check"><input type="checkbox" id="opt-player"><span data-i18n="web.player"></span></label>
+        <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
 
         <button class="primary wide" id="do-export" data-i18n="web.export"></button>
       </div>
     </div>
 
-    <div class="card" id="results-card">
+    <div class="card">
       <h2 data-i18n="web.results"></h2>
-      <div id="results"></div>
+      <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
     </div>
   </section>
 
-  <!-- ========================== 反向还原 ========================== -->
+  <!-- =========================== 反向还原 =========================== -->
   <section class="panel" id="tab-reverse">
     <div class="row">
       <div class="card grow">
         <h2 data-i18n="web.reverseTitle"></h2>
 
         <label class="field">
-          <span data-i18n="reverse.search"></span>
+          <span data-i18n="web.textureSource"></span>
+          <div class="inputrow">
+            <button class="ghost" id="pick-images" data-i18n="web.pickImages"></button>
+            <input type="file" id="texture-input" accept=".png" multiple hidden>
+            <button class="ghost" id="pick-textures" data-i18n="web.pickFiles"></button>
+          </div>
+        </label>
+        <p class="muted small" id="images-status"></p>
+
+        <label class="field">
+          <span data-i18n="web.reverseSearch"></span>
           <input type="search" id="set-search" data-i18n-placeholder="web.reverseSearch">
         </label>
 
@@ -110,27 +121,28 @@
     </div>
   </section>
 
-  <!-- ============================ 设置 ============================ -->
+  <!-- ============================= 设置 ============================= -->
   <section class="panel" id="tab-settings">
     <div class="card">
       <h2 data-i18n="web.settingsTitle"></h2>
 
       <label class="field">
-        <span data-i18n="group.output"></span>
+        <span data-i18n="web.outputFolder"></span>
         <div class="inputrow">
-          <input type="text" id="set-export" dir="ltr">
-          <button class="ghost" data-browse="set-export" data-i18n="web.browse"></button>
+          <button class="ghost" id="pick-output" data-i18n="web.pickOutput"></button>
+          <button class="ghost" id="clear-output" data-i18n="web.clearOutput"></button>
         </div>
       </label>
+      <p class="muted small" id="output-status"></p>
 
       <label class="field">
         <span data-i18n="details.images"></span>
         <div class="inputrow">
-          <input type="text" id="set-images" dir="ltr">
-          <button class="ghost" data-browse="set-images" data-i18n="web.browse"></button>
-          <button class="ghost" id="detect-images" data-i18n="web.detect"></button>
+          <button class="ghost" id="pick-images-2" data-i18n="web.pickImages"></button>
+          <button class="ghost" id="clear-images" data-i18n="web.clearOutput"></button>
         </div>
       </label>
+      <p class="muted small" id="images-status-2"></p>
 
       <div class="ids">
         <label class="field"><span data-i18n="details.idHead"></span>
@@ -145,36 +157,20 @@
 
       <label class="check"><input type="checkbox" id="set-glow">
         <span data-i18n="details.glow"></span></label>
+      <label class="check"><input type="checkbox" id="set-verify">
+        <span data-i18n="web.verify"></span></label>
 
       <div class="actions">
         <button class="primary" id="save-settings" data-i18n="web.saveSettings"></button>
       </div>
+      <p class="muted small" id="about"></p>
     </div>
   </section>
 
 </main>
 
-<footer class="statusbar">
-  <span id="status" class="ok">…</span>
-</footer>
+<footer class="statusbar"><span id="status" class="ok">…</span></footer>
 
-<!-- 目录选择器 -->
-<div class="modal" id="browser" hidden>
-  <div class="modal-box">
-    <h2 data-i18n="web.browseTitle"></h2>
-    <div class="inputrow">
-      <button class="ghost" id="browse-up" data-i18n="web.browseUp"></button>
-      <input type="text" id="browse-path" dir="ltr" readonly>
-    </div>
-    <div id="browse-shortcuts" class="shortcuts"></div>
-    <ul id="browse-list" class="browser"></ul>
-    <div class="actions right">
-      <button class="ghost" id="browse-cancel" data-i18n="web.cancel"></button>
-      <button class="primary" id="browse-use" data-i18n="web.browseUse"></button>
-    </div>
-  </div>
-</div>
-
-<script src="/static/app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

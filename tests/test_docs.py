@@ -101,5 +101,11 @@ def test_web_requirements_is_linked_and_complete():
     # every web requirement has an id and appears in the acceptance table
     for prefix in ("WG-", "WFR-", "WUI-", "WNFR-", "WC-", "WL-"):
         assert prefix in text, prefix
-    assert "/api/generate" in text and "/api/reverse-all" in text
-    assert "armorhelper web" in text
+    # the web app is pure static and deployed to Pages
+    assert "GitHub Pages" in text
+    assert "pages.yml" in text or "GitHub Actions" in text
+    assert "http.server" in text
+    assert "File System Access" in text
+    # and it must not describe a server API any more
+    assert "/api/" not in text
+    assert "armorhelper web" not in text

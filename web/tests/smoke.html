@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ArmorHelper web smoke test</title>
+<style>
+  body { font: 13px/1.5 ui-monospace, monospace; background: #14161c; color: #e7e9ee; padding: 16px; }
+  li { list-style: none; }
+  .pass { color: #9fe0ac; }
+  .fail { color: #ff9a9a; }
+</style>
+</head>
+<body>
+<h1>ArmorHelper web smoke test</h1>
+<ul id="out"></ul>
+<p id="summary">running…</p>
+
+<script type="module">
+// Dynamic imports so a module level failure is reported instead of silently
+// leaving the page blank.
+let initLayout, loadSets, loadLayout, searchSets, setLabel;
+let createBitmap, countDifferences, downscale2, upscale;
+let generateBodyComposite, generateHead, generateLegs;
+let contactSheet, fullArmorFrames, gifFrameOrder;
+let reverseTemplate, encodePNG, pngBlob, encodeGIF, createZip, decodeBitmap;
+
+const out = document.getElementById("out");
+let failures = 0;
+const results = [];
+
+function check(name, condition, detail = "") {
+  const li = document.createElement("li");
+  li.className = condition ? "pass" : "fail";
+  li.textContent = `${condition ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`;
+  out.append(li);
+  results.push({ name, ok: !!condition, detail });
+  if (!condition) failures += 1;
+}
+
+/**
+ * Report to the test server, if one is listening.
+ *
+ * `tests/test_web_port.py` serves this page with a handler that answers
+ * `/__done`; opening the page by hand just gets a 404, which is ignored.  This
+ * makes the headless run deterministic instead of relying on virtual time.
+ */
+function report(payload) {
+  document.title = payload.failures ? "FAIL" : "PASS";
+  fetch("/__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+}
+
+async function loadModules() {
+  ({ initLayout, loadSets, loadLayout, searchSets, setLabel } = await import("../js/data.js"));
+  ({ createBitmap, countDifferences, downscale2, upscale } = await import("../js/bitmap.js"));
+  ({ generateBodyComposite, generateHead, generateLegs } = await import("../js/generate.js"));
+  ({ contactSheet, fullArmorFrames, gifFrameOrder } = await import("../js/compose.js"));
+  ({ reverseTemplate } = await import("../js/reverse.js"));
+  ({ encodePNG, pngBlob } = await import("../js/png.js"));
+  ({ encodeGIF } = await import("../js/gif.js"));
+  ({ createZip } = await import("../js/zip.js"));
+  ({ decodeBitmap } = await import("../js/fs.js"));
+}
+
+async function run() {
+  await loadModules();
+  check("modules load", true);
+  await loadLayout("../data/layout.json");
+  await loadSets("../data/armor_sets.json");
+  check("layout + sets load", true);
+
+  const response = await fetch("../data/ArmorTemplate_v1.png");
+  const template = await decodeBitmap(await response.blob());
+  check("template decodes", template.width === 128 && template.height === 80,
+        `${template.width}x${template.height}`);
+
+  const head = generateHead(template);
+  const legs = generateLegs(template);
+  const body = generateBodyComposite(template);
+  const glow = generateBodyComposite(template, { glowRows: 4 });
+  check("head sheet", head.width === 40 && head.height === 1120);
+  check("legs sheet", legs.width === 40 && legs.height === 1120);
+  check("body sheet", body.width === 360 && body.height === 224);
+  check("glow sheet", glow.width === 360 && glow.height === 448);
+
+  const frames = fullArmorFrames(template);
+  check("20 composed frames", frames.length === 20, `${frames.length}`);
+
+  // reverse and regenerate: the sheets have to come back unchanged
+  const rebuilt = reverseTemplate({ head, legs, body }).template;
+  const again = {
+    head: generateHead(rebuilt),
+    legs: generateLegs(rebuilt),
+    body: generateBodyComposite(rebuilt),
+  };
+  const differences =
+    countDifferences(again.head, head) + countDifferences(again.legs, legs) + countDifferences(again.body, body);
+  check("reverse round trip is lossless", differences === 0, `${differences} px`);
+
+  // PNG round trip through a real image decode
+  const png = await pngBlob(head);
+  check("png encodes", png.size > 0, `${png.size} bytes`);
+  const decoded = await decodeBitmap(png);
+  check("png encodes and decodes", countDifferences(decoded, head) === 0);
+
+  // GIF — checked structurally here; the Python suite decodes it frame by frame.
+  const gifBytes = encodeGIF(frames, { order: gifFrameOrder() });
+  const signature = String.fromCharCode(...gifBytes.slice(0, 6));
+  const screen = gifBytes[6] | (gifBytes[7] << 8);
+  check("gif header", signature === "GIF89a", signature);
+  check("gif size + trailer",
+        screen === frames[0].width && gifBytes.at(-1) === 0x3b,
+        `${gifBytes.length} bytes, ${screen}px wide`);
+
+  // ZIP
+  const zip = createZip([
+    { name: "a.png", data: await encodePNG(head) },
+    { name: "sub/b.png", data: "hello" },
+  ]);
+  check("zip is built", zip.length > 100, `${zip.length} bytes`);
+
+  // contact sheet + helpers
+  check("contact sheet", contactSheet(frames).width > 0);
+  check("upscale/downscale round trip",
+        countDifferences(downscale2(upscale(createBitmap(4, 4), 2)), createBitmap(4, 4)) === 0);
+
+  // set table
+  const stardust = searchSets("星尘");
+  check("set search finds stardust", stardust.length === 1 && stardust[0].body === 190,
+        stardust[0] ? setLabel(stardust[0]) : "none");
+
+  document.getElementById("summary").textContent = failures ? `${failures} FAILED` : "ALL PASS";
+  report({ failures, total: results.length, results });
+}
+
+run().catch((error) => {
+  const li = document.createElement("li");
+  li.className = "fail";
+  li.textContent = `FAIL  ${error && error.stack ? error.stack : error}`;
+  out.append(li);
+  document.getElementById("summary").textContent = "ERROR";
+  results.push({ name: "uncaught", ok: false, detail: String((error && error.stack) || error) });
+  report({ failures: results.length, total: results.length, results, error: String(error) });
+});
+</script>
+</body>
+</html>

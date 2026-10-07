@@ -1,0 +1,1637 @@
+{
+ "version": "2.0.0",
+ "sets": [
+  {
+   "body": 0,
+   "head": 0,
+   "legs": 0,
+   "name": "FamiliarShirt",
+   "zh": "便装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 1,
+   "head": 1,
+   "legs": 1,
+   "name": "CopperChainmail",
+   "zh": "铜链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 2,
+   "head": 2,
+   "legs": 2,
+   "name": "IronChainmail",
+   "zh": "铁链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 3,
+   "head": 3,
+   "legs": 3,
+   "name": "SilverChainmail",
+   "zh": "银链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 4,
+   "head": 26,
+   "legs": 4,
+   "name": "GoldChainmail",
+   "zh": "金链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 5,
+   "head": 5,
+   "legs": 5,
+   "name": "ShadowScalemail",
+   "zh": "暗影鳞甲",
+   "confidence": "name"
+  },
+  {
+   "body": 6,
+   "head": 6,
+   "legs": 6,
+   "name": "MeteorSuit",
+   "zh": "流星护甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 7,
+   "head": 7,
+   "legs": 7,
+   "name": "NecroBreastplate",
+   "zh": "死灵胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 8,
+   "head": 8,
+   "legs": 8,
+   "name": "JungleShirt",
+   "zh": "丛林衣",
+   "confidence": "name"
+  },
+  {
+   "body": 9,
+   "head": 9,
+   "legs": 9,
+   "name": "MoltenBreastplate",
+   "zh": "熔岩胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 10,
+   "head": null,
+   "legs": 10,
+   "name": "TuxedoShirt",
+   "zh": "西装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 11,
+   "head": 18,
+   "legs": 11,
+   "name": "PlumbersShirt",
+   "zh": "管道工衣",
+   "confidence": "name"
+  },
+  {
+   "body": 12,
+   "head": 19,
+   "legs": 12,
+   "name": "HerosShirt",
+   "zh": "英雄衣",
+   "confidence": "name"
+  },
+  {
+   "body": 13,
+   "head": 21,
+   "legs": 13,
+   "name": "ArchaeologistsJacket",
+   "zh": "考古夹克",
+   "confidence": "name"
+  },
+  {
+   "body": 14,
+   "head": 22,
+   "legs": 14,
+   "name": "NinjaShirt",
+   "zh": "忍者衣",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 15,
+   "head": null,
+   "legs": null,
+   "name": "Robe",
+   "zh": "长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 16,
+   "head": null,
+   "legs": 15,
+   "name": "TheDoctorsShirt",
+   "zh": "博士衣",
+   "confidence": "name"
+  },
+  {
+   "body": 17,
+   "head": 29,
+   "legs": 16,
+   "name": "CobaltBreastplate",
+   "zh": "钴胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 18,
+   "head": 34,
+   "legs": 17,
+   "name": "MythrilChainmail",
+   "zh": "秘银链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 19,
+   "head": 37,
+   "legs": 18,
+   "name": "AdamantiteBreastplate",
+   "zh": "精金胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 20,
+   "head": 11,
+   "legs": 19,
+   "name": "MiningShirt",
+   "zh": "挖矿衣",
+   "confidence": "name"
+  },
+  {
+   "body": 21,
+   "head": 38,
+   "legs": null,
+   "name": "Werewolf",
+   "zh": "",
+   "confidence": "name"
+  },
+  {
+   "body": 22,
+   "head": 39,
+   "legs": null,
+   "name": "Merman",
+   "zh": "",
+   "confidence": "name"
+  },
+  {
+   "body": 23,
+   "head": 40,
+   "legs": 22,
+   "name": "ClownShirt",
+   "zh": "小丑衣",
+   "confidence": "name"
+  },
+  {
+   "body": 24,
+   "head": 43,
+   "legs": 23,
+   "name": "HallowedPlateMail",
+   "zh": "神圣板甲",
+   "confidence": "prefix"
+  },
+  {
+   "body": 25,
+   "head": 44,
+   "legs": 24,
+   "name": "SantaShirt",
+   "zh": "圣诞衣",
+   "confidence": "name"
+  },
+  {
+   "body": 26,
+   "head": 45,
+   "legs": 25,
+   "name": "RedsBreastplate",
+   "zh": "Red的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 27,
+   "head": 46,
+   "legs": 26,
+   "name": "FrostBreastplate",
+   "zh": "寒霜胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 28,
+   "head": 47,
+   "legs": 27,
+   "name": "TinChainmail",
+   "zh": "锡链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 29,
+   "head": 48,
+   "legs": 28,
+   "name": "LeadChainmail",
+   "zh": "铅链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 30,
+   "head": 49,
+   "legs": 29,
+   "name": "TungstenChainmail",
+   "zh": "钨链甲",
+   "confidence": "name"
+  },
+  {
+   "body": 31,
+   "head": 50,
+   "legs": 30,
+   "name": "PlatinumChainmail",
+   "zh": "铂金链甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 32,
+   "head": 52,
+   "legs": 31,
+   "name": "WoodBreastplate",
+   "zh": "木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 33,
+   "head": 53,
+   "legs": 32,
+   "name": "EbonwoodBreastplate",
+   "zh": "乌木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 34,
+   "head": 54,
+   "legs": 33,
+   "name": "RichMahoganyBreastplate",
+   "zh": "红木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 35,
+   "head": 55,
+   "legs": 34,
+   "name": "PearlwoodBreastplate",
+   "zh": "珍珠木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 36,
+   "head": 56,
+   "legs": null,
+   "name": "RuneRobe",
+   "zh": "符文长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 37,
+   "head": 57,
+   "legs": 35,
+   "name": "CrimsonScalemail",
+   "zh": "猩红鳞甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 38,
+   "head": 58,
+   "legs": 36,
+   "name": "EskimoCoat",
+   "zh": "防雪大衣",
+   "confidence": "name"
+  },
+  {
+   "body": 39,
+   "head": 59,
+   "legs": 37,
+   "name": "SteampunkShirt",
+   "zh": "蒸汽朋克衣",
+   "confidence": "name"
+  },
+  {
+   "body": 40,
+   "head": 60,
+   "legs": 38,
+   "name": "BeeShirt",
+   "zh": "蜜蜂衣",
+   "confidence": "name"
+  },
+  {
+   "body": 41,
+   "head": 127,
+   "legs": 168,
+   "name": "PrincessCostume",
+   "zh": "公主裙",
+   "confidence": "prefix"
+  },
+  {
+   "body": 42,
+   "head": 61,
+   "legs": null,
+   "name": "PharaohsRobe",
+   "zh": "法老长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 43,
+   "head": 66,
+   "legs": 39,
+   "name": "MummyShirt",
+   "zh": "木乃伊衣",
+   "confidence": "name"
+  },
+  {
+   "body": 44,
+   "head": 67,
+   "legs": 40,
+   "name": "CowboyJacket",
+   "zh": "牛仔夹克",
+   "confidence": "name"
+  },
+  {
+   "body": 45,
+   "head": 68,
+   "legs": 41,
+   "name": "PirateShirt",
+   "zh": "海盗衣",
+   "confidence": "name"
+  },
+  {
+   "body": 46,
+   "head": 70,
+   "legs": 42,
+   "name": "CactusBreastplate",
+   "zh": "仙人掌胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 47,
+   "head": 71,
+   "legs": 43,
+   "name": "ShadewoodBreastplate",
+   "zh": "暗影木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 48,
+   "head": 74,
+   "legs": 44,
+   "name": "AncientShadowScalemail",
+   "zh": "远古暗影鳞甲",
+   "confidence": "name"
+  },
+  {
+   "body": 49,
+   "head": 76,
+   "legs": 45,
+   "name": "AncientCobaltBreastplate",
+   "zh": "远古钴胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 50,
+   "head": 77,
+   "legs": 46,
+   "name": "PinkEskimoCoat",
+   "zh": "粉色防雪大衣",
+   "confidence": "name"
+  },
+  {
+   "body": 51,
+   "head": 78,
+   "legs": 47,
+   "name": "ChlorophytePlateMail",
+   "zh": "叶绿板甲",
+   "confidence": "prefix"
+  },
+  {
+   "body": 52,
+   "head": 81,
+   "legs": 171,
+   "name": "RainCoat",
+   "zh": "雨衣",
+   "confidence": "name"
+  },
+  {
+   "body": 53,
+   "head": 82,
+   "legs": 48,
+   "name": "TikiShirt",
+   "zh": "提基衣",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 54,
+   "head": 83,
+   "legs": 49,
+   "name": "PalladiumBreastplate",
+   "zh": "钯金胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 55,
+   "head": 86,
+   "legs": 50,
+   "name": "OrichalcumBreastplate",
+   "zh": "山铜胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 56,
+   "head": 89,
+   "legs": 51,
+   "name": "TitaniumBreastplate",
+   "zh": "钛金胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 57,
+   "head": 96,
+   "legs": 52,
+   "name": "SailorShirt",
+   "zh": "水手衣",
+   "confidence": "name"
+  },
+  {
+   "body": 58,
+   "head": null,
+   "legs": null,
+   "name": "AmethystRobe",
+   "zh": "紫晶长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 59,
+   "head": null,
+   "legs": null,
+   "name": "TopazRobe",
+   "zh": "黄玉长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 60,
+   "head": null,
+   "legs": null,
+   "name": "SapphireRobe",
+   "zh": "蓝玉长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 61,
+   "head": null,
+   "legs": null,
+   "name": "EmeraldRobe",
+   "zh": "翡翠长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 62,
+   "head": null,
+   "legs": null,
+   "name": "RubyRobe",
+   "zh": "红玉长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 63,
+   "head": null,
+   "legs": null,
+   "name": "DiamondRobe",
+   "zh": "钻石长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 64,
+   "head": null,
+   "legs": 53,
+   "name": "WhiteTuxedoShirt",
+   "zh": "白西装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 65,
+   "head": 99,
+   "legs": 54,
+   "name": "TurtleScaleMail",
+   "zh": "海龟铠甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 66,
+   "head": 101,
+   "legs": 55,
+   "name": "SpectreRobe",
+   "zh": "幽灵长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 67,
+   "head": 104,
+   "legs": 56,
+   "name": "ShroomiteBreastplate",
+   "zh": "蘑菇矿胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 68,
+   "head": 106,
+   "legs": 57,
+   "name": "CenxsBreastplate",
+   "zh": "Cenx的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 69,
+   "head": 107,
+   "legs": 58,
+   "name": "CrownosBreastplate",
+   "zh": "Crowno的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 70,
+   "head": 108,
+   "legs": 59,
+   "name": "WillsBreastplate",
+   "zh": "Will的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 71,
+   "head": 279,
+   "legs": 60,
+   "name": "JimsBreastplate",
+   "zh": "Jim的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 72,
+   "head": 110,
+   "legs": 61,
+   "name": "AaronsBreastplate",
+   "zh": "Aaron的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 73,
+   "head": 111,
+   "legs": 62,
+   "name": "DTownsBreastplate",
+   "zh": "D-Town的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 74,
+   "head": 106,
+   "legs": 57,
+   "name": "CenxsDress",
+   "zh": "Cenx的上衣",
+   "confidence": "name"
+  },
+  {
+   "body": 75,
+   "head": 112,
+   "legs": 64,
+   "name": "PumpkinBreastplate",
+   "zh": "南瓜胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 76,
+   "head": 113,
+   "legs": 65,
+   "name": "NurseShirt",
+   "zh": "护士衣",
+   "confidence": "name"
+  },
+  {
+   "body": 77,
+   "head": 183,
+   "legs": null,
+   "name": "DyeTraderRobe",
+   "zh": "染料商长袍",
+   "confidence": "prefix"
+  },
+  {
+   "body": 78,
+   "head": 117,
+   "legs": 66,
+   "name": "CyborgShirt",
+   "zh": "机器侠衣",
+   "confidence": "name"
+  },
+  {
+   "body": 79,
+   "head": 118,
+   "legs": 67,
+   "name": "CreeperShirt",
+   "zh": "苦力怕衣",
+   "confidence": "name"
+  },
+  {
+   "body": 80,
+   "head": 119,
+   "legs": 68,
+   "name": "CatShirt",
+   "zh": "猫咪衣",
+   "confidence": "name"
+  },
+  {
+   "body": 81,
+   "head": 120,
+   "legs": null,
+   "name": "GhostShirt",
+   "zh": "鬼魂衣",
+   "confidence": "name"
+  },
+  {
+   "body": 82,
+   "head": 121,
+   "legs": 69,
+   "name": "PumpkinShirt",
+   "zh": "南瓜衣",
+   "confidence": "name"
+  },
+  {
+   "body": 83,
+   "head": 25,
+   "legs": 70,
+   "name": "RobotShirt",
+   "zh": "机器人衣",
+   "confidence": "name"
+  },
+  {
+   "body": 84,
+   "head": 123,
+   "legs": 71,
+   "name": "UnicornShirt",
+   "zh": "独角兽衣",
+   "confidence": "name"
+  },
+  {
+   "body": 85,
+   "head": 124,
+   "legs": 72,
+   "name": "VampireShirt",
+   "zh": "吸血鬼衣",
+   "confidence": "name"
+  },
+  {
+   "body": 86,
+   "head": 126,
+   "legs": 73,
+   "name": "LeprechaunShirt",
+   "zh": "矮妖衣",
+   "confidence": "name"
+  },
+  {
+   "body": 87,
+   "head": null,
+   "legs": 74,
+   "name": "PixieShirt",
+   "zh": "妖精衣",
+   "confidence": "name"
+  },
+  {
+   "body": 88,
+   "head": 127,
+   "legs": null,
+   "name": "PrincessDress",
+   "zh": "公主裙",
+   "confidence": "name"
+  },
+  {
+   "body": 89,
+   "head": 125,
+   "legs": 75,
+   "name": "WitchDress",
+   "zh": "女巫服",
+   "confidence": "name"
+  },
+  {
+   "body": 90,
+   "head": 128,
+   "legs": null,
+   "name": "BrideofFrankensteinDress",
+   "zh": "科学怪人新娘服",
+   "confidence": "name"
+  },
+  {
+   "body": 91,
+   "head": 129,
+   "legs": 76,
+   "name": "KarateTortoiseShirt",
+   "zh": "空手道陆龟衣",
+   "confidence": "name"
+  },
+  {
+   "body": 92,
+   "head": 130,
+   "legs": 77,
+   "name": "ScarecrowShirt",
+   "zh": "稻草人衣",
+   "confidence": "name"
+  },
+  {
+   "body": 93,
+   "head": 131,
+   "legs": null,
+   "name": "ReaperRobe",
+   "zh": "死神长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 94,
+   "head": 132,
+   "legs": 78,
+   "name": "FoxShirt",
+   "zh": "狐狸衣",
+   "confidence": "name"
+  },
+  {
+   "body": 95,
+   "head": 134,
+   "legs": 79,
+   "name": "SpookyBreastplate",
+   "zh": "阴森胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 96,
+   "head": 135,
+   "legs": 80,
+   "name": "SpaceCreatureShirt",
+   "zh": "太空生物衣",
+   "confidence": "name"
+  },
+  {
+   "body": 97,
+   "head": 136,
+   "legs": 81,
+   "name": "WolfShirt",
+   "zh": "狼衣",
+   "confidence": "name"
+  },
+  {
+   "body": 98,
+   "head": null,
+   "legs": 82,
+   "name": "TreasureHunterShirt",
+   "zh": "寻宝人衣",
+   "confidence": "name"
+  },
+  {
+   "body": 99,
+   "head": null,
+   "legs": 83,
+   "name": "DryadCoverings",
+   "zh": "树妖遮体服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 100,
+   "head": 140,
+   "legs": 84,
+   "name": "MrsClausShirt",
+   "zh": "圣诞夫人衣",
+   "confidence": "name"
+  },
+  {
+   "body": 101,
+   "head": 141,
+   "legs": 85,
+   "name": "TreeShirt",
+   "zh": "树衣",
+   "confidence": "name"
+  },
+  {
+   "body": 102,
+   "head": 142,
+   "legs": 86,
+   "name": "ParkaCoat",
+   "zh": "派克大衣",
+   "confidence": "name"
+  },
+  {
+   "body": 103,
+   "head": null,
+   "legs": null,
+   "name": "UglySweater",
+   "zh": "丑毛衣",
+   "confidence": "none"
+  },
+  {
+   "body": 104,
+   "head": 144,
+   "legs": 87,
+   "name": "ElfShirt",
+   "zh": "精灵衣",
+   "confidence": "name"
+  },
+  {
+   "body": 105,
+   "head": 157,
+   "legs": 98,
+   "name": "BeetleScaleMail",
+   "zh": "甲虫铠甲",
+   "confidence": "prefix"
+  },
+  {
+   "body": 106,
+   "head": 157,
+   "legs": 98,
+   "name": "BeetleShell",
+   "zh": "甲虫壳",
+   "confidence": "prefix"
+  },
+  {
+   "body": 165,
+   "head": null,
+   "legs": null,
+   "name": "Gi",
+   "zh": "稽古衣",
+   "confidence": "none"
+  },
+  {
+   "body": 166,
+   "head": null,
+   "legs": null,
+   "name": "Kimono",
+   "zh": "和服",
+   "confidence": "none"
+  },
+  {
+   "body": 167,
+   "head": null,
+   "legs": 101,
+   "name": "GypsyRobe",
+   "zh": "神秘长袍",
+   "confidence": "prefix"
+  },
+  {
+   "body": 168,
+   "head": 160,
+   "legs": 103,
+   "name": "BeeBreastplate",
+   "zh": "蜜蜂胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 169,
+   "head": 161,
+   "legs": 104,
+   "name": "AnglerVest",
+   "zh": "渔夫背心",
+   "confidence": "name"
+  },
+  {
+   "body": 170,
+   "head": 162,
+   "legs": 105,
+   "name": "SpiderBreastplate",
+   "zh": "蜘蛛胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 171,
+   "head": null,
+   "legs": 106,
+   "name": "MermaidAdornment",
+   "zh": "美人鱼饰品",
+   "confidence": "prefix"
+  },
+  {
+   "body": 172,
+   "head": 165,
+   "legs": 107,
+   "name": "FishCostumeShirt",
+   "zh": "鱼装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 173,
+   "head": 166,
+   "legs": 108,
+   "name": "BorealWoodBreastplate",
+   "zh": "针叶木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 174,
+   "head": 167,
+   "legs": 109,
+   "name": "PalmWoodBreastplate",
+   "zh": "棕榈木胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 175,
+   "head": 169,
+   "legs": 110,
+   "name": "VortexBreastplate",
+   "zh": "星旋胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 176,
+   "head": 170,
+   "legs": 111,
+   "name": "NebulaBreastplate",
+   "zh": "星云胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 177,
+   "head": 171,
+   "legs": 112,
+   "name": "SolarFlareBreastplate",
+   "zh": "耀斑胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 178,
+   "head": 174,
+   "legs": 113,
+   "name": "MartianCostumeShirt",
+   "zh": "火星装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 179,
+   "head": 175,
+   "legs": 114,
+   "name": "MartianUniformTorso",
+   "zh": "火星制服上衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 180,
+   "head": 176,
+   "legs": 112,
+   "name": "SolarCultistRobe",
+   "zh": "日耀邪教徒长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 181,
+   "head": 177,
+   "legs": null,
+   "name": "LunarCultistRobe",
+   "zh": "月亮邪教徒长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 182,
+   "head": 180,
+   "legs": 122,
+   "name": "GladiatorBreastplate",
+   "zh": "角斗士胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 183,
+   "head": null,
+   "legs": null,
+   "name": "LazuresValkyrieCloak",
+   "zh": "Lazure的女武神斗蓬",
+   "confidence": "none"
+  },
+  {
+   "body": 184,
+   "head": 182,
+   "legs": 124,
+   "name": "TaxCollectorsSuit",
+   "zh": "税收官衣服",
+   "confidence": "name"
+  },
+  {
+   "body": 185,
+   "head": null,
+   "legs": 125,
+   "name": "ClothiersJacket",
+   "zh": "服装商夹克",
+   "confidence": "name"
+  },
+  {
+   "body": 186,
+   "head": 184,
+   "legs": 126,
+   "name": "BuccaneerTunic",
+   "zh": "西域海盗上装",
+   "confidence": "name"
+  },
+  {
+   "body": 187,
+   "head": 185,
+   "legs": 173,
+   "name": "ObsidianLongcoat",
+   "zh": "黑曜石风衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 188,
+   "head": null,
+   "legs": 128,
+   "name": "FallenTuxedoShirt",
+   "zh": "堕落西装衣",
+   "confidence": "name"
+  },
+  {
+   "body": 189,
+   "head": 188,
+   "legs": 129,
+   "name": "FossilPlate",
+   "zh": "化石板甲",
+   "confidence": "name"
+  },
+  {
+   "body": 190,
+   "head": 189,
+   "legs": 130,
+   "name": "StardustPlate",
+   "zh": "星尘板甲",
+   "confidence": "name"
+  },
+  {
+   "body": 191,
+   "head": 190,
+   "legs": null,
+   "name": "WeddingDress",
+   "zh": "婚裙",
+   "confidence": "name"
+  },
+  {
+   "body": 192,
+   "head": 191,
+   "legs": 132,
+   "name": "Yoraiz0rsUniform",
+   "zh": "Yoraiz0r的制服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 193,
+   "head": 192,
+   "legs": 133,
+   "name": "SkiphssSkin",
+   "zh": "Skiphs的皮肤",
+   "confidence": "prefix"
+  },
+  {
+   "body": 194,
+   "head": 193,
+   "legs": 134,
+   "name": "LokisBreastplate",
+   "zh": "Loki的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 195,
+   "head": 196,
+   "legs": 138,
+   "name": "SillySunflowerTops",
+   "zh": "呆萌向日葵上衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 196,
+   "head": 197,
+   "legs": 139,
+   "name": "PedguinsJacket",
+   "zh": "Pedguin的夹克",
+   "confidence": "name"
+  },
+  {
+   "body": 197,
+   "head": 199,
+   "legs": null,
+   "name": "AncientArmor",
+   "zh": "远古上衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 198,
+   "head": 200,
+   "legs": null,
+   "name": "AncientBattleArmor",
+   "zh": "禁戒长袍",
+   "confidence": "prefix"
+  },
+  {
+   "body": 199,
+   "head": 201,
+   "legs": null,
+   "name": "Lamia",
+   "zh": "拉弥亚披肩",
+   "confidence": "prefix"
+  },
+  {
+   "body": 200,
+   "head": 203,
+   "legs": 144,
+   "name": "ApprenticeRobe",
+   "zh": "学徒长袍",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 201,
+   "head": 204,
+   "legs": 145,
+   "name": "SquirePlating",
+   "zh": "侍卫板甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 202,
+   "head": 205,
+   "legs": null,
+   "name": "HuntressJerkin",
+   "zh": "女猎人上衣",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 203,
+   "head": 206,
+   "legs": 148,
+   "name": "MonkShirt",
+   "zh": "武僧衣",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 204,
+   "head": 210,
+   "legs": null,
+   "name": "ValhallaKnight",
+   "zh": "英灵殿骑士胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 205,
+   "head": 211,
+   "legs": null,
+   "name": "ApprenticeDark",
+   "zh": "暗黑艺术家长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 206,
+   "head": 212,
+   "legs": null,
+   "name": "RedRidingHuntress",
+   "zh": "红色骑术服",
+   "confidence": "name"
+  },
+  {
+   "body": 207,
+   "head": 213,
+   "legs": null,
+   "name": "ShinobiInfiltrator",
+   "zh": "渗透忍者上衣",
+   "confidence": "name"
+  },
+  {
+   "body": 208,
+   "head": 214,
+   "legs": 157,
+   "name": "ArkhalisShirt",
+   "zh": "Arkhalis的紧身衣",
+   "confidence": "name"
+  },
+  {
+   "body": 209,
+   "head": 215,
+   "legs": 159,
+   "name": "LeinforsShirt",
+   "zh": "Leinfors的奇异风",
+   "confidence": "name"
+  },
+  {
+   "body": 210,
+   "head": 217,
+   "legs": 180,
+   "name": "Maid",
+   "zh": "女仆裙",
+   "confidence": "name"
+  },
+  {
+   "body": 211,
+   "head": 218,
+   "legs": 184,
+   "name": "MaidAlt",
+   "zh": "粉女仆裙",
+   "confidence": "name"
+  },
+  {
+   "body": 212,
+   "head": 219,
+   "legs": null,
+   "name": "Golf",
+   "zh": "乡村俱乐部背心",
+   "confidence": "name"
+  },
+  {
+   "body": 213,
+   "head": null,
+   "legs": null,
+   "name": "AmberRobe",
+   "zh": "琥珀长袍",
+   "confidence": "none"
+  },
+  {
+   "body": 214,
+   "head": null,
+   "legs": 188,
+   "name": "GameMasterShirt",
+   "zh": "大师级玩家夹克",
+   "confidence": "name"
+  },
+  {
+   "body": 215,
+   "head": 222,
+   "legs": null,
+   "name": "StarPrincessDress",
+   "zh": "星星公主裙",
+   "confidence": "name"
+  },
+  {
+   "body": 216,
+   "head": 227,
+   "legs": 190,
+   "name": "ChefOutfit",
+   "zh": "厨师服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 217,
+   "head": 230,
+   "legs": 191,
+   "name": "SuperHeroCostume",
+   "zh": "超级英雄服装",
+   "confidence": "prefix"
+  },
+  {
+   "body": 218,
+   "head": 232,
+   "legs": 195,
+   "name": "PrettyPinkDress",
+   "zh": "漂亮粉连衣裙",
+   "confidence": "prefix"
+  },
+  {
+   "body": 219,
+   "head": 231,
+   "legs": null,
+   "name": "UndertakerCoat",
+   "zh": "掘墓者外套",
+   "confidence": "name"
+  },
+  {
+   "body": 220,
+   "head": 233,
+   "legs": 197,
+   "name": "FuneralCoat",
+   "zh": "葬礼外套",
+   "confidence": "name"
+  },
+  {
+   "body": 221,
+   "head": 234,
+   "legs": 199,
+   "name": "VictorianGothDress",
+   "zh": "维多利亚哥特裙",
+   "confidence": "name"
+  },
+  {
+   "body": 222,
+   "head": null,
+   "legs": 201,
+   "name": "GhostarShirt",
+   "zh": "Ghostar的上衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 223,
+   "head": 236,
+   "legs": 204,
+   "name": "DrManFlyLabCoat",
+   "zh": "苍蝇人博士实验服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 224,
+   "head": 237,
+   "legs": 205,
+   "name": "ButcherApron",
+   "zh": "屠夫的染血围裙",
+   "confidence": "prefix"
+  },
+  {
+   "body": 225,
+   "head": 238,
+   "legs": 206,
+   "name": "SafemanSunDress",
+   "zh": "Safeman的太阳裙",
+   "confidence": "prefix"
+  },
+  {
+   "body": 226,
+   "head": 239,
+   "legs": 209,
+   "name": "FoodBarbarianArmor",
+   "zh": "FoodBarbarian的野狼护肩",
+   "confidence": "name"
+  },
+  {
+   "body": 227,
+   "head": 240,
+   "legs": 210,
+   "name": "GroxTheGreatArmor",
+   "zh": "Grox The Great的护胸",
+   "confidence": "name"
+  },
+  {
+   "body": 228,
+   "head": 64,
+   "legs": 211,
+   "name": "MushroomVest",
+   "zh": "蘑菇背心",
+   "confidence": "name"
+  },
+  {
+   "body": 229,
+   "head": 255,
+   "legs": 212,
+   "name": "AncientHallowedPlateMail",
+   "zh": "远古神圣板甲",
+   "confidence": "prefix"
+  },
+  {
+   "body": 230,
+   "head": 261,
+   "legs": 213,
+   "name": "CrystalNinjaChestplate",
+   "zh": "水晶刺客上衣",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 231,
+   "head": 262,
+   "legs": 214,
+   "name": "GraduationGownBlue",
+   "zh": "蓝毕业礼服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 232,
+   "head": 262,
+   "legs": 215,
+   "name": "GraduationGownMaroon",
+   "zh": "褐红毕业礼服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 233,
+   "head": 262,
+   "legs": 216,
+   "name": "GraduationGownBlack",
+   "zh": "黑毕业礼服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 234,
+   "head": 282,
+   "legs": 236,
+   "name": "DeadMansSweater",
+   "zh": "死人毛衣",
+   "confidence": "prefix"
+  },
+  {
+   "body": 235,
+   "head": 266,
+   "legs": 218,
+   "name": "PlaguebringerChestplate",
+   "zh": "瘟疫使者斗篷",
+   "confidence": "name"
+  },
+  {
+   "body": 236,
+   "head": 267,
+   "legs": 221,
+   "name": "RoninShirt",
+   "zh": "浪人浴衣",
+   "confidence": "name"
+  },
+  {
+   "body": 237,
+   "head": 268,
+   "legs": 223,
+   "name": "TimelessTravelerRobe",
+   "zh": "永恒旅人斗篷",
+   "confidence": "name"
+  },
+  {
+   "body": 238,
+   "head": 269,
+   "legs": 224,
+   "name": "FloretProtectorChestplate",
+   "zh": "护花者衬衫",
+   "confidence": "name"
+  },
+  {
+   "body": 239,
+   "head": 270,
+   "legs": 225,
+   "name": "CapricornChestplate",
+   "zh": "摩羯座护胸",
+   "confidence": "name"
+  },
+  {
+   "body": 240,
+   "head": 271,
+   "legs": 227,
+   "name": "TVHeadSuit",
+   "zh": "激光外套",
+   "confidence": "name"
+  },
+  {
+   "body": 241,
+   "head": null,
+   "legs": 229,
+   "name": "FlinxFurCoat",
+   "zh": "小雪怪皮毛外套",
+   "confidence": "prefix"
+  },
+  {
+   "body": 242,
+   "head": 272,
+   "legs": 228,
+   "name": "RoyalDressTop",
+   "zh": "皇家女衫",
+   "confidence": "prefix"
+  },
+  {
+   "body": 243,
+   "head": 127,
+   "legs": 230,
+   "name": "PrinceUniform",
+   "zh": "王子制服",
+   "confidence": "prefix"
+  },
+  {
+   "body": 244,
+   "head": null,
+   "legs": 231,
+   "name": "WilsonShirt",
+   "zh": "绅士马甲",
+   "confidence": "name"
+  },
+  {
+   "body": 245,
+   "head": null,
+   "legs": null,
+   "name": "WillowShirt",
+   "zh": "纵火者毛衣",
+   "confidence": "none"
+  },
+  {
+   "body": 246,
+   "head": 278,
+   "legs": 234,
+   "name": "AshWoodBreastplate",
+   "zh": "灰烬木胸甲",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 247,
+   "head": null,
+   "legs": 235,
+   "name": "LincolnsHoodie",
+   "zh": "Raynebro的连帽衫",
+   "confidence": "prefix"
+  },
+  {
+   "body": 248,
+   "head": 282,
+   "legs": 236,
+   "name": "DeadCellsBeheadedBody",
+   "zh": "枭首者的胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 249,
+   "head": 187,
+   "legs": 217,
+   "name": "MoonLordBody",
+   "zh": "月亮领主上衣",
+   "confidence": "name"
+  },
+  {
+   "body": 250,
+   "head": 284,
+   "legs": 237,
+   "name": "ChickenBonesBody",
+   "zh": "鸡骨背心",
+   "confidence": "name"
+  },
+  {
+   "body": 251,
+   "head": 284,
+   "legs": 237,
+   "name": "ChickenBonesRobe",
+   "zh": "鸡骨长袍",
+   "confidence": "name"
+  },
+  {
+   "body": 252,
+   "head": 285,
+   "legs": 240,
+   "name": "UpgradedMiningBody",
+   "zh": "勘探者上衣",
+   "confidence": "name"
+  },
+  {
+   "body": 253,
+   "head": 286,
+   "legs": 241,
+   "name": "UpgradedFishingBody",
+   "zh": "船长背心",
+   "confidence": "name"
+  },
+  {
+   "body": 254,
+   "head": 287,
+   "legs": 242,
+   "name": "ChippysBody",
+   "zh": "花栗鼠护胸",
+   "confidence": "name"
+  },
+  {
+   "body": 255,
+   "head": null,
+   "legs": 243,
+   "name": "BlueBikiniBody",
+   "zh": "蓝比基尼上衣",
+   "confidence": "name"
+  },
+  {
+   "body": 256,
+   "head": null,
+   "legs": 244,
+   "name": "RedSwimsuitBody",
+   "zh": "红色泳装",
+   "confidence": "prefix"
+  },
+  {
+   "body": 257,
+   "head": 288,
+   "legs": 247,
+   "name": "HeroicisBody",
+   "zh": "英雄外套",
+   "confidence": "name"
+  },
+  {
+   "body": 258,
+   "head": 290,
+   "legs": 249,
+   "name": "LilacDuskBody",
+   "zh": "丁香薄暮连衣裙",
+   "confidence": "name"
+  },
+  {
+   "body": 259,
+   "head": 291,
+   "legs": 251,
+   "name": "KazzymodusChestpiece",
+   "zh": "卡兹默德斯胸甲",
+   "confidence": "prefix"
+  },
+  {
+   "body": 260,
+   "head": null,
+   "legs": 252,
+   "name": "PalworldPalMetalArmorBody",
+   "zh": "帕鲁金属胸甲",
+   "confidence": "name"
+  },
+  {
+   "body": 261,
+   "head": 292,
+   "legs": 253,
+   "name": "LunasBody",
+   "zh": "露娜的符文妖精上衣",
+   "confidence": "name"
+  }
+ ]
+}

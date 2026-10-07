@@ -1,0 +1,11 @@
+{
+  "name": "armorhelper-web",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ArmorHelper web app — pure static, no build step",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "node tests/run.mjs /tmp/armorhelper-web-test"
+  }
+}

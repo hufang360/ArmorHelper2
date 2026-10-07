@@ -137,29 +137,35 @@ the path to the game's `Content/Images`).
 
 ## Web interface
 
-No wxPython needed — a local HTTP server plus a single page app, standard library only:
+A **separate, fully static** web app lives in [`web/`](web/README.md) — no Python, no server,
+no build step.  It can be published straight to **GitHub Pages**.
 
 ```bash
-python3 -m armorhelper web --open          # http://127.0.0.1:8765/
-python3 -m armorhelper web --port 9000 --host 127.0.0.1
+python3 -m http.server 8000 --directory web
+# then open http://127.0.0.1:8000/
 ```
 
-The browser never does any image work; the server calls the same `armorhelper` package the
-desktop version uses, so both produce **byte identical output**.
+Everything happens in the browser: generating the sheets, composing the 20 frame preview,
+encoding the PNGs, the GIF and the zip.  The JavaScript core is a port of this package and is
+verified **pixel for pixel** against it (`tests/test_web_port.py` runs it under Node and
+compares every sheet, the composed frames, the reverse result, the PNG, every GIF frame and
+the zip).
 
-* Drag & drop one or more 128x80 templates, tick what to export, hit **导出**.
-* Results come back as a 20 frame sheet preview, a GIF, per-file download links and a
-  **zip** — and are still written into the **Output Folder** so you can point that straight at
-  the game's `Content/Images`.
-* The *反向还原* tab has the searchable armor-set list (中文名 / English / id), single-set
-  reverse and **还原全部套装** into `<output>/ArmorTemplate/`.
-* Folder pickers browse the server's file system, so you can point it at your extracted
-  `Content/Images` without typing paths.
-* Settings live in `web-config.json`, seeded from the desktop `config.json` on first run, so
-  the two never fight over the same file.
+* Drag & drop 128x80 templates, tick what to export, get previews + downloads + a zip.
+* The searchable armor set list (中文名 / English / id) and **还原全部套装**.
+* On Chrome/Edge it can read your `Content/Images` folder and write the sheets straight back
+  into it via the File System Access API; other browsers download or zip instead.
 * Chinese by default, English in the top-right dropdown.
 
-See [`docs/Web版需求文档.md`](docs/Web版需求文档.md) for the full specification.
+To deploy: push to GitHub, set **Settings → Pages → Source** to **GitHub Actions**.
+`.github/workflows/pages.yml` regenerates `web/data/` from this package, fails if the checked
+in data is stale, runs the equivalence tests and publishes `web/`.
+
+The two versions are deliberately separate: they share no runtime code, only the data that
+`tools/export_web.py` exports.
+
+See [`docs/Web版需求文档.md`](docs/Web版需求文档.md) for the specification and
+[`web/README.md`](web/README.md) for the web app itself.
 
 ## Outputs
 
@@ -269,7 +275,9 @@ The frame → cell mapping is taken from `PlayerDrawSet.CreateCompositeData` in 
 * [`docs/贴图裁切说明.md`](docs/贴图裁切说明.md) — how to crop `Armor_1.png` (every one of the
   9x4 cells annotated), `Armor_Head_1.png` and `Armor_Legs_1.png`, with the exact
   `crop(left, upper, right, lower)` numbers and the cell → body frame mapping.
-* [`docs/需求文档.md`](docs/需求文档.md) — the full specification.
+* [`docs/需求文档.md`](docs/需求文档.md) — the full specification of the Python version.
+* [`docs/Web版需求文档.md`](docs/Web版需求文档.md) — the specification of the web version.
+* [`web/README.md`](web/README.md) — the web app, which is published to GitHub Pages.
 
 `tools/inspect_armor.py` renders any 1.4.4+ body texture the way the game does, which is handy
 for comparing a generated sheet with a vanilla one:
