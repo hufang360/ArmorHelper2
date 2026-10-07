@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "armorhelper"
+version = "2.0.0"
+description = "Convert simple armor sheets into Terraria armor sprites (Terraria 1.4.4+ compatible)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Port of Mirsario's ArmorHelper by the Terraria modding community" }]
+keywords = ["terraria", "sprite", "armor", "modding", "gamedev"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = ["Pillow>=9.0"]
+
+[project.optional-dependencies]
+gui = ["wxPython>=4.2"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+armorhelper = "armorhelper.cli:main"
+
+[project.gui-scripts]
+armorhelper-gui = "armorhelper.gui:run"
+
+[tool.setuptools]
+packages = ["armorhelper"]
+
+[tool.setuptools.package-data]
+armorhelper = ["data/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
