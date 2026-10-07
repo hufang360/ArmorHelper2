@@ -50,6 +50,48 @@ python3 -m armorhelper -i MyArmor.png -o out/ --targets all \
     --images "Terraria/Content/Images"
 ```
 
+## Reverse: get a template *from* a vanilla armor
+
+Sometimes you want the opposite — start from a vanilla armor set and edit it.  Because the
+generator is a pure pixel copy plus a nearest neighbour upscale, it can be undone:
+
+```bash
+# which head/legs ids belong to body 190?
+python3 -m armorhelper sets --search stardust
+#   StardustPlate (body 190, head 189, legs 130)  [name]
+
+# rebuild the drawing template (head/legs are looked up automatically)
+python3 -m armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
+
+# or override, or do every known set at once
+python3 -m armorhelper reverse --images "..." --body 190 --head 189 --legs 130 -o out.png
+python3 -m armorhelper reverse --images "..." --all -o templates/
+```
+
+In the GUI it is the **从原版 ID 还原模板...** button, with a searchable list of every known
+set.
+
+How accurate is it?
+
+| sheet | round trip | notes |
+|---|---|---|
+| head | 100% | exact |
+| legs | 90–100% | the two feet overlap in the texture, so a few pixels of the back foot are not observable |
+| body, as rendered in game | 90–97% | the template only has *one* walk-arm pose, so vanilla's four different pose cells collapse into one |
+
+Every vanilla armor texture is an exact 2x nearest neighbour upscale of 1x pixel art (checked
+across all 748 armor textures: 0% of the 2x2 blocks are non-uniform), which is why the 128x80
+template is enough to describe them.
+
+The set table lives in `armorhelper/data/armor_sets.json`.  Terraria does not store armor sets
+as data, so `tools/build_armor_sets.py` derives it from the game sources: sets with a bonus come
+straight out of `ArmorSetBonuses.cs` (authoritative, marked `set-bonus`), the rest are matched
+by the vanilla naming convention (marked `name`/`prefix`).  Regenerate it with:
+
+```bash
+python3 tools/build_armor_sets.py /path/to/decompiled/Terraria
+```
+
 ## Graphical interface
 
 ```bash
@@ -68,6 +110,7 @@ the path to the game's `Content/Images`).
 * Every setting is remembered in `config.json` next to the working directory, and the game's
   `Content/Images` folder is auto-detected on first start.
 * Exports run on a worker thread, so the window stays responsive.
+* The *反向还原* box rebuilds a template from a vanilla armor id.
 
 ## Outputs
 

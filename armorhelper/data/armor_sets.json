@@ -1,0 +1,1435 @@
+{
+ "source": "Terraria (rowid 1.4.5.x) — derived from ArmorIDs.cs + ArmorSetBonuses.cs",
+ "generated": "2026-10-07",
+ "count": 204,
+ "sets": [
+  {
+   "body": 0,
+   "head": 0,
+   "legs": 0,
+   "name": "FamiliarShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 1,
+   "head": 1,
+   "legs": 1,
+   "name": "CopperChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 2,
+   "head": 2,
+   "legs": 2,
+   "name": "IronChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 3,
+   "head": 3,
+   "legs": 3,
+   "name": "SilverChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 4,
+   "head": 26,
+   "legs": 4,
+   "name": "GoldChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 5,
+   "head": 5,
+   "legs": 5,
+   "name": "ShadowScalemail",
+   "confidence": "name"
+  },
+  {
+   "body": 6,
+   "head": 6,
+   "legs": 6,
+   "name": "MeteorSuit",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 7,
+   "head": 7,
+   "legs": 7,
+   "name": "NecroBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 8,
+   "head": 8,
+   "legs": 8,
+   "name": "JungleShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 9,
+   "head": 9,
+   "legs": 9,
+   "name": "MoltenBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 10,
+   "head": null,
+   "legs": 10,
+   "name": "TuxedoShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 11,
+   "head": 18,
+   "legs": 11,
+   "name": "PlumbersShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 12,
+   "head": 19,
+   "legs": 12,
+   "name": "HerosShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 13,
+   "head": 21,
+   "legs": 13,
+   "name": "ArchaeologistsJacket",
+   "confidence": "name"
+  },
+  {
+   "body": 14,
+   "head": 22,
+   "legs": 14,
+   "name": "NinjaShirt",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 15,
+   "head": null,
+   "legs": null,
+   "name": "Robe",
+   "confidence": "none"
+  },
+  {
+   "body": 16,
+   "head": null,
+   "legs": 15,
+   "name": "TheDoctorsShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 17,
+   "head": 29,
+   "legs": 16,
+   "name": "CobaltBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 18,
+   "head": 34,
+   "legs": 17,
+   "name": "MythrilChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 19,
+   "head": 37,
+   "legs": 18,
+   "name": "AdamantiteBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 20,
+   "head": 11,
+   "legs": 19,
+   "name": "MiningShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 21,
+   "head": 38,
+   "legs": null,
+   "name": "Werewolf",
+   "confidence": "name"
+  },
+  {
+   "body": 22,
+   "head": 39,
+   "legs": null,
+   "name": "Merman",
+   "confidence": "name"
+  },
+  {
+   "body": 23,
+   "head": 40,
+   "legs": 22,
+   "name": "ClownShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 24,
+   "head": 43,
+   "legs": 23,
+   "name": "HallowedPlateMail",
+   "confidence": "prefix"
+  },
+  {
+   "body": 25,
+   "head": 44,
+   "legs": 24,
+   "name": "SantaShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 26,
+   "head": 45,
+   "legs": 25,
+   "name": "RedsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 27,
+   "head": 46,
+   "legs": 26,
+   "name": "FrostBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 28,
+   "head": 47,
+   "legs": 27,
+   "name": "TinChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 29,
+   "head": 48,
+   "legs": 28,
+   "name": "LeadChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 30,
+   "head": 49,
+   "legs": 29,
+   "name": "TungstenChainmail",
+   "confidence": "name"
+  },
+  {
+   "body": 31,
+   "head": 50,
+   "legs": 30,
+   "name": "PlatinumChainmail",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 32,
+   "head": 52,
+   "legs": 31,
+   "name": "WoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 33,
+   "head": 53,
+   "legs": 32,
+   "name": "EbonwoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 34,
+   "head": 54,
+   "legs": 33,
+   "name": "RichMahoganyBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 35,
+   "head": 55,
+   "legs": 34,
+   "name": "PearlwoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 36,
+   "head": 56,
+   "legs": null,
+   "name": "RuneRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 37,
+   "head": 57,
+   "legs": 35,
+   "name": "CrimsonScalemail",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 38,
+   "head": 58,
+   "legs": 36,
+   "name": "EskimoCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 39,
+   "head": 59,
+   "legs": 37,
+   "name": "SteampunkShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 40,
+   "head": 60,
+   "legs": 38,
+   "name": "BeeShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 41,
+   "head": 127,
+   "legs": 168,
+   "name": "PrincessCostume",
+   "confidence": "prefix"
+  },
+  {
+   "body": 42,
+   "head": 61,
+   "legs": null,
+   "name": "PharaohsRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 43,
+   "head": 66,
+   "legs": 39,
+   "name": "MummyShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 44,
+   "head": 67,
+   "legs": 40,
+   "name": "CowboyJacket",
+   "confidence": "name"
+  },
+  {
+   "body": 45,
+   "head": 68,
+   "legs": 41,
+   "name": "PirateShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 46,
+   "head": 70,
+   "legs": 42,
+   "name": "CactusBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 47,
+   "head": 71,
+   "legs": 43,
+   "name": "ShadewoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 48,
+   "head": 74,
+   "legs": 44,
+   "name": "AncientShadowScalemail",
+   "confidence": "name"
+  },
+  {
+   "body": 49,
+   "head": 76,
+   "legs": 45,
+   "name": "AncientCobaltBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 50,
+   "head": 77,
+   "legs": 46,
+   "name": "PinkEskimoCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 51,
+   "head": 78,
+   "legs": 47,
+   "name": "ChlorophytePlateMail",
+   "confidence": "prefix"
+  },
+  {
+   "body": 52,
+   "head": 81,
+   "legs": 171,
+   "name": "RainCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 53,
+   "head": 82,
+   "legs": 48,
+   "name": "TikiShirt",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 54,
+   "head": 83,
+   "legs": 49,
+   "name": "PalladiumBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 55,
+   "head": 86,
+   "legs": 50,
+   "name": "OrichalcumBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 56,
+   "head": 89,
+   "legs": 51,
+   "name": "TitaniumBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 57,
+   "head": 96,
+   "legs": 52,
+   "name": "SailorShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 58,
+   "head": null,
+   "legs": null,
+   "name": "AmethystRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 59,
+   "head": null,
+   "legs": null,
+   "name": "TopazRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 60,
+   "head": null,
+   "legs": null,
+   "name": "SapphireRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 61,
+   "head": null,
+   "legs": null,
+   "name": "EmeraldRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 62,
+   "head": null,
+   "legs": null,
+   "name": "RubyRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 63,
+   "head": null,
+   "legs": null,
+   "name": "DiamondRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 64,
+   "head": null,
+   "legs": 53,
+   "name": "WhiteTuxedoShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 65,
+   "head": 99,
+   "legs": 54,
+   "name": "TurtleScaleMail",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 66,
+   "head": 101,
+   "legs": 55,
+   "name": "SpectreRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 67,
+   "head": 104,
+   "legs": 56,
+   "name": "ShroomiteBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 68,
+   "head": 106,
+   "legs": 57,
+   "name": "CenxsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 69,
+   "head": 107,
+   "legs": 58,
+   "name": "CrownosBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 70,
+   "head": 108,
+   "legs": 59,
+   "name": "WillsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 71,
+   "head": 279,
+   "legs": 60,
+   "name": "JimsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 72,
+   "head": 110,
+   "legs": 61,
+   "name": "AaronsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 73,
+   "head": 111,
+   "legs": 62,
+   "name": "DTownsBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 74,
+   "head": 106,
+   "legs": 57,
+   "name": "CenxsDress",
+   "confidence": "name"
+  },
+  {
+   "body": 75,
+   "head": 112,
+   "legs": 64,
+   "name": "PumpkinBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 76,
+   "head": 113,
+   "legs": 65,
+   "name": "NurseShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 77,
+   "head": 183,
+   "legs": null,
+   "name": "DyeTraderRobe",
+   "confidence": "prefix"
+  },
+  {
+   "body": 78,
+   "head": 117,
+   "legs": 66,
+   "name": "CyborgShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 79,
+   "head": 118,
+   "legs": 67,
+   "name": "CreeperShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 80,
+   "head": 119,
+   "legs": 68,
+   "name": "CatShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 81,
+   "head": 120,
+   "legs": null,
+   "name": "GhostShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 82,
+   "head": 121,
+   "legs": 69,
+   "name": "PumpkinShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 83,
+   "head": 25,
+   "legs": 70,
+   "name": "RobotShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 84,
+   "head": 123,
+   "legs": 71,
+   "name": "UnicornShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 85,
+   "head": 124,
+   "legs": 72,
+   "name": "VampireShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 86,
+   "head": 126,
+   "legs": 73,
+   "name": "LeprechaunShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 87,
+   "head": null,
+   "legs": 74,
+   "name": "PixieShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 88,
+   "head": 127,
+   "legs": null,
+   "name": "PrincessDress",
+   "confidence": "name"
+  },
+  {
+   "body": 89,
+   "head": 125,
+   "legs": 75,
+   "name": "WitchDress",
+   "confidence": "name"
+  },
+  {
+   "body": 90,
+   "head": 128,
+   "legs": null,
+   "name": "BrideofFrankensteinDress",
+   "confidence": "name"
+  },
+  {
+   "body": 91,
+   "head": 129,
+   "legs": 76,
+   "name": "KarateTortoiseShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 92,
+   "head": 130,
+   "legs": 77,
+   "name": "ScarecrowShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 93,
+   "head": 131,
+   "legs": null,
+   "name": "ReaperRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 94,
+   "head": 132,
+   "legs": 78,
+   "name": "FoxShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 95,
+   "head": 134,
+   "legs": 79,
+   "name": "SpookyBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 96,
+   "head": 135,
+   "legs": 80,
+   "name": "SpaceCreatureShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 97,
+   "head": 136,
+   "legs": 81,
+   "name": "WolfShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 98,
+   "head": null,
+   "legs": 82,
+   "name": "TreasureHunterShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 99,
+   "head": null,
+   "legs": 83,
+   "name": "DryadCoverings",
+   "confidence": "prefix"
+  },
+  {
+   "body": 100,
+   "head": 140,
+   "legs": 84,
+   "name": "MrsClausShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 101,
+   "head": 141,
+   "legs": 85,
+   "name": "TreeShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 102,
+   "head": 142,
+   "legs": 86,
+   "name": "ParkaCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 103,
+   "head": null,
+   "legs": null,
+   "name": "UglySweater",
+   "confidence": "none"
+  },
+  {
+   "body": 104,
+   "head": 144,
+   "legs": 87,
+   "name": "ElfShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 105,
+   "head": 157,
+   "legs": 98,
+   "name": "BeetleScaleMail",
+   "confidence": "prefix"
+  },
+  {
+   "body": 106,
+   "head": 157,
+   "legs": 98,
+   "name": "BeetleShell",
+   "confidence": "prefix"
+  },
+  {
+   "body": 165,
+   "head": null,
+   "legs": null,
+   "name": "Gi",
+   "confidence": "none"
+  },
+  {
+   "body": 166,
+   "head": null,
+   "legs": null,
+   "name": "Kimono",
+   "confidence": "none"
+  },
+  {
+   "body": 167,
+   "head": null,
+   "legs": 101,
+   "name": "GypsyRobe",
+   "confidence": "prefix"
+  },
+  {
+   "body": 168,
+   "head": 160,
+   "legs": 103,
+   "name": "BeeBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 169,
+   "head": 161,
+   "legs": 104,
+   "name": "AnglerVest",
+   "confidence": "name"
+  },
+  {
+   "body": 170,
+   "head": 162,
+   "legs": 105,
+   "name": "SpiderBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 171,
+   "head": null,
+   "legs": 106,
+   "name": "MermaidAdornment",
+   "confidence": "prefix"
+  },
+  {
+   "body": 172,
+   "head": 165,
+   "legs": 107,
+   "name": "FishCostumeShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 173,
+   "head": 166,
+   "legs": 108,
+   "name": "BorealWoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 174,
+   "head": 167,
+   "legs": 109,
+   "name": "PalmWoodBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 175,
+   "head": 169,
+   "legs": 110,
+   "name": "VortexBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 176,
+   "head": 170,
+   "legs": 111,
+   "name": "NebulaBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 177,
+   "head": 171,
+   "legs": 112,
+   "name": "SolarFlareBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 178,
+   "head": 174,
+   "legs": 113,
+   "name": "MartianCostumeShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 179,
+   "head": 175,
+   "legs": 114,
+   "name": "MartianUniformTorso",
+   "confidence": "prefix"
+  },
+  {
+   "body": 180,
+   "head": 176,
+   "legs": 112,
+   "name": "SolarCultistRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 181,
+   "head": 177,
+   "legs": null,
+   "name": "LunarCultistRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 182,
+   "head": 180,
+   "legs": 122,
+   "name": "GladiatorBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 183,
+   "head": null,
+   "legs": null,
+   "name": "LazuresValkyrieCloak",
+   "confidence": "none"
+  },
+  {
+   "body": 184,
+   "head": 182,
+   "legs": 124,
+   "name": "TaxCollectorsSuit",
+   "confidence": "name"
+  },
+  {
+   "body": 185,
+   "head": null,
+   "legs": 125,
+   "name": "ClothiersJacket",
+   "confidence": "name"
+  },
+  {
+   "body": 186,
+   "head": 184,
+   "legs": 126,
+   "name": "BuccaneerTunic",
+   "confidence": "name"
+  },
+  {
+   "body": 187,
+   "head": 185,
+   "legs": 173,
+   "name": "ObsidianLongcoat",
+   "confidence": "prefix"
+  },
+  {
+   "body": 188,
+   "head": null,
+   "legs": 128,
+   "name": "FallenTuxedoShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 189,
+   "head": 188,
+   "legs": 129,
+   "name": "FossilPlate",
+   "confidence": "name"
+  },
+  {
+   "body": 190,
+   "head": 189,
+   "legs": 130,
+   "name": "StardustPlate",
+   "confidence": "name"
+  },
+  {
+   "body": 191,
+   "head": 190,
+   "legs": null,
+   "name": "WeddingDress",
+   "confidence": "name"
+  },
+  {
+   "body": 192,
+   "head": 191,
+   "legs": 132,
+   "name": "Yoraiz0rsUniform",
+   "confidence": "prefix"
+  },
+  {
+   "body": 193,
+   "head": 192,
+   "legs": 133,
+   "name": "SkiphssSkin",
+   "confidence": "prefix"
+  },
+  {
+   "body": 194,
+   "head": 193,
+   "legs": 134,
+   "name": "LokisBreastplate",
+   "confidence": "name"
+  },
+  {
+   "body": 195,
+   "head": 196,
+   "legs": 138,
+   "name": "SillySunflowerTops",
+   "confidence": "prefix"
+  },
+  {
+   "body": 196,
+   "head": 197,
+   "legs": 139,
+   "name": "PedguinsJacket",
+   "confidence": "name"
+  },
+  {
+   "body": 197,
+   "head": 199,
+   "legs": null,
+   "name": "AncientArmor",
+   "confidence": "prefix"
+  },
+  {
+   "body": 198,
+   "head": 200,
+   "legs": null,
+   "name": "AncientBattleArmor",
+   "confidence": "prefix"
+  },
+  {
+   "body": 199,
+   "head": 201,
+   "legs": null,
+   "name": "Lamia",
+   "confidence": "prefix"
+  },
+  {
+   "body": 200,
+   "head": 203,
+   "legs": 144,
+   "name": "ApprenticeRobe",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 201,
+   "head": 204,
+   "legs": 145,
+   "name": "SquirePlating",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 202,
+   "head": 205,
+   "legs": null,
+   "name": "HuntressJerkin",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 203,
+   "head": 206,
+   "legs": 148,
+   "name": "MonkShirt",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 204,
+   "head": 210,
+   "legs": null,
+   "name": "ValhallaKnight",
+   "confidence": "name"
+  },
+  {
+   "body": 205,
+   "head": 211,
+   "legs": null,
+   "name": "ApprenticeDark",
+   "confidence": "name"
+  },
+  {
+   "body": 206,
+   "head": 212,
+   "legs": null,
+   "name": "RedRidingHuntress",
+   "confidence": "name"
+  },
+  {
+   "body": 207,
+   "head": 213,
+   "legs": null,
+   "name": "ShinobiInfiltrator",
+   "confidence": "name"
+  },
+  {
+   "body": 208,
+   "head": 214,
+   "legs": 157,
+   "name": "ArkhalisShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 209,
+   "head": 215,
+   "legs": 159,
+   "name": "LeinforsShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 210,
+   "head": 217,
+   "legs": 180,
+   "name": "Maid",
+   "confidence": "name"
+  },
+  {
+   "body": 211,
+   "head": 218,
+   "legs": 184,
+   "name": "MaidAlt",
+   "confidence": "name"
+  },
+  {
+   "body": 212,
+   "head": 219,
+   "legs": null,
+   "name": "Golf",
+   "confidence": "name"
+  },
+  {
+   "body": 213,
+   "head": null,
+   "legs": null,
+   "name": "AmberRobe",
+   "confidence": "none"
+  },
+  {
+   "body": 214,
+   "head": null,
+   "legs": 188,
+   "name": "GameMasterShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 215,
+   "head": 222,
+   "legs": null,
+   "name": "StarPrincessDress",
+   "confidence": "name"
+  },
+  {
+   "body": 216,
+   "head": 227,
+   "legs": 190,
+   "name": "ChefOutfit",
+   "confidence": "prefix"
+  },
+  {
+   "body": 217,
+   "head": 230,
+   "legs": 191,
+   "name": "SuperHeroCostume",
+   "confidence": "prefix"
+  },
+  {
+   "body": 218,
+   "head": 232,
+   "legs": 195,
+   "name": "PrettyPinkDress",
+   "confidence": "prefix"
+  },
+  {
+   "body": 219,
+   "head": 231,
+   "legs": null,
+   "name": "UndertakerCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 220,
+   "head": 233,
+   "legs": 197,
+   "name": "FuneralCoat",
+   "confidence": "name"
+  },
+  {
+   "body": 221,
+   "head": 234,
+   "legs": 199,
+   "name": "VictorianGothDress",
+   "confidence": "name"
+  },
+  {
+   "body": 222,
+   "head": null,
+   "legs": 201,
+   "name": "GhostarShirt",
+   "confidence": "prefix"
+  },
+  {
+   "body": 223,
+   "head": 236,
+   "legs": 204,
+   "name": "DrManFlyLabCoat",
+   "confidence": "prefix"
+  },
+  {
+   "body": 224,
+   "head": 237,
+   "legs": 205,
+   "name": "ButcherApron",
+   "confidence": "prefix"
+  },
+  {
+   "body": 225,
+   "head": 238,
+   "legs": 206,
+   "name": "SafemanSunDress",
+   "confidence": "prefix"
+  },
+  {
+   "body": 226,
+   "head": 239,
+   "legs": 209,
+   "name": "FoodBarbarianArmor",
+   "confidence": "name"
+  },
+  {
+   "body": 227,
+   "head": 240,
+   "legs": 210,
+   "name": "GroxTheGreatArmor",
+   "confidence": "name"
+  },
+  {
+   "body": 228,
+   "head": 64,
+   "legs": 211,
+   "name": "MushroomVest",
+   "confidence": "name"
+  },
+  {
+   "body": 229,
+   "head": 255,
+   "legs": 212,
+   "name": "AncientHallowedPlateMail",
+   "confidence": "prefix"
+  },
+  {
+   "body": 230,
+   "head": 261,
+   "legs": 213,
+   "name": "CrystalNinjaChestplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 231,
+   "head": 262,
+   "legs": 214,
+   "name": "GraduationGownBlue",
+   "confidence": "prefix"
+  },
+  {
+   "body": 232,
+   "head": 262,
+   "legs": 215,
+   "name": "GraduationGownMaroon",
+   "confidence": "prefix"
+  },
+  {
+   "body": 233,
+   "head": 262,
+   "legs": 216,
+   "name": "GraduationGownBlack",
+   "confidence": "prefix"
+  },
+  {
+   "body": 234,
+   "head": 282,
+   "legs": 236,
+   "name": "DeadMansSweater",
+   "confidence": "prefix"
+  },
+  {
+   "body": 235,
+   "head": 266,
+   "legs": 218,
+   "name": "PlaguebringerChestplate",
+   "confidence": "name"
+  },
+  {
+   "body": 236,
+   "head": 267,
+   "legs": 221,
+   "name": "RoninShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 237,
+   "head": 268,
+   "legs": 223,
+   "name": "TimelessTravelerRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 238,
+   "head": 269,
+   "legs": 224,
+   "name": "FloretProtectorChestplate",
+   "confidence": "name"
+  },
+  {
+   "body": 239,
+   "head": 270,
+   "legs": 225,
+   "name": "CapricornChestplate",
+   "confidence": "name"
+  },
+  {
+   "body": 240,
+   "head": 271,
+   "legs": 227,
+   "name": "TVHeadSuit",
+   "confidence": "name"
+  },
+  {
+   "body": 241,
+   "head": null,
+   "legs": 229,
+   "name": "FlinxFurCoat",
+   "confidence": "prefix"
+  },
+  {
+   "body": 242,
+   "head": 272,
+   "legs": 228,
+   "name": "RoyalDressTop",
+   "confidence": "prefix"
+  },
+  {
+   "body": 243,
+   "head": 127,
+   "legs": 230,
+   "name": "PrinceUniform",
+   "confidence": "prefix"
+  },
+  {
+   "body": 244,
+   "head": null,
+   "legs": 231,
+   "name": "WilsonShirt",
+   "confidence": "name"
+  },
+  {
+   "body": 245,
+   "head": null,
+   "legs": null,
+   "name": "WillowShirt",
+   "confidence": "none"
+  },
+  {
+   "body": 246,
+   "head": 278,
+   "legs": 234,
+   "name": "AshWoodBreastplate",
+   "confidence": "set-bonus"
+  },
+  {
+   "body": 247,
+   "head": null,
+   "legs": 235,
+   "name": "LincolnsHoodie",
+   "confidence": "prefix"
+  },
+  {
+   "body": 248,
+   "head": 282,
+   "legs": 236,
+   "name": "DeadCellsBeheadedBody",
+   "confidence": "name"
+  },
+  {
+   "body": 249,
+   "head": 187,
+   "legs": 217,
+   "name": "MoonLordBody",
+   "confidence": "name"
+  },
+  {
+   "body": 250,
+   "head": 284,
+   "legs": 237,
+   "name": "ChickenBonesBody",
+   "confidence": "name"
+  },
+  {
+   "body": 251,
+   "head": 284,
+   "legs": 237,
+   "name": "ChickenBonesRobe",
+   "confidence": "name"
+  },
+  {
+   "body": 252,
+   "head": 285,
+   "legs": 240,
+   "name": "UpgradedMiningBody",
+   "confidence": "name"
+  },
+  {
+   "body": 253,
+   "head": 286,
+   "legs": 241,
+   "name": "UpgradedFishingBody",
+   "confidence": "name"
+  },
+  {
+   "body": 254,
+   "head": 287,
+   "legs": 242,
+   "name": "ChippysBody",
+   "confidence": "name"
+  },
+  {
+   "body": 255,
+   "head": null,
+   "legs": 243,
+   "name": "BlueBikiniBody",
+   "confidence": "name"
+  },
+  {
+   "body": 256,
+   "head": null,
+   "legs": 244,
+   "name": "RedSwimsuitBody",
+   "confidence": "prefix"
+  },
+  {
+   "body": 257,
+   "head": 288,
+   "legs": 247,
+   "name": "HeroicisBody",
+   "confidence": "name"
+  },
+  {
+   "body": 258,
+   "head": 290,
+   "legs": 249,
+   "name": "LilacDuskBody",
+   "confidence": "name"
+  },
+  {
+   "body": 259,
+   "head": 291,
+   "legs": 251,
+   "name": "KazzymodusChestpiece",
+   "confidence": "prefix"
+  },
+  {
+   "body": 260,
+   "head": null,
+   "legs": 252,
+   "name": "PalworldPalMetalArmorBody",
+   "confidence": "name"
+  },
+  {
+   "body": 261,
+   "head": 292,
+   "legs": 253,
+   "name": "LunasBody",
+   "confidence": "name"
+  }
+ ]
+}

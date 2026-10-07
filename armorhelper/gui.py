@@ -36,6 +36,8 @@ from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
 from .i18n import tr
 from .layout import ArmorTemplateError, bundled_template, load_template, template_bytes
 from .preview import find_images_dir
+from .reverse import reverse_from_images
+from .vanilla import all_sets, find_set
 
 log = logging.getLogger("armorhelper")
 
@@ -91,6 +93,86 @@ class _FileDropTarget(wx.FileDropTarget):
     def OnDropFiles(self, x, y, filenames):  # noqa: N802 - wx naming
         self._on_files([Path(name) for name in filenames])
         return True
+
+
+class ReverseDialog(wx.Dialog):
+    """Ask for the vanilla armor ids to rebuild a template from."""
+
+    def __init__(self, parent) -> None:
+        super().__init__(parent, title=tr("reverse.title"), size=(460, 330))
+        self.sets = [item for item in all_sets() if item.body is not None]
+
+        panel = wx.Panel(self)
+        root = wx.BoxSizer(wx.VERTICAL)
+
+        root.Add(wx.StaticText(panel, label=tr("reverse.search")), 0, wx.LEFT | wx.TOP, 8)
+        self.search = wx.TextCtrl(panel)
+        self.search.Bind(wx.EVT_TEXT, lambda _e: self._fill_choices())
+        root.Add(self.search, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+
+        root.Add(wx.StaticText(panel, label=tr("reverse.pick")), 0, wx.LEFT | wx.TOP, 8)
+        self.choice = wx.Choice(panel, choices=[])
+        self.choice.Bind(wx.EVT_CHOICE, lambda _e: self._pick())
+        root.Add(self.choice, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+
+        grid = wx.FlexGridSizer(cols=2, vgap=6, hgap=8)
+        grid.AddGrowableCol(1, 1)
+        self.fields = {}
+        for key, label_key in (
+            ("head", "details.idHead"),
+            ("body", "details.idBody"),
+            ("legs", "details.idLegs"),
+        ):
+            ctrl = wx.TextCtrl(panel)
+            self.fields[key] = ctrl
+            grid.Add(wx.StaticText(panel, label=tr(label_key)), 0, wx.ALIGN_CENTER_VERTICAL)
+            grid.Add(ctrl, 1, wx.EXPAND)
+        root.Add(grid, 0, wx.EXPAND | wx.ALL, 8)
+
+        root.Add(wx.StaticText(panel, label=tr("reverse.hint")), 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        buttons = wx.StdDialogButtonSizer()
+        buttons.AddButton(wx.Button(panel, wx.ID_OK))
+        buttons.AddButton(wx.Button(panel, wx.ID_CANCEL))
+        buttons.Realize()
+        root.Add(buttons, 0, wx.EXPAND | wx.ALL, 8)
+        panel.SetSizer(root)
+
+        self._fill_choices()
+        if self.choice.GetCount():
+            self.choice.SetSelection(0)
+        self._pick()
+
+    def _fill_choices(self) -> None:
+        needle = self.search.GetValue().strip().lower().replace(" ", "")
+        self.visible = [
+            item
+            for item in self.sets
+            if not needle
+            or needle in item.name.lower()
+            or needle in str(item.body)
+        ]
+        self.choice.Set([f"{item.name}  ({item.body})" for item in self.visible])
+        if self.visible:
+            self.choice.SetSelection(0)
+
+    def _pick(self) -> None:
+        index = self.choice.GetSelection()
+        if index == wx.NOT_FOUND or index >= len(self.visible):
+            return
+        item = self.visible[index]
+        self.fields["head"].SetValue("" if item.head is None else str(item.head))
+        self.fields["body"].SetValue(str(item.body))
+        self.fields["legs"].SetValue("" if item.legs is None else str(item.legs))
+
+    def values(self):
+        def as_int(key):
+            raw = self.fields[key].GetValue().strip()
+            try:
+                return int(raw) if raw else None
+            except ValueError:
+                return None
+
+        return as_int("head"), as_int("body"), as_int("legs")
 
 
 class StatusPanel(wx.Panel):
@@ -256,6 +338,12 @@ class ArmorHelperFrame(wx.Frame):
         details.Add(self.images_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 4)
         details.Add(images_button, 0, wx.ALIGN_RIGHT | wx.ALL, 4)
         right.Add(details, 0, wx.EXPAND | wx.ALL, 6)
+
+        reverse = wx.StaticBoxSizer(wx.VERTICAL, panel, tr("group.reverse"))
+        self.reverse_button = wx.Button(panel, label=tr("button.reverse"))
+        self.reverse_button.Bind(wx.EVT_BUTTON, lambda _e: self._reverse())
+        reverse.Add(self.reverse_button, 0, wx.EXPAND | wx.ALL, 4)
+        right.Add(reverse, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
 
         columns.Add(left, 1, wx.EXPAND)
         columns.Add(right, 0, wx.EXPAND)
@@ -465,6 +553,56 @@ class ArmorHelperFrame(wx.Frame):
             wx.MessageBox("\n".join(errors), tr("dialog.error"), wx.OK | wx.ICON_ERROR, self)
         else:
             self._set_status(tr("status.done"), OK_COLOUR)
+
+    # ------------------------------------------------------------- reverse --
+    def _reverse(self) -> None:
+        images = self.images_ctrl.GetValue().strip()
+        if not images or not Path(images).is_dir():
+            wx.MessageBox(tr("reverse.noImages"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self)
+            return
+
+        dialog = ReverseDialog(self)
+        try:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            head, body, legs = dialog.values()
+        finally:
+            dialog.Destroy()
+
+        if body is None:
+            wx.MessageBox(tr("reverse.badBody"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self)
+            return
+
+        guessed = find_set(body=body)
+        name = (guessed.name if guessed and guessed.body == body else None) or str(body)
+
+        with wx.FileDialog(
+            self,
+            tr("reverse.save"),
+            defaultFile=f"ArmorTemplate_{name}_{body}.png",
+            wildcard="PNG (*.png)|*.png",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as save:
+            if save.ShowModal() != wx.ID_OK:
+                return
+            target = Path(save.GetPath())
+
+        try:
+            result = reverse_from_images(images, body=body, head=head, legs=legs, set_name=name)
+        except Exception as error:  # noqa: BLE001 - report, never crash
+            log.exception("reverse failed")
+            wx.MessageBox(
+                tr("reverse.failed", error=error), tr("dialog.error"), wx.OK | wx.ICON_ERROR, self
+            )
+            return
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        result.template.save(target, "PNG")
+        self._add_paths([target])
+        if result.warnings:
+            self._set_status(result.warnings[0], STALE_COLOUR)
+        else:
+            self._set_status(tr("reverse.done", path=target), OK_COLOUR)
 
     # --------------------------------------------------------------- misc --
     def _about(self) -> None:

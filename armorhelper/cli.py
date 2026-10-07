@@ -5,11 +5,14 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from . import __version__
 from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
 from .layout import ArmorTemplateError, load_template, template_bytes
+from .reverse import reverse_from_images
+from .vanilla import all_sets, describe, find_set, search_sets, source_info
 
 __all__ = ["main", "build_parser"]
 
@@ -27,6 +30,15 @@ examples:
 
   # Write the drawing template next to you
   armorhelper template -o ArmorTemplate_v1.png
+
+  # Reverse a vanilla armor back into a drawing template (1.4.4+ textures)
+  armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
+
+  # ... or reverse every known vanilla armor set at once
+  armorhelper reverse --images "Terraria/Content/Images" --all -o templates/
+
+  # Look up which head/legs ids belong to a body armor
+  armorhelper sets --search stardust
 """
 
 
@@ -50,6 +62,15 @@ def build_parser() -> argparse.ArgumentParser:
     template_parser.add_argument("-f", "--force", action="store_true", help="overwrite an existing file")
 
     sub.add_parser("targets", help="list the output names accepted by --targets")
+
+    reverse = sub.add_parser(
+        "reverse",
+        help="rebuild a 128x80 drawing template from Terraria's armor textures",
+    )
+    _add_reverse_arguments(reverse)
+
+    sets = sub.add_parser("sets", help="list or search the known vanilla armor sets")
+    sets.add_argument("-s", "--search", default="", help="filter by name or id")
 
     gui_parser = sub.add_parser("gui", help="launch the graphical interface")
     gui_parser.add_argument(
@@ -108,6 +129,97 @@ def _add_export_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--skin", type=int, default=0, help="player skin index for the previews")
     parser.add_argument("-q", "--quiet", action="store_true", help="only print errors")
     parser.add_argument("-v", "--verbose", action="store_true", help="print every file written")
+
+
+def _add_reverse_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--images",
+        required=True,
+        metavar="DIR",
+        help="Terraria Content/Images folder holding the extracted PNG textures",
+    )
+    parser.add_argument("--body", type=int, metavar="N", help="body armor id")
+    parser.add_argument("--head", type=int, metavar="N", help="head armor id (looked up when omitted)")
+    parser.add_argument("--legs", type=int, metavar="N", help="legs armor id (looked up when omitted)")
+    parser.add_argument("--name", metavar="TEXT", help="find the set by name instead of by id")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="rebuild a template for every known vanilla set (needs -o to be a folder)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        metavar="PATH",
+        help="output PNG, or an output folder when --all is used",
+    )
+    parser.add_argument("-f", "--force", action="store_true", help="overwrite existing files")
+    parser.add_argument("-q", "--quiet", action="store_true", help="only print errors")
+
+
+def _run_reverse(args: argparse.Namespace) -> int:
+    images = Path(args.images)
+    if not images.is_dir():
+        print(f"error: {images} is not a folder", file=sys.stderr)
+        return 1
+
+    if args.all:
+        jobs = [item for item in all_sets() if item.complete]
+    else:
+        if args.body is None and not args.name:
+            print("error: pass --body N (or --name TEXT, or --all)", file=sys.stderr)
+            return 1
+        wanted = find_set(body=args.body, name=args.name)
+        if wanted is None:
+            if args.body is None:
+                print(f"error: no known armor set named {args.name!r}", file=sys.stderr)
+            else:
+                print(f"error: no known armor set with body id {args.body}", file=sys.stderr)
+            return 1
+        jobs = [
+            replace(
+                wanted,
+                head=args.head if args.head is not None else wanted.head,
+                legs=args.legs if args.legs is not None else wanted.legs,
+            )
+        ]
+
+    output = Path(args.output)
+    as_folder = args.all or output.suffix.lower() != ".png"
+    if as_folder:
+        output.mkdir(parents=True, exist_ok=True)
+
+    failures = 0
+    for job in jobs:
+        target = output / f"ArmorTemplate_{job.name}_{job.body}.png" if as_folder else output
+        if target.exists() and not args.force:
+            print(f"skip {target} (exists, pass --force)", file=sys.stderr)
+            failures += 1
+            continue
+        try:
+            result = reverse_from_images(
+                images, body=job.body, head=job.head, legs=job.legs, set_name=job.name
+            )
+        except Exception as error:  # noqa: BLE001 - report and continue
+            print(f"error: {job.name}: {error}", file=sys.stderr)
+            failures += 1
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        result.template.save(target, "PNG")
+        if not args.quiet:
+            print(f"{target}  <-  {describe(job)}")
+            for warning in result.warnings:
+                print(f"    note: {warning}")
+    return 1 if failures else 0
+
+
+def _run_sets(args: argparse.Namespace) -> int:
+    info = source_info()
+    print(f"armor set table: {info['count']} entries  ({info['source']})")
+    for item in search_sets(args.search):
+        print("  " + describe(item))
+    return 0
 
 
 def _resolve_targets(raw: str) -> tuple[str, ...]:
@@ -176,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not argv:
         argv = ["gui"]
-    elif argv[0] not in {"export", "template", "targets", "gui", "-h", "--help", "--version"}:
+    elif argv[0] not in {"export", "reverse", "sets", "template", "targets", "gui", "-h", "--help", "--version"}:
         # Allow ``armorhelper -i foo.png -o out`` without the sub command.
         argv.insert(0, "export")
 
@@ -199,6 +311,10 @@ def main(argv: list[str] | None = None) -> int:
     command = args.command
     if command == "export":
         return _run_export(args)
+    if command == "reverse":
+        return _run_reverse(args)
+    if command == "sets":
+        return _run_sets(args)
     if command == "template":
         target = Path(args.output)
         if target.exists() and not args.force:
