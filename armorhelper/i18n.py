@@ -49,6 +49,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "button.working": "处理中...",
         "button.images": "泰拉贴图目录...",
         "button.reverse": "从原版 ID 还原模板...",
+        "button.reverseAll": "还原全部套装...",
         # ---- details ------------------------------------------------------
         "details.glow": "生成发光遮罩 (360×448)",
         "details.skin": "玩家肤色:",
@@ -112,6 +113,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reverse.failed": "还原失败：{error}",
         "reverse.done": "已还原模板：{path}",
         "reverse.unknown": "（未知）",
+        # ---- reverse all ---------------------------------------------------
+        "reverse.allTitle": "还原全部套装",
+        "reverse.allNone": "在 {dir} 里没有找到可还原的盔甲贴图。",
+        "reverse.allConfirm": "将还原 {count} 套盔甲到：\n{dir}\n\n已存在的同名文件会被覆盖，是否继续？",
+        "reverse.allProgress": "正在还原 {index}/{total}：{name}",
+        "reverse.allDone": "已还原 {count} 套盔甲到 {dir}",
+        "reverse.allDoneOpen": "已还原 {count} 套盔甲到：\n{dir}\n\n是否打开该目录？",
+        "reverse.allFailed": "{count} 套还原失败，详见控制台日志。",
     },
     "en": {
         "app.title": "ArmorHelper {version} — Terraria armor sheet generator",
@@ -141,6 +150,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "button.working": "Working...",
         "button.images": "Terraria Images...",
         "button.reverse": "Rebuild template from ids...",
+        "button.reverseAll": "Rebuild every set...",
         "details.glow": "Write a glow mask (360x448)",
         "details.skin": "Player skin:",
         "details.idHead": "Head id:",
@@ -198,6 +208,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "reverse.failed": "Reverse failed: {error}",
         "reverse.done": "Rebuilt template: {path}",
         "reverse.unknown": " (unknown)",
+        "reverse.allTitle": "Rebuild every set",
+        "reverse.allNone": "No reversible armor textures found in {dir}.",
+        "reverse.allConfirm": "{count} armor sets will be rebuilt into:\n{dir}\n\nExisting files are overwritten. Continue?",
+        "reverse.allProgress": "Rebuilding {index}/{total}: {name}",
+        "reverse.allDone": "Rebuilt {count} armor sets into {dir}",
+        "reverse.allDoneOpen": "Rebuilt {count} armor sets into:\n{dir}\n\nOpen the folder?",
+        "reverse.allFailed": "{count} sets failed, see the log for details.",
     },
 }
 

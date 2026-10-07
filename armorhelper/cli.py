@@ -12,7 +12,7 @@ from . import __version__
 from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
 from .layout import ArmorTemplateError, load_template, template_bytes
 from .reverse import reverse_from_images
-from .vanilla import all_sets, describe, find_set, search_sets, source_info
+from .vanilla import all_sets, describe, find_set, sanitize_filename, search_sets, source_info
 
 __all__ = ["main", "build_parser"]
 
@@ -145,7 +145,13 @@ def _add_reverse_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--all",
         action="store_true",
-        help="rebuild a template for every known vanilla set (needs -o to be a folder)",
+        help="rebuild a template for every known vanilla set, into <output>/ArmorTemplate",
+    )
+    parser.add_argument(
+        "--subdir",
+        default="ArmorTemplate",
+        metavar="NAME",
+        help="sub folder used by --all (default: ArmorTemplate, use '' to write directly into -o)",
     )
     parser.add_argument(
         "-o",
@@ -187,12 +193,15 @@ def _run_reverse(args: argparse.Namespace) -> int:
 
     output = Path(args.output)
     as_folder = args.all or output.suffix.lower() != ".png"
+    if args.all and args.subdir:
+        output = output / args.subdir
     if as_folder:
         output.mkdir(parents=True, exist_ok=True)
 
     failures = 0
     for job in jobs:
-        target = output / f"ArmorTemplate_{job.name}_{job.body}.png" if as_folder else output
+        label = sanitize_filename(job.zh_display or job.name)
+        target = output / f"ArmorTemplate_{label}_{job.body}.png" if as_folder else output
         if target.exists() and not args.force:
             print(f"skip {target} (exists, pass --force)", file=sys.stderr)
             failures += 1

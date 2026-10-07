@@ -64,14 +64,23 @@ python3 -m armorhelper sets --search 星尘      # Chinese search works too
 # rebuild the drawing template (head/legs are looked up automatically)
 python3 -m armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
 
-# or override, or do every known set at once
+# or override the ids
 python3 -m armorhelper reverse --images "..." --body 190 --head 189 --legs 130 -o out.png
+
+# every known set at once, into <output>/ArmorTemplate/
 python3 -m armorhelper reverse --images "..." --all -o templates/
+#   templates/ArmorTemplate/星尘板甲_190.png, ...   (151 templates in ~0.4s)
 ```
 
-In the GUI it is the **从原版 ID 还原模板...** button, with a searchable list of every known
-set.  The rebuilt template is written into the **Output Folder** (the same folder the sheets go
-to); if no output folder has been chosen yet the folder picker opens first and the choice is
+In the GUI there are two buttons in the *反向还原* box:
+
+* **从原版 ID 还原模板...** — searchable list of every known set; the rebuilt template is written
+  into the **Output Folder** (the same folder the sheets go to).
+* **还原全部套装...** — rebuilds every set whose textures are present into
+  **`<Output Folder>/ArmorTemplate/`**, with a progress readout and an offer to open the folder
+  afterwards.
+
+If no output folder has been chosen yet the folder picker opens first and the choice is
 remembered.  Each entry reads ``中文名  英文名  (身体 ID)`` — e.g. ``星尘板甲  StardustPlate  (190)`` —
 and the search box matches the Chinese name, the English name or any of the ids.
 

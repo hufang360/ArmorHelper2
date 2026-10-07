@@ -38,7 +38,7 @@ from .export import TARGETS, ExportSettings, export_template
 from .i18n import get_language, tr
 from .layout import ArmorTemplateError, bundled_template, load_template, template_bytes
 from .preview import find_images_dir
-from .reverse import reverse_from_images
+from .reverse import reverse_from_images, texture_paths
 from .vanilla import all_sets, find_set, sanitize_filename
 
 log = logging.getLogger("armorhelper")
@@ -46,6 +46,9 @@ log = logging.getLogger("armorhelper")
 #: The original tool recreated its template next to the executable on startup;
 #: we do the same so the file is always easy to find.
 TEMPLATE_NAME = "ArmorTemplate_v1.png"
+
+#: Sub folder of the output folder that "rebuild every set" writes into.
+REVERSE_ALL_SUBDIR = "ArmorTemplate"
 
 FORUM_URL = (
     "https://forums.terraria.org/index.php?threads/"
@@ -350,7 +353,10 @@ class ArmorHelperFrame(wx.Frame):
         reverse = wx.StaticBoxSizer(wx.VERTICAL, panel, tr("group.reverse"))
         self.reverse_button = wx.Button(panel, label=tr("button.reverse"))
         self.reverse_button.Bind(wx.EVT_BUTTON, lambda _e: self._reverse())
+        self.reverse_all_button = wx.Button(panel, label=tr("button.reverseAll"))
+        self.reverse_all_button.Bind(wx.EVT_BUTTON, lambda _e: self._reverse_all())
         reverse.Add(self.reverse_button, 0, wx.EXPAND | wx.ALL, 4)
+        reverse.Add(self.reverse_all_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
         right.Add(reverse, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
 
         columns.Add(left, 1, wx.EXPAND)
@@ -536,6 +542,8 @@ class ArmorHelperFrame(wx.Frame):
             bool(targets) and output_ok and bool(self.entries) and not self.working
         )
         self.export_button.SetLabel(tr("button.working") if self.working else tr("button.export"))
+        for button in (self.reverse_button, self.reverse_all_button):
+            button.Enable(not self.working)
 
         if self.working:
             return
@@ -724,6 +732,103 @@ class ArmorHelperFrame(wx.Frame):
             self._set_status(result.warnings[0], STALE_COLOUR)
         else:
             self._set_status(tr("reverse.done", path=target), OK_COLOUR)
+
+    # --------------------------------------------------------- reverse all --
+    def _reversible_sets(self, images: Path):
+        """Every set whose three textures are actually present."""
+        jobs = []
+        for item in all_sets():
+            if not item.complete:
+                continue
+            paths = texture_paths(images, head=item.head, body=item.body, legs=item.legs)
+            if all(path is not None for path in paths.values()):
+                jobs.append(item)
+        return jobs
+
+    def _reverse_all(self) -> None:
+        if self.working:
+            return
+        images_value = self.images_ctrl.GetValue().strip()
+        if not images_value or not Path(images_value).is_dir():
+            wx.MessageBox(tr("reverse.noImages"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self)
+            return
+        images = Path(images_value)
+
+        output = self.ensure_output_dir()
+        if output is None:
+            return
+        target_dir = output / REVERSE_ALL_SUBDIR
+
+        jobs = self._reversible_sets(images)
+        if not jobs:
+            wx.MessageBox(
+                tr("reverse.allNone", dir=images),
+                tr("reverse.allTitle"),
+                wx.OK | wx.ICON_INFORMATION,
+                self,
+            )
+            return
+
+        if wx.MessageBox(
+            tr("reverse.allConfirm", count=len(jobs), dir=target_dir),
+            tr("reverse.allTitle"),
+            wx.YES_NO | wx.ICON_QUESTION,
+            self,
+        ) != wx.YES:
+            return
+
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            wx.MessageBox(
+                tr("reverse.failed", error=error), tr("dialog.error"), wx.OK | wx.ICON_ERROR, self
+            )
+            return
+
+        self.working = True
+        self._refresh()
+        self._set_status(tr("reverse.allProgress", index=0, total=len(jobs), name=""), STALE_COLOUR)
+        threading.Thread(
+            target=self._reverse_all_worker, args=(images, target_dir, jobs), daemon=True
+        ).start()
+
+    def _reverse_all_worker(self, images: Path, target_dir: Path, jobs) -> None:
+        failed: list[str] = []
+        for index, item in enumerate(jobs, start=1):
+            wx.CallAfter(
+                self._set_status,
+                tr("reverse.allProgress", index=index, total=len(jobs), name=item.zh_display or item.name),
+                STALE_COLOUR,
+            )
+            try:
+                result = reverse_from_images(
+                    images, body=item.body, head=item.head, legs=item.legs, set_name=item.name
+                )
+                label = sanitize_filename(item.zh_display or item.name)
+                result.template.save(target_dir / f"ArmorTemplate_{label}_{item.body}.png", "PNG")
+            except Exception as error:  # noqa: BLE001 - keep going, report at the end
+                log.exception("reverse failed for %s", item.name)
+                failed.append(f"{item.name}: {error}")
+        wx.CallAfter(self._reverse_all_done, target_dir, len(jobs), failed)
+
+    def _reverse_all_done(self, target_dir: Path, total: int, failed: list[str]) -> None:
+        self.working = False
+        self._refresh()
+        written = total - len(failed)
+        if failed:
+            self._set_status(tr("reverse.allFailed", count=len(failed)), BAD_COLOUR)
+            wx.MessageBox(
+                "\n".join(failed[:10]), tr("reverse.allTitle"), wx.OK | wx.ICON_ERROR, self
+            )
+            return
+        self._set_status(tr("reverse.allDone", count=written, dir=target_dir), OK_COLOUR)
+        if wx.MessageBox(
+            tr("reverse.allDoneOpen", count=written, dir=target_dir),
+            tr("reverse.allTitle"),
+            wx.YES_NO | wx.ICON_INFORMATION,
+            self,
+        ) == wx.YES:
+            wx.LaunchDefaultApplication(str(target_dir))
 
     def _on_language_menu(self, event) -> None:
         code = self.language_ids.get(event.GetId())

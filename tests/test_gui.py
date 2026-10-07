@@ -6,6 +6,7 @@ They are skipped when wxPython is not installed or no display is available.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -194,6 +195,87 @@ def test_reverse_aborts_when_the_output_folder_picker_is_cancelled(frame, tmp_pa
     assert frame.output_ctrl.GetValue() == ""
 
 
+#: Copper, Necro and Wood — their head/legs ids are unique in the set table, so
+#: nothing else can accidentally look reversible.
+VANILLA_BODIES = (1, 7, 32)
+
+
+@pytest.fixture()
+def vanilla_images(tmp_path) -> Path:
+    """A stand-in Content/Images folder holding three complete armor sets."""
+    from armorhelper.vanilla import find_set
+
+    template = load_template(TEMPLATE)
+    root = tmp_path / "Images"
+    (root / "Armor").mkdir(parents=True)
+    for body in VANILLA_BODIES:
+        item = find_set(body=body)
+        for armor_id in {item.head, item.legs}:
+            generate_head(template).save(root / f"Armor_Head_{armor_id}.png")
+            generate_legs(template).save(root / f"Armor_Legs_{armor_id}.png")
+        generate_body_composite(template).save(root / "Armor" / f"Armor_{body}.png")
+    return root
+
+
+def test_reverse_all_writes_into_the_ArmorTemplate_subfolder(frame, vanilla_images, tmp_path, monkeypatch):
+    from armorhelper.gui import REVERSE_ALL_SUBDIR
+
+    output = tmp_path / "out"
+    output.mkdir()
+    frame.images_ctrl.SetValue(str(vanilla_images))
+    frame.output_ctrl.SetValue(str(output))
+    monkeypatch.setattr(wx, "MessageBox", lambda *a, **k: wx.YES)
+    monkeypatch.setattr(wx, "LaunchDefaultApplication", lambda *a, **k: True)
+
+    frame._reverse_all()
+    for _ in range(600):
+        wx.Yield()
+        if not frame.working:
+            break
+        time.sleep(0.01)
+
+    assert not frame.working
+    target = output / REVERSE_ALL_SUBDIR
+    assert target.is_dir()
+    produced = sorted(path.name for path in target.glob("*.png"))
+    assert len(produced) == 3
+    assert all(name.startswith("ArmorTemplate_") for name in produced)
+    assert "已还原 3 套" in frame.status.text()
+
+
+def test_reverse_all_lists_only_sets_with_textures(frame, vanilla_images):
+    jobs = frame._reversible_sets(vanilla_images)
+    assert sorted(item.body for item in jobs) == sorted(VANILLA_BODIES)
+
+
+def test_reverse_all_reports_when_nothing_matches(frame, tmp_path):
+    empty = tmp_path / "empty"
+    (empty / "Armor").mkdir(parents=True)
+    assert frame._reversible_sets(empty) == []
+
+
+def test_reverse_all_asks_for_the_output_folder(frame, vanilla_images, tmp_path, monkeypatch):
+    from armorhelper.gui import REVERSE_ALL_SUBDIR
+
+    chosen = tmp_path / "picked"
+    chosen.mkdir()
+    frame.images_ctrl.SetValue(str(vanilla_images))
+    frame.output_ctrl.SetValue("")
+    monkeypatch.setattr(frame, "_ask_for_output_dir", lambda: str(chosen))
+    monkeypatch.setattr(wx, "MessageBox", lambda *a, **k: wx.YES)
+    monkeypatch.setattr(wx, "LaunchDefaultApplication", lambda *a, **k: True)
+
+    frame._reverse_all()
+    for _ in range(600):
+        wx.Yield()
+        if not frame.working:
+            break
+        time.sleep(0.01)
+
+    assert frame.output_ctrl.GetValue() == str(chosen)
+    assert len(list((chosen / REVERSE_ALL_SUBDIR).glob("*.png"))) == 3
+
+
 def test_output_dir_is_reused_when_it_exists(frame, tmp_path):
     frame.output_ctrl.SetValue(str(tmp_path))
     assert frame.ensure_output_dir() == tmp_path
@@ -216,6 +298,17 @@ def test_export_writes_the_selected_sheets(frame, tmp_path):
 
     assert not frame.working
     assert (tmp_path / f"{TEMPLATE.stem}_Body.png").exists()
+
+
+def test_the_reverse_buttons_are_disabled_while_working(frame, tmp_path):
+    frame.working = True
+    frame._refresh()
+    assert not frame.reverse_button.IsEnabled()
+    assert not frame.reverse_all_button.IsEnabled()
+    frame.working = False
+    frame._refresh()
+    assert frame.reverse_button.IsEnabled()
+    assert frame.reverse_all_button.IsEnabled()
 
 
 def test_config_round_trip(frame, tmp_path):
