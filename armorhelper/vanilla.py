@@ -13,7 +13,29 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 
-__all__ = ["ArmorSet", "all_sets", "find_set", "search_sets", "describe", "sanitize_filename"]
+__all__ = [
+    "ArmorSet",
+    "all_sets",
+    "find_set",
+    "search_sets",
+    "describe",
+    "display_name",
+    "sanitize_filename",
+]
+
+
+#: Terraria's official Simplified Chinese calls exactly one armor piece 护甲
+#: (``MeteorSuit`` → 流星护甲) while the rest of the interface says 盔甲.  The
+#: data file keeps the name as the game ships it; this fix is applied when a
+#: name is displayed.
+_DISPLAY_FIXES = (("护甲", "盔甲"),)
+
+
+def display_name(name: str) -> str:
+    """Normalise a localized name for display."""
+    for old, new in _DISPLAY_FIXES:
+        name = name.replace(old, new)
+    return name
 
 
 @dataclass(frozen=True)
@@ -29,9 +51,14 @@ class ArmorSet:
     def complete(self) -> bool:
         return self.head is not None and self.legs is not None
 
+    @property
+    def zh_display(self) -> str:
+        """The Chinese name as the interface should show it."""
+        return display_name(self.zh)
+
     def label(self) -> str:
         """``中文名  英文名  (身体 ID)`` — used by the UI lists."""
-        parts = [part for part in (self.zh, self.name) if part]
+        parts = [part for part in (self.zh_display, self.name) if part]
         return f"{'  '.join(parts)}  ({self.body})"
 
     def matches(self, needle: str) -> bool:
@@ -41,6 +68,8 @@ class ArmorSet:
             return True
         if needle in self.name.lower() or needle in self.zh.lower():
             return True
+        if needle in display_name(self.zh).lower():
+            return True
         if needle.lstrip("-").isdigit():
             wanted = int(needle)
             return wanted in (self.body, self.head, self.legs)
@@ -48,7 +77,7 @@ class ArmorSet:
 
 
 def describe(item: ArmorSet) -> str:
-    label = item.zh or item.name
+    label = item.zh_display or item.name
     return (
         f"{label}  {item.name} (body {item.body}"
         f", head {item.head if item.head is not None else '?'}"

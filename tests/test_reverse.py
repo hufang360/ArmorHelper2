@@ -233,6 +233,28 @@ def test_label_shows_chinese_english_and_id():
     assert "(190)" in label
 
 
+def test_display_name_normalises_the_armor_term():
+    """The game ships one piece as 流星护甲; the interface says 盔甲."""
+    from armorhelper.vanilla import display_name
+
+    meteor = find_set(body=6)
+    assert meteor.zh == "流星护甲"  # data keeps the official name
+    assert meteor.zh_display == "流星盔甲"  # display uses the preferred term
+    assert "流星盔甲" in meteor.label()
+    assert "流星盔甲" in describe(meteor)
+    assert display_name("铜链甲") == "铜链甲"
+    assert any(item.body == 6 for item in search_sets("盔甲"))
+
+
+def test_no_armor_term_in_the_interface_strings():
+    """The whole UI uses 盔甲, never 护甲."""
+    from armorhelper import i18n
+
+    for table in i18n.MESSAGES.values():
+        for key, value in table.items():
+            assert "护甲" not in value, f"{key}: {value}"
+
+
 def test_label_falls_back_to_english():
     from armorhelper.vanilla import ArmorSet
 
