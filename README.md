@@ -70,7 +70,9 @@ python3 -m armorhelper reverse --images "..." --all -o templates/
 ```
 
 In the GUI it is the **从原版 ID 还原模板...** button, with a searchable list of every known
-set.  Each entry reads ``中文名  英文名  (身体 ID)`` — e.g. ``星尘板甲  StardustPlate  (190)`` —
+set.  The rebuilt template is written into the **Output Folder** (the same folder the sheets go
+to); if no output folder has been chosen yet the folder picker opens first and the choice is
+remembered.  Each entry reads ``中文名  英文名  (身体 ID)`` — e.g. ``星尘板甲  StardustPlate  (190)`` —
 and the search box matches the Chinese name, the English name or any of the ids.
 
 How accurate is it?

@@ -636,19 +636,58 @@ class ArmorHelperFrame(wx.Frame):
             self._set_status(tr("status.done"), OK_COLOUR)
 
     # ------------------------------------------------------------- reverse --
+    def _ask_for_output_dir(self) -> str | None:
+        """Show the folder picker (split out so it can be stubbed in tests)."""
+        with wx.DirDialog(
+            self, tr("dialog.chooseOutput"), defaultPath=self._dialog_dir(), style=wx.DD_DEFAULT_STYLE
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return None
+            return dialog.GetPath()
+
+    def ensure_output_dir(self) -> Path | None:
+        """The folder every output goes to; ask for one when it is not set yet."""
+        folder = self.output_ctrl.GetValue().strip()
+        if folder and Path(folder).is_dir():
+            return Path(folder)
+
+        chosen = self._ask_for_output_dir()
+        if not chosen:
+            return None
+
+        # Reflect the choice in the control so the next run reuses it.
+        self.output_ctrl.SetValue(chosen)
+        self._remember_dir(chosen)
+        self._save_config()
+        self._refresh()
+        return Path(chosen)
+
+    def _ask_reverse_ids(self):
+        """Ask which armor to rebuild (split out so it can be stubbed in tests)."""
+        dialog = ReverseDialog(self)
+        try:
+            if dialog.ShowModal() != wx.ID_OK:
+                return None
+            return dialog.values()
+        finally:
+            dialog.Destroy()
+
     def _reverse(self) -> None:
         images = self.images_ctrl.GetValue().strip()
         if not images or not Path(images).is_dir():
             wx.MessageBox(tr("reverse.noImages"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self)
             return
 
-        dialog = ReverseDialog(self)
-        try:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            head, body, legs = dialog.values()
-        finally:
-            dialog.Destroy()
+        # The reverse output lands in the same folder as the sheet export, so
+        # ask for it first when it has not been chosen yet.
+        output = self.ensure_output_dir()
+        if output is None:
+            return
+
+        chosen = self._ask_reverse_ids()
+        if chosen is None:
+            return
+        head, body, legs = chosen
 
         if body is None:
             wx.MessageBox(tr("reverse.badBody"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self)
@@ -659,19 +698,15 @@ class ArmorHelperFrame(wx.Frame):
             guessed = None
         name = (guessed.name if guessed else None) or str(body)
         label = sanitize_filename((guessed.zh if guessed and guessed.zh else name) or name)
+        target = output / f"ArmorTemplate_{label}_{body}.png"
 
-        with wx.FileDialog(
+        if target.exists() and wx.MessageBox(
+            tr("reverse.overwrite", name=target.name),
+            tr("reverse.overwriteTitle"),
+            wx.YES_NO | wx.ICON_QUESTION,
             self,
-            tr("reverse.save"),
-            defaultDir=self._dialog_dir(),
-            defaultFile=f"ArmorTemplate_{label}_{body}.png",
-            wildcard="PNG (*.png)|*.png",
-            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-        ) as save:
-            if save.ShowModal() != wx.ID_OK:
-                return
-            target = Path(save.GetPath())
-            self._remember_dir(target)
+        ) != wx.YES:
+            return
 
         try:
             result = reverse_from_images(images, body=body, head=head, legs=legs, set_name=name)

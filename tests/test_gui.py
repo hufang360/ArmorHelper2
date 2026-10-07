@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -16,6 +17,13 @@ sys.path.insert(0, str(ROOT))
 TEMPLATE = ROOT / "armorhelper" / "data" / "ArmorTemplate_v1.png"
 
 wx = pytest.importorskip("wx")
+
+from armorhelper.generate import (  # noqa: E402
+    generate_body_composite,
+    generate_head,
+    generate_legs,
+)
+from armorhelper.layout import load_template  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -122,6 +130,73 @@ def test_reverse_dialog_search_accepts_english(frame):
         assert "StardustPlate" in dialog.choice.GetString(0)
     finally:
         dialog.Destroy()
+
+
+def test_reverse_uses_the_output_folder(frame, tmp_path, monkeypatch):
+    """The rebuilt template goes straight into the output folder."""
+    images = tmp_path / "Images"
+    (images / "Armor").mkdir(parents=True)
+    template = load_template(TEMPLATE)
+    generate_head(template).save(images / "Armor_Head_7.png")
+    generate_legs(template).save(images / "Armor_Legs_7.png")
+    generate_body_composite(template).save(images / "Armor" / "Armor_7.png")
+
+    output = tmp_path / "out"
+    output.mkdir()
+    frame.images_ctrl.SetValue(str(images))
+    frame.output_ctrl.SetValue(str(output))
+    monkeypatch.setattr(frame, "_ask_reverse_ids", lambda: (7, 7, 7))
+
+    frame._reverse()
+
+    produced = list(output.glob("*.png"))
+    assert len(produced) == 1
+    assert Image.open(produced[0]).size == (128, 80)
+    # ... and it is queued up for the next export.
+    assert [entry.path for entry in frame.entries] == produced
+
+
+def test_reverse_asks_for_the_output_folder_when_it_is_empty(frame, tmp_path, monkeypatch):
+    """An unset output folder triggers the picker, and the choice is kept."""
+    images = tmp_path / "Images"
+    (images / "Armor").mkdir(parents=True)
+    template = load_template(TEMPLATE)
+    generate_head(template).save(images / "Armor_Head_7.png")
+    generate_legs(template).save(images / "Armor_Legs_7.png")
+    generate_body_composite(template).save(images / "Armor" / "Armor_7.png")
+
+    chosen = tmp_path / "picked"
+    chosen.mkdir()
+    frame.images_ctrl.SetValue(str(images))
+    frame.output_ctrl.SetValue("")
+    monkeypatch.setattr(frame, "_ask_for_output_dir", lambda: str(chosen))
+    monkeypatch.setattr(frame, "_ask_reverse_ids", lambda: (7, 7, 7))
+
+    frame._reverse()
+
+    assert frame.output_ctrl.GetValue() == str(chosen)  # control updated
+    assert list(chosen.glob("*.png"))
+    assert frame.status.text().startswith("已还原模板")
+
+
+def test_reverse_aborts_when_the_output_folder_picker_is_cancelled(frame, tmp_path, monkeypatch):
+    images = tmp_path / "Images"
+    (images / "Armor").mkdir(parents=True)
+    frame.images_ctrl.SetValue(str(images))
+    frame.output_ctrl.SetValue("")
+    monkeypatch.setattr(frame, "_ask_for_output_dir", lambda: None)
+    called = []
+    monkeypatch.setattr(frame, "_ask_reverse_ids", lambda: called.append(True))
+
+    frame._reverse()
+
+    assert not called, "the armor picker must not open before a folder is chosen"
+    assert frame.output_ctrl.GetValue() == ""
+
+
+def test_output_dir_is_reused_when_it_exists(frame, tmp_path):
+    frame.output_ctrl.SetValue(str(tmp_path))
+    assert frame.ensure_output_dir() == tmp_path
 
 
 def test_export_writes_the_selected_sheets(frame, tmp_path):
