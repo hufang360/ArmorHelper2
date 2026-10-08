@@ -299,37 +299,101 @@ def find_chrome() -> str | None:
 HARNESS = """<!doctype html>
 <meta charset="utf-8"><title>harness</title>
 <iframe id="frame" src="/" style="width:1100px;height:820px"></iframe>
-<script>
+<script type="module">
 const report = (payload) =>
   fetch("/__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
 const frame = document.getElementById("frame");
+
+const appInfo = (doc) => ({
+  status: doc.querySelector("#status").textContent.trim(),
+  sets: doc.querySelectorAll("#set-select option").length,
+  checkboxes: doc.querySelectorAll("input[type=checkbox]").length,
+  targets: doc.querySelectorAll("#targets input").length,
+  tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
+  subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
+});
+
+/** Feed the app three vanilla-named texture files and hit "rebuild this set". */
+async function driveReverse(doc) {
+  const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }, { pngBlob }] =
+    await Promise.all([
+      import("/js/data.js"),
+      import("/js/fs.js"),
+      import("/js/generate.js"),
+      import("/js/png.js"),
+    ]);
+  await loadLayout("/data/layout.json");
+
+  const template = await decodeBitmap(await (await fetch("/data/ArmorTemplate_v1.png")).blob());
+  const sheets = [
+    ["Armor_Head_189.png", generateHead(template)],
+    ["Armor_190.png", generateBodyComposite(template)],
+    ["Armor_Legs_130.png", generateLegs(template)],
+  ];
+  const files = [];
+  for (const [name, bitmap] of sheets) {
+    files.push(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
+  }
+
+  const input = doc.querySelector("#texture-input");
+  const transfer = new DataTransfer();
+  for (const file of files) transfer.items.add(file);
+  input.files = transfer.files;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  doc.querySelector("#rev-head").value = "189";
+  doc.querySelector("#rev-body").value = "190";
+  doc.querySelector("#rev-legs").value = "130";
+  doc.querySelector("#do-reverse").click();
+
+  for (let tick = 0; tick < 400; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const images = doc.querySelectorAll("#reverse-result .preview img");
+    if (images.length) {
+      return {
+        previews: images.length,
+        captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
+        widths: [...images].map((img) => img.naturalWidth),
+        files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+    const warnings = doc.querySelectorAll("#reverse-result .warn");
+    if (warnings.length && doc.querySelector("#status").className !== "busy") {
+      return { error: [...warnings].map((el) => el.textContent).join(" | ") };
+    }
+  }
+  return { error: "reverse produced no preview" };
+}
+
 let ticks = 0;
-const timer = setInterval(() => {
+const timer = setInterval(async () => {
   ticks += 1;
+  let doc;
   try {
-    const doc = frame.contentDocument;
+    doc = frame.contentDocument;
     const status = doc.querySelector("#status");
     const text = status ? status.textContent.trim() : "";
-    if (text && text !== "…") {
-      clearInterval(timer);
-      report({
-        status: text,
-        sets: doc.querySelectorAll("#set-select option").length,
-        checkboxes: doc.querySelectorAll("input[type=checkbox]").length,
-        targets: doc.querySelectorAll("#targets input").length,
-        tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
-        subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
-      });
+    if (!text || text === "…") {
+      if (ticks > 2000) {
+        clearInterval(timer);
+        report({ error: "timeout waiting for the app" });
+      }
       return;
     }
+    clearInterval(timer);
   } catch (error) {
     clearInterval(timer);
     report({ error: String(error) });
     return;
   }
-  if (ticks > 2000) {
-    clearInterval(timer);
-    report({ error: "timeout waiting for the app" });
+
+  try {
+    const app = appInfo(doc);
+    const reverse = await driveReverse(doc);
+    report({ ...app, reverse });
+  } catch (error) {
+    report({ error: String((error && error.stack) || error) });
   }
 }, 20);
 </script>
@@ -470,6 +534,17 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert payload["checkboxes"] == 16
     assert payload["tabs"] == ["导出贴图", "反向还原", "设置"]
     assert "网页版" in payload["subtitle"]
+
+    # ... and "rebuild this set" has to produce a template preview that really
+    # contains the head and legs, not just the torso.
+    reverse = payload["reverse"]
+    assert not reverse.get("error"), reverse.get("error")
+    assert reverse["files"] == ["ArmorTemplate_星尘板甲_190.png"]
+    assert reverse["previews"] == 3, reverse
+    assert "绘制模板" in reverse["captions"][0]
+    assert "20 帧" in reverse["captions"][1]
+    # 128x80 magnified 4x plus the 2px border
+    assert reverse["widths"][0] == 128 * 4 + 4, reverse["widths"]
 
 
 def test_pages_workflow_publishes_the_web_folder():

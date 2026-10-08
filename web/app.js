@@ -32,6 +32,7 @@ import {
   contactSheet,
   fullArmorFrames,
   gifFrameOrder,
+  magnify,
   overlay,
   playerFrames,
   tintFrames,
@@ -250,6 +251,23 @@ function renderResult(result) {
   host.append(resultCard(result));
 }
 
+/** One captioned preview: a checkerboard tile with the label underneath. */
+function previewFigure(url, caption, alt) {
+  const figure = document.createElement("figure");
+  figure.className = "preview";
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = alt ?? caption;
+  img.className = "pixel";
+  figure.append(img);
+  if (caption) {
+    const label = document.createElement("figcaption");
+    label.textContent = caption;
+    figure.append(label);
+  }
+  return figure;
+}
+
 function resultCard(result, host = $("#results")) {
   const card = document.createElement("div");
   card.className = "job";
@@ -260,25 +278,8 @@ function resultCard(result, host = $("#results")) {
 
   const previews = document.createElement("div");
   previews.className = "previews";
-  if (result.preview) {
-    const box = document.createElement("div");
-    box.className = "preview";
-    const img = document.createElement("img");
-    img.src = result.preview;
-    img.alt = t("web.previewSheet");
-    img.className = "pixel";
-    box.append(img);
-    previews.append(box);
-  }
-  if (result.gifUrl) {
-    const box = document.createElement("div");
-    box.className = "preview";
-    const img = document.createElement("img");
-    img.src = result.gifUrl;
-    img.alt = "GIF";
-    img.className = "pixel";
-    box.append(img);
-    previews.append(box);
+  for (const item of result.previews ?? []) {
+    previews.append(previewFigure(item.url, item.caption, item.alt));
   }
   if (previews.childElementCount) card.append(previews);
 
@@ -333,7 +334,7 @@ function keepUrl(bitmap) {
 }
 
 /** Build a result object from a list of `{ name, bitmap }` plus previews. */
-async function packResult(title, entries, frames, warnings = []) {
+async function packResult(title, entries, frames, warnings = [], template = null) {
   const files = [];
   const blobs = [];
   for (const entry of entries) {
@@ -348,20 +349,30 @@ async function packResult(title, entries, frames, warnings = []) {
     });
   }
 
-  let preview = null;
-  let gifUrl = null;
+  const previews = [];
+  if (template) {
+    previews.push({
+      url: keepUrl(magnify(template, 4)),
+      caption: t("web.previewTemplate"),
+      alt: "ArmorTemplate",
+    });
+  }
   if (frames?.length) {
-    preview = keepUrl(contactSheet(frames));
+    previews.push({
+      url: keepUrl(contactSheet(frames)),
+      caption: t("web.previewFrames"),
+      alt: t("web.previewSheet"),
+    });
     const gif = gifBlob(frames, { order: gifFrameOrder() });
-    gifUrl = URL.createObjectURL(gif);
     blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
+    previews.push({ url: URL.createObjectURL(gif), caption: t("web.previewGif"), alt: "GIF" });
   }
 
   const result = {
     title,
     files,
-    preview,
-    gifUrl,
+    previews,
+    preview: previews[0]?.url ?? null,
     warnings,
     zip: {
       save: () =>
@@ -483,7 +494,7 @@ async function doExport() {
       const warnings = [];
       if (state.config.verify) warnings.push(...verifyRoundTrip(file.bitmap, entries));
 
-      const result = await packResult(stem, entries, withPlayer, warnings);
+      const result = await packResult(stem, entries, withPlayer, warnings, file.bitmap);
       host.append(resultCard(result));
     }
     say(t("status.done"));
@@ -586,7 +597,13 @@ async function doReverse() {
 
     const frames = fullArmorFrames(template, false);
     const entries = [{ name: `ArmorTemplate_${label}_${body}.png`, bitmap: template }];
-    const result = await packResult(`ArmorTemplate_${label}_${body}`, entries, frames, warnings);
+    const result = await packResult(
+      `ArmorTemplate_${label}_${body}`,
+      entries,
+      frames,
+      warnings,
+      template,
+    );
 
     const host = $("#reverse-result");
     host.innerHTML = "";

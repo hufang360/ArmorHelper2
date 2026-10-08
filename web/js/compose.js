@@ -174,6 +174,19 @@ export function contactSheet(frames, scale = 3, columns = 10, gap = 2) {
   return out;
 }
 
+/**
+ * Blow a bitmap up for display, with a faint outline.
+ *
+ * The drawing template is only 128x80, so it needs a few times magnification to
+ * be readable next to the generated sheets.
+ */
+export function magnify(bitmap, scale = 4, pad = 2) {
+  const out = createBitmap(bitmap.width * scale + pad * 2, bitmap.height * scale + pad * 2);
+  fillRect(out, [0, 0, out.width, out.height], [0, 0, 0, 60]);
+  pasteBitmap(out, upscale(bitmap, scale), pad, pad);
+  return out;
+}
+
 /** Extract frame `index` of a vertically stacked sheet. */
 export function frameAt(sheet, index, width, height) {
   return cropCell(sheet, 0, index * height, width, height);

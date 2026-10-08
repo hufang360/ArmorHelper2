@@ -143,13 +143,13 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-02 | 非 128×80 的图片要给出提示并跳过 | 必须 | WC-13 |
 | WFR-03 | 12 项导出目标复选，默认勾选与桌面版一致 | 必须 | WC-03 |
 | WFR-04 | 生成头部 / 腿部 / 复合身体 / 发光遮罩 / 旧格式贴图 | 必须 | WC-05 |
-| WFR-05 | 生成 20 帧拼版预览与 GIF 动画 | 必须 | WC-05 |
+| WFR-05 | 结果卡片并排显示「绘制模板 (128×80)」「生成效果 (20 帧)」「GIF 动画」三个带标题的预览 | 必须 | WC-05 |
 | WFR-06 | 指定盔甲 ID 时使用原版文件名与 `Armor/` 子目录 | 必须 | WC-06 |
 | WFR-07 | 单文件下载与打包 zip 下载，zip 保留目录结构 | 必须 | WC-05 |
 | WFR-08 | 可选「女性版本」「叠加玩家」用于预览 | 应该 | WC-07 |
 | WFR-09 | 反向还原：可搜索套装列表（中文名 / 英文名 / ID），条目形如 `中文名  英文名  (ID)` | 必须 | WC-08 |
 | WFR-10 | 选中套装自动填入头/身/腿 ID，可手改 | 必须 | WC-08 |
-| WFR-11 | 还原结果展示 128×80 模板与其 20 帧预览，可下载 | 必须 | WC-09 |
+| WFR-11 | 还原结果展示 128×80 模板（放大 4 倍）与其 20 帧预览，可下载 | 必须 | WC-09 |
 | WFR-12 | 「还原全部套装」批量还原贴图齐全的套装 | 必须 | WC-10 |
 | WFR-13 | 支持读取用户指定的 `Content/Images` 目录（Chromium） | 应该 | WC-11 |
 | WFR-14 | 支持手动上传需要的那几张贴图（其它浏览器） | 必须 | WC-11 |
@@ -178,7 +178,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 │ └──────────────────────────────────────┘ │ ☐ 女性版本 ☐ 叠加玩家        │            │
 │ ┌─ 导出结果 ───────────────────────────┐ │                              │            │
 │ │ 铜盔甲                                │ │ [        开始导出        ]   │            │
-│ │ [20 帧拼版预览]   [GIF 预览]          │ └──────────────────────────────┘            │
+│ │ [绘制模板 128×80] [生成效果 20 帧] [GIF] │ └───────────────────────────┘              │
 │ │ 铜盔甲_Head.png   40×1120 · 1 KB      │                                             │
 │ │ [打包下载 (zip)]  [写入输出目录]       │                                             │
 │ └──────────────────────────────────────┘                                             │
@@ -192,7 +192,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WUI-01 | 顶部标签页 | 三个面板纯前端切换，不重新加载 |
 | WUI-02 | 语言下拉 | 立即切换全部文案与 `<html lang>`，写入 localStorage |
 | WUI-03 | 拖放区 | `dragenter/dragover` 高亮；支持点击与键盘 Enter |
-| WUI-04 | 结果卡片 | 预览图 `image-rendering: pixelated` + 棋盘格底 |
+| WUI-04 | 结果卡片 | 预览图 `image-rendering: pixelated` + 棋盘格底；每张预览下方有 `figcaption` 说明 |
 | WUI-05 | 状态栏 | 四色反馈；所有错误走这里 |
 | WUI-06 | 文件夹按钮 | 不支持 File System Access 时按钮降级并在状态栏说明 |
 | WUI-07 | 套装列表 | `<select size=8>`，搜索框 140ms 防抖 |
@@ -264,11 +264,11 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-02 | 多张模板一次导出 | 浏览器自检 `smoke.html` |
 | WC-03 | 目标勾选默认与桌面版一致 | `test_layout_data_covers_every_frame` |
 | WC-04 | 生成结果与 Python 逐像素一致 | `test_generated_sheets_match_python` 等 8 项 |
-| WC-05 | 预览、GIF、zip 正确 | `test_gif_matches_the_python_frames`、`test_zip_has_the_expected_structure`、`test_browser_smoke_test` |
+| WC-05 | 预览、GIF、zip 正确 | `test_gif_matches_the_python_frames`、`test_zip_has_the_expected_structure`、`test_browser_smoke_test`（含 `magnify` 尺寸） |
 | WC-06 | 原版 ID 命名与子目录 | 浏览器自检 + Python `test_export_uses_vanilla_names` |
 | WC-07 | 女性 / 玩家预览可生成 | 浏览器自检 `20 composed frames` |
 | WC-08 | 套装搜索含中文名与 ID | 浏览器自检 `set search finds stardust` |
-| WC-09 | 还原结果可下载且为 128×80 | `test_reverse_matches_python` |
+| WC-09 | 还原结果可下载且为 128×80，卡片里并排出现三个带标题的预览 | `test_reverse_matches_python`、`test_browser_renders_the_app`（在浏览器里模拟上传贴图并点「还原这一套」） |
 | WC-10 | 还原全部可批量产出 | `test_reverse_result_regenerates_the_sheets` + 手工 |
 | WC-11 | 目录读取与手动上传 | 手工（需真实浏览器授权） |
 | WC-12 | 目录写入 | 手工（需真实浏览器授权） |
