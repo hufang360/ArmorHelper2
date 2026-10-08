@@ -234,7 +234,7 @@ tests/test_gui.py        18   wxPython 冒烟、设置读写、还原流程（�
 tests/test_config.py      9   config.json 往返、v1 兼容、垃圾输入容错
 tests/test_cli.py         9   各子命令冒烟与错误码、template 的参考线开关
 tests/test_docs.py        9   文档裁切表与 layout 常量一致、用词、markdown 链接、README 为中文
-tests/test_web_port.py   34   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线叠加 + 站点图标
+tests/test_web_port.py   25   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线叠加 + 站点图标
 tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可复现性
                         ---
                         129（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
