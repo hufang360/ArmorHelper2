@@ -36,7 +36,7 @@ import {
   playerFrames,
   tintFrames,
 } from "./js/compose.js";
-import { reverseTemplate } from "./js/reverse.js";
+import { loadTextures, reverseTemplate } from "./js/reverse.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
 import { zipBlob } from "./js/zip.js";
@@ -534,33 +534,28 @@ function verifyRoundTrip(template, entries) {
 
 /* -------------------------------------------------------------- reverse -- */
 
-async function loadTextures(body, head, legs) {
-  const wanted = [];
-  if (head !== null) wanted.push([`Armor_Head_${head}.png`, `Armor_Head_${head}.png`]);
-  if (body !== null) {
-    wanted.push([`Armor/Armor_${body}.png`, "body"]);
-    wanted.push([`Armor_${body}.png`, "body"]);
-  }
-  if (legs !== null) wanted.push([`Armor_Legs_${legs}.png`, `Armor_Legs_${legs}.png`]);
-
-  const found = { head: null, body: null, legs: null };
+/**
+ * A reader for vanilla textures: the chosen Content/Images folder first, then
+ * anything the user uploaded by hand (for browsers without folder access).
+ */
+function textureReader() {
   const folder = state.folders.images;
-  const permission = folder ? await ensurePermission(folder, "read") : false;
+  let permission = null;
 
-  for (const [path, kind] of wanted) {
-    if (found[kind]) continue;
-    if (permission) {
-      try {
-        found[kind] = await decodeBitmap(await readFromFolder(folder, path));
-        continue;
-      } catch {
-        /* try the next candidate */
+  return async (path) => {
+    if (folder) {
+      if (permission === null) permission = await ensurePermission(folder, "read");
+      if (permission) {
+        try {
+          return await decodeBitmap(await readFromFolder(folder, path));
+        } catch {
+          /* fall back to the uploaded files */
+        }
       }
     }
     const file = state.textures.get(path.split("/").pop());
-    if (file) found[kind] = await decodeBitmap(file);
-  }
-  return found;
+    return file ? decodeBitmap(file) : null;
+  };
 }
 
 async function doReverse() {
@@ -576,11 +571,17 @@ async function doReverse() {
 
   say(t("web.working"), "busy");
   try {
-    const textures = await loadTextures(body, asId($("#rev-head").value), asId($("#rev-legs").value));
+    const { textures, missing } = await loadTextures(
+      {
+        body,
+        head: asId($("#rev-head").value),
+        legs: asId($("#rev-legs").value),
+      },
+      textureReader(),
+    );
     const item = findSet(body);
     const label = sanitizeFilename((item && (displayName(item.zh) || item.name)) || `Armor${body}`);
     const { template, warnings } = reverseTemplate(textures);
-    const missing = ["head", "body", "legs"].filter((kind) => !textures[kind]);
     if (missing.length) warnings.push(...missing.map((kind) => `${kind}: texture not found`));
 
     const frames = fullArmorFrames(template, false);
@@ -612,8 +613,12 @@ async function doReverseAll() {
     const jobs = allSets().filter(
       (item) => item.head !== null && item.legs !== null && item.body !== null,
     );
+    const read = textureReader();
     for (const item of jobs) {
-      const textures = await loadTextures(item.body, item.head, item.legs);
+      const { textures } = await loadTextures(
+        { body: item.body, head: item.head, legs: item.legs },
+        read,
+      );
       if (!textures.body) continue;
       try {
         const { template } = reverseTemplate(textures);

@@ -35,7 +35,7 @@ import {
   generateLegs,
 } from "../js/generate.js";
 import { contactSheet, fullArmorFrames, gifFrameOrder } from "../js/compose.js";
-import { reverseTemplate } from "../js/reverse.js";
+import { loadTextures, reverseTemplate, textureCandidates } from "../js/reverse.js";
 import { encodeGIF } from "../js/gif.js";
 import { encodePNG } from "../js/png.js";
 import { createZip } from "../js/zip.js";
@@ -85,6 +85,53 @@ const textures = {
 const reversed = reverseTemplate(textures);
 writeBitmap("js_reversed.rgba", reversed.template);
 writeFileSync(join(workdir, "js_reversed_warnings.json"), JSON.stringify(reversed.warnings));
+
+/* ---- texture lookup -------------------------------------------------- */
+// Guards the bug where the app mapped the vanilla file names onto the wrong
+// keys and silently reversed the body only.
+const tiny = (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+const library = {
+  "Armor_Head_189.png": tiny(40, 1120),
+  "Armor/Armor_190.png": tiny(360, 224),
+  "Armor_Legs_130.png": tiny(40, 1120),
+};
+const flatLibrary = {
+  "Armor_Head_189.png": tiny(40, 1120),
+  "Armor_190.png": tiny(360, 224),
+  "Armor_Legs_130.png": tiny(40, 1120),
+};
+
+const nested = await loadTextures({ body: 190, head: 189, legs: 130 }, async (path) =>
+  library[path] ?? null,
+);
+const flat = await loadTextures({ body: 190, head: 189, legs: 130 }, async (path) =>
+  flatLibrary[path] ?? null,
+);
+const bodyOnly = await loadTextures({ body: 190 }, async (path) => library[path] ?? null);
+
+writeFileSync(
+  join(workdir, "js_texture_lookup.json"),
+  JSON.stringify({
+    nested: {
+      head: nested.textures.head?.height ?? null,
+      body: nested.textures.body?.width ?? null,
+      legs: nested.textures.legs?.height ?? null,
+      missing: nested.missing,
+    },
+    flat: {
+      head: flat.textures.head?.height ?? null,
+      body: flat.textures.body?.width ?? null,
+      legs: flat.textures.legs?.height ?? null,
+      missing: flat.missing,
+    },
+    bodyOnly: {
+      head: bodyOnly.textures.head,
+      legs: bodyOnly.textures.legs,
+      missing: bodyOnly.missing,
+    },
+    candidates: textureCandidates(190, 189, 130),
+  }),
+);
 
 /* ---- codecs ---------------------------------------------------------- */
 const frames = fullArmorFrames(template, false);

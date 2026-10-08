@@ -22,7 +22,7 @@ let initLayout, loadSets, loadLayout, searchSets, setLabel;
 let createBitmap, countDifferences, downscale2, upscale;
 let generateBodyComposite, generateHead, generateLegs;
 let contactSheet, fullArmorFrames, gifFrameOrder;
-let reverseTemplate, encodePNG, pngBlob, encodeGIF, createZip, decodeBitmap;
+let reverseTemplate, loadTextures, encodePNG, pngBlob, encodeGIF, createZip, decodeBitmap;
 
 const out = document.getElementById("out");
 let failures = 0;
@@ -54,7 +54,7 @@ async function loadModules() {
   ({ createBitmap, countDifferences, downscale2, upscale } = await import("../js/bitmap.js"));
   ({ generateBodyComposite, generateHead, generateLegs } = await import("../js/generate.js"));
   ({ contactSheet, fullArmorFrames, gifFrameOrder } = await import("../js/compose.js"));
-  ({ reverseTemplate } = await import("../js/reverse.js"));
+  ({ reverseTemplate, loadTextures } = await import("../js/reverse.js"));
   ({ encodePNG, pngBlob } = await import("../js/png.js"));
   ({ encodeGIF } = await import("../js/gif.js"));
   ({ createZip } = await import("../js/zip.js"));
@@ -95,6 +95,33 @@ async function run() {
   const differences =
     countDifferences(again.head, head) + countDifferences(again.legs, legs) + countDifferences(again.body, body);
   check("reverse round trip is lossless", differences === 0, `${differences} px`);
+
+  // "rebuild this set" end to end: the three sheets are looked up by their
+  // vanilla file names and the rebuilt template must contain a head and legs,
+  // not just the torso.
+  const byName = {
+    "Armor_Head_189.png": head,
+    "Armor/Armor_190.png": body,
+    "Armor_Legs_130.png": legs,
+  };
+  const looked = await loadTextures({ body: 190, head: 189, legs: 130 }, async (path) => byName[path] ?? null);
+  check("textures are looked up by their vanilla names", looked.missing.length === 0, looked.missing.join(", "));
+
+  const full = reverseTemplate(looked.textures).template;
+  const filled = (region) => {
+    for (let y = region[1]; y < region[1] + region[3]; y += 1) {
+      for (let x = region[0]; x < region[0] + region[2]; x += 1) {
+        if (full.data[(y * full.width + x) * 4 + 3] > 1) return true;
+      }
+    }
+    return false;
+  };
+  const regions = (await import("../js/data.js")).L().regions;
+  const legPiece = [regions.legColumnLeft[0], regions.legColumnLeft[1], regions.legPiece[0], regions.legPiece[1]];
+  check("rebuilt template has a head", filled(regions.head));
+  check("rebuilt template has legs",
+        filled(regions.legFootFront) && filled(regions.legFootBack) && filled(legPiece));
+  check("rebuilt template has a torso", filled(regions.body));
 
   // PNG round trip through a real image decode
   const png = await pngBlob(head);

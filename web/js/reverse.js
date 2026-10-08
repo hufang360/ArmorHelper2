@@ -202,11 +202,48 @@ export function reverseTemplate(textures = {}) {
   return { template, warnings };
 }
 
-/** Which of the three texture files exist for a set (used by "rebuild all"). */
-export function textureNames(body, head, legs) {
+/**
+ * The file names to try for each of the three textures, in order.
+ *
+ * The body lives in the `Armor/` sub folder, but a flat layout is accepted too
+ * so an extracted texture pack that flattens everything still works.
+ */
+export function textureCandidates(body, head, legs) {
+  const isSet = (value) => value !== null && value !== undefined && value !== "";
   return {
-    head: head === null || head === undefined ? null : `Armor_Head_${head}.png`,
-    body: body === null || body === undefined ? null : [`Armor/Armor_${body}.png`, `Armor_${body}.png`],
-    legs: legs === null || legs === undefined ? null : `Armor_Legs_${legs}.png`,
+    head: isSet(head) ? [`Armor_Head_${head}.png`] : [],
+    body: isSet(body) ? [`Armor/Armor_${body}.png`, `Armor_${body}.png`] : [],
+    legs: isSet(legs) ? [`Armor_Legs_${legs}.png`] : [],
   };
+}
+
+/**
+ * Load the three textures for a set.
+ *
+ * `readFile(path)` returns a bitmap or null/throws when the file is missing;
+ * the caller decides where files come from (a folder handle, uploaded files,
+ * ...), which also makes this testable outside a browser.
+ *
+ * Returns `{ textures, missing }` — `textures` is always keyed
+ * `head` / `body` / `legs`.
+ */
+export async function loadTextures({ body = null, head = null, legs = null }, readFile) {
+  const textures = { head: null, body: null, legs: null };
+  const missing = [];
+
+  for (const [kind, paths] of Object.entries(textureCandidates(body, head, legs))) {
+    for (const path of paths) {
+      try {
+        const bitmap = await readFile(path);
+        if (bitmap) {
+          textures[kind] = bitmap;
+          break;
+        }
+      } catch {
+        /* try the next candidate */
+      }
+    }
+    if (!textures[kind]) missing.push(kind);
+  }
+  return { textures, missing };
 }

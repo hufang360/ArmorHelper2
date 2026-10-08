@@ -127,6 +127,32 @@ def test_reverse_matches_python(js_output, template):
     compare(js_output, "js_reversed.rgba", expected)
 
 
+def test_texture_lookup_maps_vanilla_files_to_slots(js_output):
+    """`Armor_Head_189.png` has to end up in the `head` slot, not its own key.
+
+    Regression test: the app used the file name as the key, so "rebuild this
+    set" silently produced a template with only the torso in it.
+    """
+    lookup = json.loads((js_output / "js_texture_lookup.json").read_text(encoding="utf-8"))
+
+    for layout in ("nested", "flat"):
+        entry = lookup[layout]
+        assert entry["missing"] == [], f"{layout}: {entry['missing']}"
+        assert entry["head"] == 1120, f"{layout}: head sheet not loaded"
+        assert entry["body"] == 360, f"{layout}: body sheet not loaded"
+        assert entry["legs"] == 1120, f"{layout}: legs sheet not loaded"
+
+    # a body-only request must still report what is missing
+    assert lookup["bodyOnly"]["missing"] == ["head", "legs"]
+    assert lookup["bodyOnly"]["head"] is None
+
+    assert lookup["candidates"] == {
+        "head": ["Armor_Head_189.png"],
+        "body": ["Armor/Armor_190.png", "Armor_190.png"],
+        "legs": ["Armor_Legs_130.png"],
+    }
+
+
 def test_reverse_result_regenerates_the_sheets(js_output, template):
     """Round trip through the JavaScript reverse must still match Python."""
     rebuilt = load_rgba(js_output / "js_reversed.rgba", (128, 80))
@@ -313,8 +339,14 @@ const timer = setInterval(() => {
 class HarnessHandler(http.server.SimpleHTTPRequestHandler):
     """Serve `web/` and collect the page's own completion report."""
 
+    # Keep-alive, like a real static host: the page pulls a dozen modules and
+    # HTTP/1.0 (the stdlib default) makes the browser reopen a socket for each.
+    protocol_version = "HTTP/1.1"
+    disable_nagle_algorithm = True
+
     done = None  # threading.Event
     payload = None
+    paths = []
 
     def log_message(self, *args):  # noqa: A003 - stdlib name
         pass
@@ -327,6 +359,7 @@ class HarnessHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):  # noqa: N802
+        type(self).paths.append(self.path)
         if self.path.startswith("/__harness.html"):
             return self._send(HARNESS.encode("utf-8"), "text/html; charset=utf-8")
         return super().do_GET()
@@ -345,6 +378,7 @@ def browser_server():
     """Serve `web/` over HTTP the way GitHub Pages would, plus the harness."""
     HarnessHandler.done = threading.Event()
     HarnessHandler.payload = None
+    HarnessHandler.paths = []
     handler = functools.partial(HarnessHandler, directory=str(WEB))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -357,6 +391,9 @@ def browser_server():
 def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
     """Open `url`, wait for the page to report back, and return its payload."""
     profile = tmp_path / "chrome-profile"
+    # `start_new_session` puts Chrome and all of its helper processes in their
+    # own process group, so they can be cleaned up together.  Leaving helpers
+    # behind makes the *next* launch starve and time out.
     process = subprocess.Popen(
         [
             chrome,
@@ -364,6 +401,8 @@ def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
             "--disable-gpu",
             "--no-first-run",
             "--no-default-browser-check",
+            "--disable-background-timer-throttling",
+            "--disable-renderer-backgrounding",
             f"--user-data-dir={profile}",
             # No --virtual-time-budget: the page reports back over HTTP, so the
             # run is driven by real time and stays deterministic.
@@ -371,17 +410,32 @@ def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        start_new_session=True,
     )
     try:
         if not wait_for.wait(timeout=120):
-            pytest.fail("the page never reported back")
+            pytest.fail(f"the page never reported back; requests={HarnessHandler.paths}")
     finally:
-        process.terminate()
-        try:
-            process.wait(timeout=20)
-        except subprocess.TimeoutExpired:  # pragma: no cover
-            process.kill()
+        stop_browser(process)
     return json.loads(HarnessHandler.payload)
+
+
+def stop_browser(process) -> None:
+    """Terminate Chrome and every helper process it spawned."""
+    import os
+    import signal
+
+    try:
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        process.terminate()
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:  # pragma: no cover
+        try:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            process.kill()
 
 
 def test_browser_smoke_test(browser_server, tmp_path):
@@ -409,7 +463,7 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     base, handler = browser_server
     payload = open_in_browser(chrome, f"{base}/__harness.html", tmp_path, handler.done)
 
-    assert not payload.get("error"), payload.get("error")
+    assert not payload.get("error"), f"{payload.get('error')} | requests={HarnessHandler.paths}"
     assert "已连接" in payload["status"]
     assert payload["sets"] > 150
     assert payload["targets"] == 12
