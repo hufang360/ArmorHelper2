@@ -100,6 +100,29 @@ Firefox / Safari 没有这个 API，此时请用**下载 / 打包下载**，或�
 
 ---
 
+## 站点图标
+
+`data/icon.png`（120×120 的金色盾徽）同时用于：
+
+* 浏览器标签页图标 `<link rel="icon">`（也就是「网页左上角」那个）
+* iOS 添加到主屏幕的图标 `<link rel="apple-touch-icon">`
+* 页头左上角的标志
+
+它是手工放置的资源，`tools/export_web.py` 不会写它也不会删它（有测试守着）。
+
+## 内置原版贴图
+
+`web/data/vanilla/` 由 `tools/import_vanilla_textures.py` 从一个已解包的
+`Content/Images` 复制而来（只取盔甲相关文件，身体贴图保留 `Armor/` 子目录）：
+
+```bash
+python3 tools/import_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5.7
+```
+
+`version.txt` 记录游戏版本、总张数与分类张数，还有一个覆盖全部文件的 checksum；
+`tests/test_vanilla_bundle.py` 会核对张数、checksum 与目录结构，
+并在设置了 `ARMORHELPER_VANILLA_SOURCE` 时验证脚本能**原样复现**这个目录。
+
 ## 与 Python 版的关系
 
 **两个版本在运行时不共享任何代码**，但保证结果一致：
@@ -147,6 +170,8 @@ web/
     idb.js              IndexedDB（保存目录句柄）
   data/                 由 tools/export_web.py 生成
                         （含可选的 ArmorTemplate_overlay.png 参考线图层）
+  data/icon.png         站点图标（浏览器标签页与页头左上角）
+  data/vanilla/         内置的原版盔甲贴图 + version.txt（手机离线可用）
   tests/
     run.mjs             Node 下的核心自检（供 Python 测试对比）
     smoke.html          浏览器内的端到端自检
@@ -189,4 +214,5 @@ python3 -m http.server 8000 --directory web
 | 无法自动定位游戏目录 | 浏览器拿不到本机路径，需要你自己选一次目录 |
 | 没有 `.xnb` 解码 | 需要已解包的 PNG 资源目录 |
 | 还原时只读三张贴图 | 也可以手动上传 `Armor_Head_N.png` / `Armor_N.png` / `Armor_Legs_N.png` |
+| 内置贴图不含玩家皮肤 | 只打包了 `Armor_*`；「叠加玩家」预览仍需自备 `Player_0_3/0_7/0_10.png` |
 | 大文件内存 | 全部在内存里处理；一次导出几十套盔甲没问题，几百套建议分批 |

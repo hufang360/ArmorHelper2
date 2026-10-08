@@ -11,7 +11,7 @@
 | 基准游戏版本 | 泰拉瑞亚 1.4.5（新贴图格式自 1.4.4 起生效） |
 | 实测环境 | macOS · Python 3.14.8 · Pillow 12.0.0 · wxPython 4.2.4 · Node v26.10.0 · Google Chrome（headless） |
 | 规模 | 61 个文件；Python 6165 行 / JS 2809 行 / Markdown 1739 行 |
-| 测试 | `pytest tests -q` → **112 passed**（约 3 秒） |
+| 测试 | `pytest tests -q` → **127 passed, 1 skipped**（约 4 秒） |
 
 ---
 
@@ -43,11 +43,15 @@
   `Fill`（含 alpha 覆盖）、2× 最近邻放大。
 - `armorhelper/generate.py` — 头部 / 腿部 / 手臂 / 旧版身体 / **新版复合身体**（360×224，
   `--glow` 时 360×448）/ 20 帧合成。
-- `armorhelper/compose.py` — 全身护甲 20 帧、GIF 帧序列（与 v1 一致）、GIF 导出。
+- `armorhelper/compose.py` — 全身盔甲 20 帧、GIF 帧序列（与 v1 一致）、GIF 导出。
 - `armorhelper/preview.py` — 从游戏 `Content/Images` 读取玩家贴图做预览。
 - `armorhelper/reverse.py` — **反向还原**：由三张原版贴图重建 128×80 模板。
 - `armorhelper/data/ArmorTemplate_overlay.png` — 可选的 **128×80 参考线图层**
   （区域底色 + 分区线 + 边框）。只用于显示与绘制底稿，**生成与还原都不参与**。
+- `web/data/vanilla/` — **内置的 748 张原版盔甲贴图**（Terraria 1.4.5.7，约 1.6 MB）
+  加 `version.txt`。手机没有文件系统权限，靠它才能用反向还原。
+- `web/data/icon.png` — 站点图标（浏览器标签页 / iOS 主屏幕 / 页头标志）。
+  手工放置，`tools/export_web.py` 不碰它。
 - `armorhelper/vanilla.py` + `data/armor_sets.json` — 204 条原版套装表（body/head/legs）。
 - `armorhelper/export.py` — 产物落盘、原版 ID 命名规则。
 - `armorhelper/config.py` — 界面状态持久化（`config.json`，兼容 v1 的键）。
@@ -57,7 +61,7 @@
 ### 2.2 桌面界面
 
 中文（可切英文），四组布局对齐原版：输入文件（含拖放、上次导出时间着色）、输出目录、
-导出按钮、12 项导出选项，另加「详情」（发光遮罩 / 玩家肤色 / 三个护甲 ID / 泰拉贴图目录）
+导出按钮、12 项导出选项，另加「详情」（发光遮罩 / 玩家肤色 / 三个盔甲 ID / 泰拉贴图目录）
 与「反向还原」（单套 + 还原全部套装）。设置存 `config.json`，含窗口位置尺寸、列宽、
 输入列表、上次导出时间、最近目录、界面语言。
 
@@ -67,7 +71,9 @@
   `png` / `gif` / `zip` / `fs` / `idb`，全部原生 ES 模块，无框架、无构建、无 CDN。
 - `web/app.js` — 单页应用：导出、反向还原、设置三个标签页；结果卡片并排显示
   「绘制模板 (128×80)」「生成效果 (20 帧)」「GIF 动画」。
-- `web/data/` — 由 `tools/export_web.py` 从 Python 侧导出（layout / armor_sets / i18n / 模板）。
+- `web/data/` — 由 `tools/export_web.py` 从 Python 侧导出（layout / armor_sets / i18n / 模板 / 参考线）。
+- `web/data/vanilla/` — 内置原版盔甲贴图（748 张 + `version.txt`），由
+  `tools/import_vanilla_textures.py` 从一个已解包的 `Content/Images` 导入。
 - `.github/workflows/pages.yml` — 重新导出数据并检查未过期 → 跑等价性测试 → 发布 `web/` 到 Pages。
 
 ### 2.4 工具与文档
@@ -76,12 +82,13 @@
 |---|---|
 | `tools/build_armor_sets.py` | 由游戏源码生成套装表（`ArmorSetBonuses.cs` + `ArmorIDs.cs` + `Item.cs` + 简中本地化） |
 | `tools/export_web.py` | 把 Python 侧的常量导出成 `web/data/*` |
+| `tools/import_vanilla_textures.py` | 把已解包的 `Content/Images` 里的盔甲贴图导入 `web/data/vanilla/`（只取 `Armor_*`，身体贴图保留 `Armor/` 子目录），并写 `version.txt`（版本 / 张数 / 分类张数 / 总字节 / checksum） |
 | `tools/inspect_armor.py` | 按引擎算法渲染任意 1.4.4+ 身体贴图，用于与原版对照 |
 | `docs/需求文档.md` | Python 版 / 核心库规格（含 9×4 格子定义、帧偏移表、验收标准） |
 | `docs/Web版需求文档.md` | Web 版规格（架构、功能/界面/非功能需求、验收标准） |
 | `docs/贴图裁切说明.md` | 铜盔甲三张贴图的逐格裁切说明（36 格全部标注 + 实测包围盒） |
 | `docs/armorhelper-v1.decompiled.cs` | v1 的反编译源码（移植与回归的参考基准） |
-| `ArmorHelper_v1/` | 原版 exe / pdb / 模板，作为溯源参考 |
+| `v1/` | 原版工具的压缩包、模板与论坛链接，作为溯源参考 |
 
 ---
 
@@ -89,7 +96,7 @@
 
 ### D-1 模板保持 128×80（1×），输出统一放大 2×
 
-**依据（已实测）**：抽查全部 748 个原版护甲贴图，**每一个 2×2 像素块都是同色**，
+**依据（已实测）**：抽查全部 748 个原版盔甲贴图，**每一个 2×2 像素块都是同色**，
 即原版贴图是 1× 像素画的精确 2 倍最近邻放大（748 个里只有 22 个文件存在
 0.005%~0.18% 的例外块）。因此 1× 模板足以无损描述原版贴图，不需要引入 2× 模板。
 
@@ -152,7 +159,33 @@ Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套�
 与模板逐像素相同（模板另 1251 个像素是美术），因此当前叠加在视觉上是**空操作**。
 若希望参考线只存在于叠加层，把模板里的参考线擦掉即可——预览与下载的模板仍会带上它。
 
-### D-9 输出命名
+### D-9 原版贴图内置到 Web 版
+
+手机浏览器没有 File System Access API，也不可能手动挑 748 个文件，所以把
+**748 张原版盔甲贴图（Terraria 1.4.5.7，约 1.6 MB）** 直接放进 `web/data/vanilla/`。
+
+- 目录结构照抄游戏：`Armor_Head_N.png` / `Armor_Legs_N.png` 在根，
+  `Armor/Armor_N.png` 在 `Armor/` 子目录——这样读取逻辑可以直接
+  `fetch("data/vanilla/" + <游戏里的相对路径>)`，不需要额外的映射表。
+- `version.txt` 记录游戏版本、总张数、分类张数与**全部文件的 checksum**，
+  `tests/test_vanilla_bundle.py` 会核对；设置了 `ARMORHELPER_VANILLA_SOURCE`
+  时还会验证导入脚本能**原样复现**这个目录。
+- 读取优先级：用户选的文件夹 → 手动上传 → **内置**。界面会显示当前用的是哪一个。
+- 内置只含 `Armor_*`，不含玩家皮肤，所以「叠加玩家」预览在手机上仍需自备
+  `Player_0_3/0_7/0_10.png`。
+
+### D-10 站点图标与启动自检
+
+- `data/icon.png` 同时作为 favicon、apple-touch-icon 与页头标志。页头标志按**平滑**渲染
+  （不带 `image-rendering: pixelated`），因为它是矢量风格的美术而不是像素画。
+- `web/app.js` 的事件绑定改为 `on(选择器, 事件, 处理)`，**元素缺失只记录不抛异常**；
+  启动结束时如果套装表为空、或缺少脚本引用的元素，状态栏会给出明确原因
+  （后者提示强制刷新）。目的是让「浏览器缓存了旧 index.html + 新 app.js」这类
+  版本错配表现为可见的告警，而不是静默的空列表。
+- `tools/export_web.py` 改为**先写临时文件再 rename**，避免浏览器在导出过程中读到
+  写了一半的 JSON。
+
+### D-11 输出命名
 
 未指定 ID 时用 `<输入名>_Head.png` 等；指定 ID 时用原版命名
 `Armor_Head_<id>.png` / `Armor_Legs_<id>.png` / `Armor/Armor_<id>.png`。
@@ -195,10 +228,11 @@ tests/test_reverse.py    26   反向还原往返、套装表、中文名、文�
 tests/test_gui.py        18   wxPython 冒烟、设置读写、还原流程（含输出目录回填）
 tests/test_config.py      9   config.json 往返、v1 兼容、垃圾输入容错
 tests/test_cli.py         9   各子命令冒烟与错误码、template 的参考线开关
-tests/test_docs.py        6   文档裁切表与 layout 常量一致、用词、交叉引用
-tests/test_web_port.py   22   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线
+tests/test_docs.py        9   文档裁切表与 layout 常量一致、用词、markdown 链接、README 为中文
+tests/test_web_port.py   24   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线 + 站点图标
+tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可复现性
                         ---
-                        112
+                        128（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
 ```
 
 ### 5.2 关键验证结论（均已实跑）
@@ -213,7 +247,8 @@ tests/test_web_port.py   22   JS 核心与 Python 逐像素对比 + 无头 Chrom
 | JS 生成的 GIF | PIL 解码 **52 帧逐帧一致**，调色板 8 色，约 16.2 KB |
 | JS 生成的 ZIP | `zipfile.testzip()` 通过，保留 `Armor/` 子目录与 UTF-8 文件名 |
 | 无头 Chrome 跑 `web/tests/smoke.html` | **22 项全 PASS**（模块加载、贴图生成、往返无损、原版文件名取贴图、模板放大、PNG/GIF/ZIP、套装搜索） |
-| 无头 Chrome 端到端驱动「还原这一套」 | 产物名正确、3 个带标题的预览、模板预览 `naturalWidth = 128×4+4` |
+| 无头 Chrome 端到端驱动「还原这一套」 | **两种来源各跑一次**（仅内置 / 上传文件），产物名正确、3 个带标题的预览、模板预览 `naturalWidth = 128×4+4`、无「找不到贴图」告警 |
+| 内置贴图包 | 748 张、分类张数与 `version.txt` 一致、checksum 匹配、`Armor/` 子目录保留、覆盖 140+ 套可还原套装、脚本可原样复现 |
 | 参考线叠加（Python vs JS） | 新增像素数一致；叠加幂等；**不改变任何生成结果** |
 | `web/data` 与 `tools/export_web.py` 输出 | 一致（未过期） |
 | 套装表 | 204 条；151 条同时有头与腿；202 条有中文名；23 条来自套装加成（权威） |
@@ -276,8 +311,9 @@ python3 tools/export_web.py
 
 | 内容 | 说明 |
 |---|---|
-| 文件夹读写仅 Chromium | `showDirectoryPicker` 是 Chromium 独有；其它浏览器降级为下载 / zip / 手动上传贴图 |
-| 无法自动定位游戏目录 | 浏览器拿不到本机路径，用户需自己选一次 |
+| 文件夹读写仅 Chromium | `showDirectoryPicker` 是 Chromium 独有；其它浏览器降级为下载 / zip / 手动上传贴图，**还原**则自动用内置贴图 |
+| 无法自动定位游戏目录 | 浏览器拿不到本机路径，用户需自己选一次（不选也能用内置贴图还原） |
+| 内置贴图不含玩家皮肤 | 只打包了 `Armor_*`；「叠加玩家」预览仍需自备 `Player_0_3/0_7/0_10.png` |
 | `file://` 不能直接用 | ES 模块受 CORS 限制，必须经静态服务器打开 |
 | 无 Service Worker | 刷新后需重新加载资源 |
 | 全部在内存处理 | 一次几百套盔甲可能吃紧 |
@@ -305,11 +341,13 @@ python3 tools/export_web.py
 | **无头浏览器测试用 `--virtual-time-budget` + `--dump-dom`** | 不稳定。虚拟时间会跑在真实异步之前，约 50% 概率在页面完成前 dump，且不随预算增大而单调改善 | 改为让页面 **POST `/__done` 回报结果**，Python 侧等待该信号 |
 | **无头测试服务器沿用标准库默认的 HTTP/1.0** | 每次请求都关连接，Chrome 一次拉十几个模块时 4 次里约 1 次卡满 40 秒 | 改 `protocol_version = "HTTP/1.1"` 长连接后 8/8 稳定，整体耗时 3.3s → 3.0s |
 | **把 `web/` 放在 Python 包内（`armorhelper/web/`）** | 与「两个版本分开」的目标冲突，且静态站点不该混在 Python 包里 | 已移到仓库根的 `web/`，并加测试禁止 `web/` 内出现 `.py` |
+| **只靠文件夹 / 手动上传取原版贴图** | 手机上两者都不可行（没有文件系统 API，也不可能挑 748 个文件） | 改为把贴图内置进站点，读取时作为兜底（见 D-9） |
 
 ### 已修但容易回归的坑
 
 | 坑 | 说明 |
 |---|---|
+| 浏览器缓存导致 index.html 与 app.js 版本错配 | 曾表现为「盔甲套列表是空的」且状态栏无提示。现在 `wire()` 用 `on()` 容错、启动结束会检查套装表是否为空并提示强制刷新 |
 | `ImageBitmap.close()` 会把 `width`/`height` 清零 | `web/js/fs.js` 里必须先取出宽高再关闭，否则 `getImageData` 报「source width is 0」 |
 | `withTimeout` 泄漏定时器 | `web/js/idb.js` 的守卫定时器必须在 promise 结束后 `clearTimeout`，否则 IndexedDB 不可用时会卡住启动 |
 | GIF 调色板把 bitmap 当数组遍历 | `web/js/gif.js` 要遍历 `frame.data`，不是 `frame` |
@@ -332,7 +370,8 @@ python3 tools/export_web.py
 ### P1 — 补齐测试覆盖面
 
 3. Web 版「还原全部套装」的浏览器端到端断言（当前只有 Python 侧覆盖）。
-4. Web 版「叠加玩家」预览的端到端断言（需要 Player_0_3 / 0_7 / 0_10 三张贴图）。
+4. Web 版「叠加玩家」预览的端到端断言（需要 Player_0_3 / 0_7 / 0_10 三张贴图；
+   若要在手机上也能用，考虑把这三张一并内置）。
 5. Firefox / Safari 的降级路径实测（文件夹 API 不可用时的下载 / zip / 手动上传）。
 
 ### P2 — 质量增强
@@ -364,7 +403,7 @@ python3 tools/export_web.py
 
 ```bash
 cd /Volumes/970/Games/tr/dev/ArmorHelper2
-python3 -m pytest tests -q                     # 112 项，约 3 秒
+python3 -m pytest tests -q                     # 128 项，约 4 秒
 python3 -m armorhelper gui                     # 桌面界面
 python3 -m http.server 8000 --directory web    # Web 版 → http://127.0.0.1:8000/
 python3 -m armorhelper sets --search 星尘       # 查套装
@@ -378,5 +417,5 @@ python3 -m armorhelper reverse --images "<Content/Images>" --body 190 -o out.png
 2. 改了 `web/js/` → 必须跑 `pytest tests/test_web_port.py`（会跑 Node 对比 + 无头 Chrome）。
 3. 界面新增文案 → 中英文都要加，`test_frontend_files_exist_and_are_wired` 会检查。
    注意 `#opt-guide` 让复选框总数变为 17，`test_browser_renders_the_app` 里有断言。
-4. 用词统一为「**盔甲**」，不要出现「护甲」（`test_the_ui_never_says_hujia` 会拦）。
+4. 用词统一为「**盔甲**」，不要出现「盔甲」（`test_the_ui_never_says_hujia` 会拦）。
 5. 提交前跑 `python3 -m pyflakes armorhelper tests tools` 与 `node --check`。

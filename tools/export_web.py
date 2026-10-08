@@ -147,16 +147,19 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     package_data = ROOT / "armorhelper" / "data"
 
-    (args.output / "layout.json").write_text(
-        json.dumps(build_layout(), indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    (args.output / "armor_sets.json").write_text(
-        json.dumps(build_sets(), indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    (args.output / "i18n.json").write_text(
-        json.dumps({"version": __version__, "messages": MESSAGES}, indent=1, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    # Write through a temporary file: a browser reloading while this runs must
+    # never see a half written JSON file.
+    def write_json(name: str, payload: dict) -> None:
+        target = args.output / name
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(
+            json.dumps(payload, indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        temporary.replace(target)
+
+    write_json("layout.json", build_layout())
+    write_json("armor_sets.json", build_sets())
+    write_json("i18n.json", {"version": __version__, "messages": MESSAGES})
     shutil.copy2(package_data / "ArmorTemplate_v1.png", args.output / "ArmorTemplate_v1.png")
 
     # the optional guide overlay travels with the template

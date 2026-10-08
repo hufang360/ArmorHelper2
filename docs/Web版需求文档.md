@@ -200,6 +200,8 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WUI-08 | 处理中 | 按钮禁用 + `busy` 文案，避免重复提交 |
 | WUI-09 | 全局错误兜底 | `error` / `unhandledrejection` 都写进状态栏，不静默失败 |
 | WUI-10 | 参考线开关 | 「预览选项」里的复选框，默认开启；关闭后模板预览不叠加参考线 |
+| WUI-11 | 站点图标 | `data/icon.png` 同时用作 `<link rel="icon">`、`apple-touch-icon` 与页头标志；页头标志按平滑渲染（不加 `image-rendering: pixelated`） |
+| WUI-12 | 启动自检 | 若套装表为空或页面缺少脚本引用的元素，状态栏给出明确原因（含强制刷新提示），不得静默留下空列表 |
 
 ### 6.3 视觉
 
@@ -283,6 +285,8 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-19 | 两个版本彻底分开 | `test_no_python_left_in_the_web_app` |
 | WC-20 | Pages 工作流正确发布 | `test_pages_workflow_publishes_the_web_folder` |
 | WC-21 | 参考线叠加与 Python 一致，且不影响生成结果 | `test_guide_overlay_matches_python`、`test_overlay_never_reaches_the_generated_sheets`、`test_compose_overlay_is_idempotent_and_keeps_the_art` |
+| WC-22 | 内置贴图可用（含手机场景） | `test_bundle_has_a_version_file` 等 11 项 + `test_browser_renders_the_app`（仅靠内置贴图还原一次） |
+| WC-23 | 站点图标被引用，且不会被导出脚本覆盖 | `test_site_icon_is_used`、`test_export_does_not_touch_the_icon` |
 
 ---
 

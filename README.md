@@ -1,288 +1,267 @@
-# ArmorHelper 2 (Python)
+# ArmorHelper 2
 
-A Python rewrite of [Mirsario's ArmorHelper](https://forums.terraria.org/index.php?threads/armorhelper-sprite-armor-sets-30x-times-faster.68744/),
-updated for **Terraria 1.4.4 and newer**.
+[原版 ArmorHelper](https://forums.terraria.org/index.php?threads/armorhelper-sprite-armor-sets-30x-times-faster.68744/)
+（Mirsario 作）的 Python 重写版，已适配 **泰拉瑞亚 1.4.4 及之后的版本**。
 
-ArmorHelper turns one small, easy to draw sheet (`ArmorTemplate_v1.png`, 128×80) into every
-sprite sheet an armor set needs, instead of you having to draw the same armor 20 times per
-layer.
+这个工具把一张 128×80 的小模板（`ArmorTemplate_v1.png`）展开成整套盔甲所需的全部贴图，
+不用再把同一件盔甲按每一层画 20 遍。
 
-The original tool (2018, .NET Framework / WinForms) produced the old 1.3 layout: `Armor_Head`,
-`Armor_Body`, `Armor_Arm` and `Armor_Legs`, each 40×1120 with 20 frames stacked vertically.
-Terraria 1.4.4 rewrote player rendering into the *composite* system and merged the body and
-the arms into a single **9 × 4 grid**, so the old output is no longer usable. This port keeps
-the exact same template and drawing workflow and emits the new layout.
+原版工具（2018 年，.NET Framework / WinForms）产出的是 1.3 时代的格式：`Armor_Head`、
+`Armor_Body`、`Armor_Arm`、`Armor_Legs`，各 40×1120、20 帧竖排。泰拉瑞亚 1.4.4 把玩家渲染
+重写成 *composite* 体系，身体与双臂合并为一张 **9 × 4 网格**，旧输出不再可用。本重写版
+**保持模板格式与绘制流程完全不变**，只是产出新格式。
 
 ---
 
-## Install
+## 安装
 
 ```bash
-pip install pillow            # the only runtime dependency for the sheets
-pip install wxPython          # only needed for the graphical interface
-pip install -e .              # optional, installs `armorhelper` / `armorhelper-gui`
+pip install pillow            # 生成贴图只需要它
+pip install wxPython          # 只有桌面界面需要
+pip install -e .              # 可选，安装 armorhelper / armorhelper-gui 命令
 ```
 
-Without installing anything you can run it straight from the checkout:
+不安装也能直接用：
 
 ```bash
 python3 -m armorhelper --help
 ```
 
-## Quick start
+## 快速开始
 
 ```bash
-# 1. write the drawing template somewhere and edit it in Aseprite / Piskel / ...
+# 1. 导出一张绘制模板，用 Aseprite / Piskel 等随便改
 python3 -m armorhelper template -o MyArmor.png
 
-# 2. generate the sheets (names: MyArmor_Head.png, MyArmor_Legs.png, MyArmor_Body.png)
+# 2. 生成贴图（文件名：MyArmor_Head.png / MyArmor_Legs.png / MyArmor_Body.png）
 python3 -m armorhelper -i MyArmor.png -o out/
 
-# 3. ... or emit ready to drop in vanilla file names
+# 3. 或者直接按原版文件名输出，丢进游戏资源目录
 python3 -m armorhelper -i MyArmor.png -o "Terraria/Content/Images" \
     --id-head 189 --id-body 190 --id-legs 130
 #   -> Content/Images/Armor_Head_189.png
 #      Content/Images/Armor_Legs_130.png
 #      Content/Images/Armor/Armor_190.png
 
-# 4. previews and GIFs
+# 4. 预览图与 GIF
 python3 -m armorhelper -i MyArmor.png -o out/ --targets all \
     --images "Terraria/Content/Images"
 ```
 
-## Reverse: get a template *from* a vanilla armor
+## 反向还原：由原版盔甲反推出模板
 
-Sometimes you want the opposite — start from a vanilla armor set and edit it.  Because the
-generator is a pure pixel copy plus a nearest neighbour upscale, it can be undone:
+有时候需要的方向相反 —— 拿原版盔甲当底稿来改。因为生成过程是「纯像素拷贝 + 末尾 2 倍最近邻
+放大」，每一步都可逆：
 
 ```bash
-# which head/legs ids belong to body 190?
+# 身体 ID 190 对应哪套？头/腿的 ID 是多少？
 python3 -m armorhelper sets --search stardust
 #   星尘板甲  StardustPlate (body 190, head 189, legs 130)  [name]
-python3 -m armorhelper sets --search 星尘      # Chinese search works too
+python3 -m armorhelper sets --search 星尘        # 中文也能搜
 
-# rebuild the drawing template (head/legs are looked up automatically)
+# 还原出绘制模板（头/腿 ID 自动查表）
 python3 -m armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
 
-# or override the ids
+# 也可以手动指定三个 ID
 python3 -m armorhelper reverse --images "..." --body 190 --head 189 --legs 130 -o out.png
 
-# every known set at once, into <output>/ArmorTemplate/
+# 一次还原全部套装，输出到 <输出目录>/ArmorTemplate/
 python3 -m armorhelper reverse --images "..." --all -o templates/
-#   templates/ArmorTemplate/星尘板甲_190.png, ...   (151 templates in ~0.4s)
+#   templates/ArmorTemplate/星尘板甲_190.png ……（151 套约 0.4 秒）
 ```
 
-In the GUI there are two buttons in the *反向还原* box:
+桌面界面的「反向还原」分组里有两个按钮：
 
-* **从原版 ID 还原模板...** — searchable list of every known set; the rebuilt template is written
-  into the **Output Folder** (the same folder the sheets go to).
-* **还原全部套装...** — rebuilds every set whose textures are present into
-  **`<Output Folder>/ArmorTemplate/`**, with a progress readout and an offer to open the folder
-  afterwards.
+* **从原版 ID 还原模板...** —— 可搜索的套装列表，还原结果写入**输出目录**（和贴图同一个目录）。
+* **还原全部套装...** —— 把贴图齐全的套装全部还原到 **`<输出目录>/ArmorTemplate/`**，
+  带进度显示，结束后询问是否打开目录。
 
-If no output folder has been chosen yet the folder picker opens first and the choice is
-remembered.  Each entry reads ``中文名  英文名  (身体 ID)`` — e.g. ``星尘板甲  StardustPlate  (190)`` —
-and the search box matches the Chinese name, the English name or any of the ids.
+输出目录为空时会先弹出目录选择框，选完立即回填并记住。列表条目形如
+`星尘板甲  StardustPlate  (190)`，搜索框支持中文名、英文名与任意 ID。
 
-How accurate is it?
+还原精度：
 
-| sheet | round trip | notes |
+| 部位 | 往返一致率 | 说明 |
 |---|---|---|
-| head | 100% | exact |
-| legs | 90–100% | the two feet overlap in the texture, so a few pixels of the back foot are not observable |
-| body, as rendered in game | 90–97% | the template only has *one* walk-arm pose, so vanilla's four different pose cells collapse into one |
+| 头部 | 100% | 无损 |
+| 腿部 | 90~100% | 前后脚贴图在同一帧里互相遮挡，后脚的少数像素不可观测 |
+| 身体（按引擎渲染后的画面比较） | 90~97% | 模板只有 1 个行走手臂姿态，原版 4 个不同姿态格会被合并 |
 
-Every vanilla armor texture is an exact 2x nearest neighbour upscale of 1x pixel art (checked
-across all 748 armor textures: 0% of the 2x2 blocks are non-uniform), which is why the 128x80
-template is enough to describe them.
+依据：**748 个原版盔甲贴图全部是 1× 像素画的精确 2 倍最近邻放大**（实测 2×2 同色块比例
+100%），所以 128×80 的模板足以描述它们。
 
-The set table lives in `armorhelper/data/armor_sets.json`.  Terraria does not store armor sets
-as data, so `tools/build_armor_sets.py` derives it from the game sources:
+套装表在 `armorhelper/data/armor_sets.json`。泰拉并没有把「套装」存成数据，因此
+`tools/build_armor_sets.py` 从游戏源码推导：
 
-* sets with a bonus come straight out of `ArmorSetBonuses.cs` (authoritative, marked `set-bonus`);
-* the rest are matched by the vanilla naming convention (marked `name`/`prefix`);
-* the localized names come from the body piece, found by parsing the `bodySlot = n;` assignments
-  in `Item.cs` and looking the item up in `Terraria.Localization.Content.zh-Hans.Items.json`
-  (202 of 204 sets have a Chinese name).
+* 有套装加成的盔甲直接取自 `ArmorSetBonuses.cs`（权威，标记 `set-bonus`）；
+* 其余按原版命名规则匹配（标记 `name` / `prefix`）；
+* 中文名取自胸甲那一件：解析 `Item.cs` 里的 `bodySlot = n;` 拿到物品 ID，再查
+  `Terraria.Localization.Content.zh-Hans.Items.json`（204 条中 202 条有中文名）。
 
-Regenerate it with:
+重新生成：
 
 ```bash
 python3 tools/build_armor_sets.py /path/to/decompiled/Terraria
 ```
 
-## Graphical interface (desktop)
+## 桌面界面
 
 ```bash
-python3 -m armorhelper gui        # or: armorhelper-gui
+python3 -m armorhelper gui        # 或：armorhelper-gui
 ```
 
-Built with **wxPython**. The window has the same four groups as ArmorHelper v1 — *Input
-Files*, *Output Folder*, *Options* and the big *Export* button — plus a *Details* panel
-holding the things the new format needs (glow mask, player skin index, vanilla armor ids and
-the path to the game's `Content/Images`).
+用 **wxPython** 实现，四个分组与原版一致（输入文件、输出目录、导出、选项），另加「详情」
+面板放新格式需要的东西（发光遮罩、玩家肤色、三个盔甲 ID、泰拉贴图目录）。
 
-* Files can be dragged straight onto the window, or added with *Choose...*.
-* The input list shows `Never exported` / `Last export was Ns ago`, colour coded green,
-  yellow and red, just like the original.
-* The *Options* checklist covers every output listed in the table above, including the GIFs.
-* Every setting is remembered in `config.json` next to the working directory — options, ids,
-  glow, skin, **the input file list, window size/position, column widths, the interface
-  language, the folder the dialogs start in and the last export time of each file** — so the
-  window reopens exactly where you left it.  Old ArmorHelper v1 configs are still read.
-* The game's `Content/Images` folder is auto-detected on first start.
-* *视图 → 界面语言* switches between 中文 and English and is remembered.
-* Exports run on a worker thread, so the window stays responsive.
-* The *反向还原* box rebuilds a template from a vanilla armor id.
+* 文件可以直接拖进窗口，也可以点「选择...」。
+* 输入列表显示 `从未导出` / `上次导出于 N 秒前`，绿黄红三色，和原版一样。
+* 「选项」里覆盖上表全部 12 种产物，含 GIF。
+* 所有设置记在 `config.json`：勾选项、ID、发光、肤色、**输入文件列表、窗口位置尺寸、
+  列宽、界面语言、对话框起始目录、每个文件上次导出时间** —— 下次打开就是关掉时的样子。
+  原版 v1 的 `config.json` 也能读。
+* 首次启动会自动探测游戏的 `Content/Images` 目录。
+* 「视图 → 界面语言」可切换中文 / English，切换后会被记住。
+* 导出在后台线程执行，界面不卡。
+* 「反向还原」分组可由盔甲 ID 反推模板。
 
-## Web interface
+## 网页版
 
-A **separate, fully static** web app lives in [`web/`](web/README.md) — no Python, no server,
-no build step.  It can be published straight to **GitHub Pages**.
+[`web/`](web/README.md) 是一个**完全独立的纯静态站点** —— 不需要 Python、不需要服务端、
+没有构建步骤，可以直接发布到 **GitHub Pages**。
 
 ```bash
 python3 -m http.server 8000 --directory web
-# then open http://127.0.0.1:8000/
+# 然后打开 http://127.0.0.1:8000/
 ```
 
-Everything happens in the browser: generating the sheets, composing the 20 frame preview,
-encoding the PNGs, the GIF and the zip.  The JavaScript core is a port of this package and is
-verified **pixel for pixel** against it (`tests/test_web_port.py` runs it under Node and
-compares every sheet, the composed frames, the reverse result, the PNG, every GIF frame and
-the zip).
+全部处理都在浏览器里完成：生成贴图、合成 20 帧预览、编码 PNG / GIF / ZIP。JS 核心是本包的
+移植版，并有**逐像素等价性测试**（`tests/test_web_port.py` 用 Node 跑 JS 核心，与 Python
+输出逐像素比对：各类贴图、20 帧组合、反推模板、PNG、GIF 全部 52 帧、ZIP）。
 
-* Drag & drop 128x80 templates, tick what to export, get previews + downloads + a zip.
-* The searchable armor set list (中文名 / English / id) and **还原全部套装**.
-* On Chrome/Edge it can read your `Content/Images` folder and write the sheets straight back
-  into it via the File System Access API; other browsers download or zip instead.
-* Chinese by default, English in the top-right dropdown.
-* An optional **guide overlay** (`data/ArmorTemplate_overlay.png`, 128x80) is composited onto
-  template *previews* and onto the drawing template you download — never onto generated sheets.
+* 拖放 128×80 模板，勾选要导出的内容，得到预览 + 下载 + 打包 zip。
+* 可搜索的套装列表（中文名 / 英文名 / ID）与「还原全部套装」。
+* **内置 748 张原版盔甲贴图（Terraria 1.4.5.7，约 1.6 MB）**，手机上不用准备任何文件
+  就能还原任意一套盔甲。
+* Chrome / Edge 上可以直接读取你的 `Content/Images` 文件夹，并把贴图写回游戏资源目录
+  （File System Access API）；其它浏览器降级为下载 / zip / 手动上传贴图。
+* 默认中文，右上角可切英文。
+* 可选的**参考线叠加层**（`data/ArmorTemplate_overlay.png`，128×80）会叠在模板*预览*与
+  下载的绘制模板上，**不会**进入生成的贴图。
 
-To deploy: push to GitHub, set **Settings → Pages → Source** to **GitHub Actions**.
-`.github/workflows/pages.yml` regenerates `web/data/` from this package, fails if the checked
-in data is stale, runs the equivalence tests and publishes `web/`.
+部署：推到 GitHub 后，**Settings → Pages → Source** 选 **GitHub Actions**。
+`.github/workflows/pages.yml` 会重新导出 `web/data/`、检查提交的数据没过期、跑等价性测试，
+然后发布 `web/`。
 
-The two versions are deliberately separate: they share no runtime code, only the data that
-`tools/export_web.py` exports.
+两个版本刻意分开：运行时不共享代码，只共享 `tools/export_web.py` 导出的数据。
 
-See [`docs/Web版需求文档.md`](docs/Web版需求文档.md) for the specification and
-[`web/README.md`](web/README.md) for the web app itself.
+规格见 [`docs/Web版需求文档.md`](docs/Web版需求文档.md)，网页版自身说明见
+[`web/README.md`](web/README.md)。
 
-## Outputs
+## 产物一览
 
-| `--targets` name         | File                                        | Size      | Notes |
-|--------------------------|---------------------------------------------|-----------|-------|
-| `head`                   | `<name>_Head.png` / `Armor_Head_<id>.png`   | 40×1120   | 20 frames, same as 1.3 |
-| `legs`                   | `<name>_Legs.png` / `Armor_Legs_<id>.png`   | 40×1120   | 20 frames, same as 1.3 |
-| `body`                   | `<name>_Body.png` / `Armor/Armor_<id>.png`  | 360×224   | the 1.4.4+ composite body + arms |
-| `legacy`                 | `*_BodyLegacy.png`, `*_ArmsLegacy.png`, …   | 40×1120   | old 1.3 layout, for old mods |
-| `full`                   | `<name>_FullArmor.png`                      | 40×1120   | all 20 frames stacked |
-| `full-female`            | `<name>_FullArmorFemale.png`                | 40×1120   | |
-| `full-player`            | `<name>_FullArmorPlayer.png`                | 40×1120   | needs `--images` |
-| `full-player-female`     | `<name>_FullArmorPlayerFemale.png`          | 40×1120   | needs `--images` |
-| `gif-full`               | `<name>_FullArmor.gif`                      | 40×56     | animated preview |
-| `gif-full-female`        | `<name>_FullArmorFemale.gif`                | 40×56     | |
-| `gif-full-player`        | `<name>_FullArmorPlayer.gif`                | 40×56     | needs `--images` |
-| `gif-full-player-female` | `<name>_FullArmorPlayerFemale.gif`          | 40×56     | needs `--images` |
+| `--targets` 名称 | 文件 | 尺寸 | 说明 |
+|---|---|---|---|
+| `head` | `<名称>_Head.png` / `Armor_Head_<id>.png` | 40×1120 | 20 帧，与 1.3 相同 |
+| `legs` | `<名称>_Legs.png` / `Armor_Legs_<id>.png` | 40×1120 | 20 帧，与 1.3 相同 |
+| `body` | `<名称>_Body.png` / `Armor/Armor_<id>.png` | 360×224 | 1.4.4+ 复合身体 + 双臂 |
+| `legacy` | `*_BodyLegacy.png`、`*_ArmsLegacy.png` 等 | 40×1120 | 旧版 1.3 格式，兼容老模组 |
+| `full` | `<名称>_FullArmor.png` | 40×1120 | 20 帧叠合 |
+| `full-female` | `<名称>_FullArmorFemale.png` | 40×1120 | |
+| `full-player` | `<名称>_FullArmorPlayer.png` | 40×1120 | 需要 `--images` |
+| `full-player-female` | `<名称>_FullArmorPlayerFemale.png` | 40×1120 | 需要 `--images` |
+| `gif-full` | `<名称>_FullArmor.gif` | 40×56 | 动画预览 |
+| `gif-full-female` | `<名称>_FullArmorFemale.gif` | 40×56 | |
+| `gif-full-player` | `<名称>_FullArmorPlayer.gif` | 40×56 | 需要 `--images` |
+| `gif-full-player-female` | `<名称>_FullArmorPlayerFemale.gif` | 40×56 | 需要 `--images` |
 
-`--targets` defaults to `head,legs,body`.  Use `all` for everything, `none` to skip.
-Add `--glow` to write the body sheet at 360×448 with a glow mask in rows 4..7.
+`--targets` 默认是 `head,legs,body`；用 `all` 全出，`none` 跳过。加 `--glow` 会把身体贴图
+写成 360×448（第 4~7 行为发光遮罩）。
 
-`--images` must point at an **extracted** (PNG, not `.xnb`) `Terraria/Content/Images`
-folder; it is only used to draw the player under the armor for the `*player*` previews.
+`--images` 必须指向**已解包**（PNG，不是 `.xnb`）的 `Terraria/Content/Images` 目录，
+只用于给 `*player*` 预览画上玩家本体。
 
 ---
 
-## The template
+## 模板
 
-`armorhelper/data/ArmorTemplate_v1.png` is byte-for-byte the template shipped with
-ArmorHelper v1.  It is 128×80 and the regions are:
+`armorhelper/data/ArmorTemplate_v1.png` 与原版 ArmorHelper v1 附带的模板逐字节相同，
+尺寸 128×80，区域划分：
 
 ```
       x:  1        23        44        66      83  100 110
  y  1     +---------+---------+---------+-------+---+---+
-          | 5 front arm poses | walk  | back arm      |
+          | 5 个前臂姿态      | 行走臂 | 后臂          |
  y 19     +---------+---------+---------+-------+---+---+
-          |  head   |  body   | female  | legs  |feet   |
+          |  头部   |  身体   |  女性   |  腿   | 脚    |
           |         |         |         |       |       |
- y 48     +         + jump    + jump    +       +       +
+ y 48     +         + 跳跃    + 跳跃    +       +       +
 ```
 
-* **head** `(1,19,20,28)` — copied to every one of the 20 frames.
-* **body** `(23,19,20,28)`, **jump body** `(23,48,20,28)`.
-* **female body** `(44,19,20,28)`, **female jump body** `(44,48,20,28)`.
-* **arms** — five front arm poses for body frames 0..4, one "walk" arm reused for frames
-  6..19 with per-frame offsets, and one back arm.
-* **legs** — ten leg pieces plus two feet; the frame tables map them onto the 20 walk frames.
+* **头部** `(1,19,20,28)` —— 复制到全部 20 帧。
+* **身体** `(23,19,20,28)`，**跳跃身体** `(23,48,20,28)`。
+* **女性身体** `(44,19,20,28)`，**女性跳跃身体** `(44,48,20,28)`。
+* **手臂** —— 5 个前臂姿态对应身体帧 0~4，1 个「行走臂」配合逐帧偏移用于帧 6~19，另有 1 个后臂。
+* **腿** —— 10 块腿部素材 + 2 块脚部素材，由帧表映射到 20 帧。
 
-All of the per-frame offsets (`FRONT_ARM_OFFSETS`, `BACK_ARM_OFFSETS`, `BODY_HEAD_OFFSETS`,
-`LEG_MAPPING`) are copied unchanged from the original tool — see
-`armorhelper/layout.py` and `docs/armorhelper-v1.decompiled.cs`.
+全部逐帧偏移表（`FRONT_ARM_OFFSETS`、`BACK_ARM_OFFSETS`、`BODY_HEAD_OFFSETS`、`LEG_MAPPING`）
+都原样照搬原版工具 —— 见 `armorhelper/layout.py` 与 `docs/armorhelper-v1.decompiled.cs`。
 
 ---
 
-## Terraria 1.4.4+ texture layout (what changed)
+## 泰拉瑞亚 1.4.4+ 的贴图格式（变了什么）
 
 ```
-Content/Images/Armor_Head_<id>.png    40 x 1120   20 frames, unchanged
-Content/Images/Armor_Legs_<id>.png    40 x 1120   20 frames, unchanged
-Content/Images/Armor/Armor_<id>.png   360 x 224   9 x 4 grid of 40x56 cells   <-- new
-Content/Images/Armor/Armor_<id>.png   360 x 448   ... plus a glow mask in rows 4..7
+Content/Images/Armor_Head_<id>.png    40 x 1120   20 帧，未变
+Content/Images/Armor_Legs_<id>.png    40 x 1120   20 帧，未变
+Content/Images/Armor/Armor_<id>.png   360 x 224   9 x 4 网格，每格 40x56   <-- 新
+Content/Images/Armor/Armor_<id>.png   360 x 448   ……外加第 4~7 行的发光遮罩
 ```
 
-There is no separate arms texture any more: the body, both shoulders, the female variants and
-every arm pose live in one texture, which the game samples per cell:
+不再有独立的手臂贴图：躯干、双肩、男女版本与全部手臂姿态都放在同一张贴图里，引擎按格子采样：
 
-| cell           | content |
-|----------------|---------|
-| `(0,0)` `(1,0)`| male torso, male torso while jumping (body frame 5) |
-| `(0,2)` `(1,2)`| female torso, female torso while jumping |
-| `(0,1)` `(1,1)`| male front shoulder / back shoulder |
-| `(0,3)` `(1,3)`| female front shoulder / back shoulder |
-| `(2..6, 0)`    | front arm for body frames 0..4 |
-| `(2..6, 1)`    | front arm for body frames 5..19 (grouped) |
-| `(2..6, 2)`    | back arm for body frames 0..4 |
-| `(2..6, 3)`    | back arm for body frames 5..19 (grouped) |
-| `(7, 0..3)`    | front arm while using an item, one row per "stretch" |
-| `(8, 0..3)`    | back arm while using an item |
+| 格子 | 内容 |
+|---|---|
+| `(0,0)` `(1,0)` | 男性躯干、男性躯干（跳跃帧 5） |
+| `(0,2)` `(1,2)` | 女性躯干、女性躯干（跳跃帧 5） |
+| `(0,1)` `(1,1)` | 男性前肩 / 后肩 |
+| `(0,3)` `(1,3)` | 女性前肩 / 后肩 |
+| `(2..6, 0)` | 前臂，对应身体帧 0~4 |
+| `(2..6, 1)` | 前臂，对应身体帧 5~19（分组复用） |
+| `(2..6, 2)` | 后臂，对应身体帧 0~4 |
+| `(2..6, 3)` | 后臂，对应身体帧 5~19（分组复用） |
+| `(7, 0..3)` | 挥动道具时的前臂，4 行 = 4 档伸缩 |
+| `(8, 0..3)` | 挥动道具时的后臂 |
 
-Rows 4..7 (only present on glowing armors) are the glow mask; the engine samples them with a
-`+224 px` offset.
+第 4~7 行只存在于发光盔甲上，是发光遮罩，引擎以 `+224 px` 偏移采样。
 
-The frame → cell mapping is taken from `PlayerDrawSet.CreateCompositeData` in the Terraria
-1.4.5 sources; it is stored in `FRONT_ARM_CELL` / `BACK_ARM_CELL` in `armorhelper/layout.py`.
+「身体帧 → 格子」的映射取自泰拉 1.4.5 源码的 `PlayerDrawSet.CreateCompositeData`，
+存放在 `armorhelper/layout.py` 的 `FRONT_ARM_CELL` / `BACK_ARM_CELL`。
 
-### How the template maps onto the new grid
+### 模板是怎么映射到新网格的
 
-* The torso cell receives the template's body art untouched.  The template's body art already
-  contains the shoulders and upper arms, so the front/back shoulder cells are intentionally
-  left empty — the engine draws the torso before the front arm anyway, which reproduces the
-  old look exactly.
-* The walking arm cells receive the same arm sprites, at the same offsets ArmorHelper v1 used
-  inside its old 20×28 frames.  The engine keeps the arm's position and origin in sync, so the
-  rendered result is identical to the 1.3 sheets.  Frames that share a cell (`7..10`, `11..13`,
-  `18..19`, …) genuinely have identical offsets in the original tool, so nothing is lost.
-* The arm cells for body frames 6..19 use the constant vertical offset `12`: the original added
-  `12 + BODY_HEAD_OFFSETS[frame]` to compensate for the body bob, and Terraria now applies that
-  bob itself (`Main.OffsetsPlayerHeadgear`), so only the constant part remains.
-* Columns 7 and 8 are filled with a copy of the frame 0 arms, so the arms do not disappear
-  while swinging a weapon.  Draw your own poses there for a perfect result (the game rotates
-  the sprite around the body centre).
-* `--glow` copies rows 0..3 into rows 4..7, giving a fully glowing armor that you can then
-  erase down to just the parts that should glow.
+* 躯干格直接放模板的身体素材，不做拆分。模板的身体素材本身已含肩与上臂，所以前/后肩格
+  **故意留空** —— 引擎本来就在前臂之前画躯干，这样得到的观感与旧版完全一致。
+* 行走手臂格沿用同一批手臂素材，位置与 ArmorHelper v1 在旧 20×28 帧里的位置完全相同。
+  引擎让手臂的 position 与 origin 同步偏移，净位移为 0，因此渲染结果与 1.3 贴图一致。
+  共用同一格的帧（`7~10`、`11~13`、`18~19` 等）在原版工具里偏移本来就相同，没有损失。
+* 身体帧 6~19 的手臂使用固定纵向偏移 `12`：原版是 `12 + BODY_HEAD_OFFSETS[帧]`，用来抵消
+  身体上下起伏；泰拉现在自己施加这个起伏（`Main.OffsetsPlayerHeadgear`），所以只剩常量部分。
+* 第 7、8 列用第 0 帧的手臂填充，保证挥武器时手臂不消失。想要完美效果就自己画这 4 档姿态
+  （引擎会绕身体中心旋转这张图）。
+* `--glow` 把第 0~3 行复制到第 4~7 行，得到「整件都发光」的底稿，再擦掉不该发光的部分即可。
 
-### Reference
+### 参考资料
 
-* [`docs/贴图裁切说明.md`](docs/贴图裁切说明.md) — how to crop `Armor_1.png` (every one of the
-  9x4 cells annotated), `Armor_Head_1.png` and `Armor_Legs_1.png`, with the exact
-  `crop(left, upper, right, lower)` numbers and the cell → body frame mapping.
-* [`docs/需求文档.md`](docs/需求文档.md) — the full specification of the Python version.
-* [`docs/Web版需求文档.md`](docs/Web版需求文档.md) — the specification of the web version.
-* [`web/README.md`](web/README.md) — the web app, which is published to GitHub Pages.
+* [`docs/贴图裁切说明.md`](docs/贴图裁切说明.md) —— `Armor_1.png`（9×4 共 36 格逐格标注）、
+  `Armor_Head_1.png`、`Armor_Legs_1.png` 的裁切方法，含可直接使用的
+  `crop(left, upper, right, lower)` 坐标与「帧号 → 格子」对照表。
+* [`docs/需求文档.md`](docs/需求文档.md) —— Python 版的完整规格。
+* [`docs/Web版需求文档.md`](docs/Web版需求文档.md) —— 网页版的规格。
+* [`web/README.md`](web/README.md) —— 网页版自身说明（会发布到 GitHub Pages）。
+* [`PROJECT_STATUS.md`](PROJECT_STATUS.md) —— 项目交接文档：技术决策、已知问题、下一步顺序。
+* [`v1/`](v1/) —— 原版工具的压缩包、模板与论坛链接，作为溯源参考。
 
-`tools/inspect_armor.py` renders any 1.4.4+ body texture the way the game does, which is handy
-for comparing a generated sheet with a vanilla one:
+`tools/inspect_armor.py` 会按引擎算法渲染任意 1.4.4+ 身体贴图，方便和原版对照：
 
 ```bash
 python3 tools/inspect_armor.py "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
@@ -290,27 +269,30 @@ python3 tools/inspect_armor.py "Terraria/Content/Images/Armor/Armor_1.png" --fra
 
 ---
 
-## Fidelity of the legacy output
+## 旧格式输出的保真度
 
-`generate_head`, `generate_legs`, `generate_arms` and `generate_body_legacy` are literal ports
-of ArmorHelper v1, including its quirks (the clipped back arm, the two ignored template pixels,
-the one-pixel "stray" pixel that does not follow the body bob).  `tests/reference.py` contains
-an independent transcription of the original C# `GenerateSheets`, and `tests/test_generate.py`
-asserts the port produces pixel-identical sheets.  That means a `--targets legacy` run
-reproduces the 2018 tool byte for byte.
+`generate_head`、`generate_legs`、`generate_arms`、`generate_body_legacy` 是 ArmorHelper v1 的
+逐行移植，连历史怪癖都保留了（被裁剪的后臂、两个被忽略的模板像素、不跟随 bob 的 1 像素补点）。
+`tests/reference.py` 是原版 C# `GenerateSheets` 的独立直译，`tests/test_generate.py` 断言移植版
+产出**逐像素一致**的贴图 —— 也就是说 `--targets legacy` 的输出与 2018 年那版工具完全一样。
 
-## Development
+## 开发
 
 ```bash
-python3 -m pytest tests -q
+python3 -m pytest tests -q                      # 全部测试（约 4 秒）
+python3 -m pyflakes armorhelper tests tools      # 静态检查
+python3 tools/export_web.py                      # 改了 Python 侧常量后，重新导出 Web 数据
 ```
 
-## Credits
+改了 `armorhelper/` 下的常量或文案，务必跑一次 `tools/export_web.py`，否则
+`tests/test_web_port.py::test_exported_data_is_up_to_date` 会失败。
 
-* Original tool, template art and workflow: **Mirsario**.
-* New composite-layout research: the Terraria 1.4.5 sources and vanilla texture sets.
-* This port: Python rewrite of the same tool.
+## 致谢
 
-## License
+* 原版工具、模板美术与工作流：**Mirsario**。
+* 新复合贴图布局的考证：泰拉瑞亚 1.4.5 源码与原版贴图集。
+* 本重写版：同一套工具的 Python / 网页双实现。
 
-MIT.  The bundled `ArmorTemplate_v1.png` originates from ArmorHelper v1 by Mirsario.
+## 许可
+
+MIT。随包分发的 `ArmorTemplate_v1.png` 来自 Mirsario 的 ArmorHelper v1。

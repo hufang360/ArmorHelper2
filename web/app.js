@@ -58,9 +58,25 @@ const HANDLE_OUTPUT = "output";
 const HANDLE_IMAGES = "images";
 const PLAYER_PARTS = { torso: "Player_0_3.png", arm: "Player_0_7.png", legs: "Player_0_10.png" };
 const REVERSE_SUBDIR = "ArmorTemplate";
+/** Armor textures shipped with the site, so phones work without a game folder. */
+const BUILTIN_DIR = "data/vanilla";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+/** Elements the page failed to provide — reported in the status bar. */
+const missingElements = [];
+
+/** Bind a listener, tolerating a missing element instead of aborting boot. */
+function on(selector, event, handler) {
+  const element = $(selector);
+  if (!element) {
+    missingElements.push(selector);
+    return null;
+  }
+  element.addEventListener(event, handler);
+  return element;
+}
 
 const state = {
   messages: {},
@@ -71,6 +87,7 @@ const state = {
   result: null,
   folders: { output: null, images: null },
   textures: new Map(), // name -> File, for browsers without folder access
+  builtin: null, // {version, count, ...} when data/vanilla is bundled
   overlay: null, // the guide layer drawn on top of templates in the preview
   playerParts: null,
   version: "",
@@ -227,11 +244,23 @@ function renderFiles() {
   $("#file-summary").textContent = state.files.length ? t("web.selected", { count: state.files.length }) : "";
 }
 
+/** Which vanilla textures the reverse conversion will use, in words. */
+function textureSourceLabel() {
+  if (state.folders.images) return t("web.usingFolder", { name: state.folders.images.name });
+  if (state.textures.size) return t("web.usingUploads", { count: state.textures.size });
+  if (state.builtin) {
+    return t("web.builtinTextures", {
+      version: state.builtin.version,
+      count: state.builtin.count,
+    });
+  }
+  return canUseFolders ? t("web.needTextures") : t("web.noFolderSupport");
+}
+
 function renderFolders() {
   const output = state.folders.output;
-  const images = state.folders.images;
   const outputText = output ? t("web.outputName", { name: output.name }) : (canUseFolders ? "" : t("web.noFolderSupport"));
-  const imagesText = images ? t("web.outputName", { name: images.name }) : state.textures.size ? t("web.selected", { count: state.textures.size }) : "";
+  const imagesText = textureSourceLabel();
 
   $("#output-status").textContent = outputText;
   $("#images-status").textContent = imagesText;
@@ -576,8 +605,12 @@ function verifyRoundTrip(template, entries) {
 /* -------------------------------------------------------------- reverse -- */
 
 /**
- * A reader for vanilla textures: the chosen Content/Images folder first, then
- * anything the user uploaded by hand (for browsers without folder access).
+ * A reader for vanilla textures, in order of preference:
+ *
+ * 1. the `Content/Images` folder the user picked (Chromium only),
+ * 2. files the user uploaded by hand,
+ * 3. the textures bundled with the site — this is what makes the reverse
+ *    conversion usable on a phone, where neither of the first two exists.
  */
 function textureReader() {
   const folder = state.folders.images;
@@ -590,13 +623,41 @@ function textureReader() {
         try {
           return await decodeBitmap(await readFromFolder(folder, path));
         } catch {
-          /* fall back to the uploaded files */
+          /* fall through to the next source */
         }
       }
     }
     const file = state.textures.get(path.split("/").pop());
-    return file ? decodeBitmap(file) : null;
+    if (file) return decodeBitmap(file);
+    if (state.builtin) {
+      try {
+        const response = await fetch(`${BUILTIN_DIR}/${path}`);
+        if (response.ok) return await decodeBitmap(await response.blob());
+      } catch {
+        /* not bundled */
+      }
+    }
+    return null;
   };
+}
+
+/** Read `data/vanilla/version.txt`; absent means nothing is bundled. */
+async function loadBuiltinInfo() {
+  try {
+    const response = await fetch(`${BUILTIN_DIR}/version.txt`);
+    if (!response.ok) return null;
+    const info = {};
+    for (const line of (await response.text()).split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+      const [key, value] = trimmed.split("=", 2);
+      info[key.trim()] = value.trim();
+    }
+    info.count = Number(info.count) || 0;
+    return info.count ? info : null;
+  } catch {
+    return null;
+  }
 }
 
 async function doReverse() {
@@ -605,7 +666,7 @@ async function doReverse() {
     say(t("reverse.badBody"), "warn");
     return;
   }
-  if (!state.folders.images && !state.textures.size) {
+  if (!state.folders.images && !state.textures.size && !state.builtin) {
     say(t("web.needTextures"), "warn");
     return;
   }
@@ -646,7 +707,7 @@ async function doReverse() {
 }
 
 async function doReverseAll() {
-  if (!state.folders.images && !state.textures.size) {
+  if (!state.folders.images && !state.textures.size && !state.builtin) {
     say(t("web.needTextures"), "warn");
     return;
   }
@@ -776,7 +837,7 @@ function wire() {
     });
   }
 
-  $("#language").addEventListener("change", async (event) => {
+  on("#language", "change", async (event) => {
     state.language = event.target.value;
     state.messages = (await loadMessages(state.language));
     saveConfig();
@@ -807,61 +868,61 @@ function wire() {
     event.preventDefault();
     addFiles(event.dataTransfer.files);
   });
-  $("#clear-files").addEventListener("click", () => {
+  on("#clear-files", "click", () => {
     state.files = [];
     renderFiles();
   });
 
-  $("#do-export").addEventListener("click", doExport);
-  $("#download-template").addEventListener("click", downloadTemplate);
-  $("#opt-guide").addEventListener("change", (event) => {
+  on("#do-export", "click", doExport);
+  on("#download-template", "click", downloadTemplate);
+  on("#opt-guide", "change", (event) => {
     state.config.guide = event.target.checked;
     saveConfig();
     if (state.result) renderResult(state.result);
   });
-  $("#opt-female").addEventListener("change", (event) => {
+  on("#opt-female", "change", (event) => {
     state.config.female = event.target.checked;
     saveConfig();
   });
-  $("#opt-player").addEventListener("change", (event) => {
+  on("#opt-player", "change", (event) => {
     state.config.player = event.target.checked;
     saveConfig();
     renderFolders();
   });
 
   let timer = null;
-  $("#set-search").addEventListener("input", (event) => {
+  on("#set-search", "input", (event) => {
     clearTimeout(timer);
     const value = event.target.value;
     timer = setTimeout(() => loadSetsIndex(value), 140);
   });
-  $("#set-select").addEventListener("change", (event) => pickSet(Number(event.target.value)));
-  $("#do-reverse").addEventListener("click", doReverse);
-  $("#do-reverse-all").addEventListener("click", doReverseAll);
+  on("#set-select", "change", (event) => pickSet(Number(event.target.value)));
+  on("#do-reverse", "click", doReverse);
+  on("#do-reverse-all", "click", doReverseAll);
 
-  $("#pick-images").addEventListener("click", pickImagesFolder);
-  $("#pick-images-2").addEventListener("click", pickImagesFolder);
-  $("#pick-textures").addEventListener("click", () => $("#texture-input").click());
-  $("#texture-input").addEventListener("change", (event) => {
+  on("#pick-images", "click", pickImagesFolder);
+  on("#pick-images-2", "click", pickImagesFolder);
+  on("#pick-textures", "click", () => $("#texture-input")?.click());
+  on("#texture-input", "change", (event) => {
     for (const file of event.target.files) state.textures.set(file.name, file);
     event.target.value = "";
     renderFolders();
     say(t("web.selected", { count: state.textures.size }));
   });
 
-  $("#pick-output").addEventListener("click", async () => {
+  on("#pick-output", "click", async () => {
     const handle = await pickFolder("readwrite");
     if (!handle) return;
     state.folders.output = handle;
     await putHandle(HANDLE_OUTPUT, handle);
     renderFolders();
   });
-  $("#clear-output").addEventListener("click", async () => {
+  on("#clear-output", "click", async () => {
     state.folders.output = null;
     await dropHandle(HANDLE_OUTPUT);
     renderFolders();
   });
-  $("#clear-images").addEventListener("click", async () => {
+  on("#clear-images", "click", async () => {
     state.folders.images = null;
     await dropHandle(HANDLE_IMAGES);
     renderFolders();
@@ -872,24 +933,24 @@ function wire() {
     ["#set-body", "id_body"],
     ["#set-legs", "id_legs"],
   ]) {
-    $(selector).addEventListener("input", () => {
+    on(selector, "input", () => {
       state.config.ids = { ...state.config.ids, [key]: $(selector).value };
       saveConfig();
     });
   }
-  $("#set-skin").addEventListener("change", (event) => {
+  on("#set-skin", "change", (event) => {
     state.config.skin = Number(event.target.value) || 0;
     saveConfig();
   });
-  $("#set-glow").addEventListener("change", (event) => {
+  on("#set-glow", "change", (event) => {
     state.config.glow = event.target.checked;
     saveConfig();
   });
-  $("#set-verify").addEventListener("change", (event) => {
+  on("#set-verify", "change", (event) => {
     state.config.verify = event.target.checked;
     saveConfig();
   });
-  $("#save-settings").addEventListener("click", () => {
+  on("#save-settings", "click", () => {
     state.config.ids = {
       id_head: $("#set-head").value,
       id_body: $("#set-body").value,
@@ -928,15 +989,29 @@ async function main() {
     $("#set-skin").value = state.config.skin ?? 0;
     $("#set-glow").checked = !!state.config.glow;
     $("#set-verify").checked = !!state.config.verify;
-    $("#about").textContent = `ArmorHelper ${state.version} · GitHub Pages 版 · 纯前端，无服务端`;
-
     // restore previously used folders (permission is re-requested on demand)
     state.overlay = await loadGuideOverlay();
+    state.builtin = await loadBuiltinInfo();
     state.folders.output = await getHandle(HANDLE_OUTPUT);
     state.folders.images = await getHandle(HANDLE_IMAGES);
 
+    const builtin = state.builtin
+      ? ` · 内置原版贴图 ${state.builtin.version}（${state.builtin.count} 张）`
+      : "";
+    $("#about").textContent = `ArmorHelper ${state.version} · 纯前端，无服务端${builtin}`;
+
     applyI18n();
     await loadSetsIndex("");
+
+    // An empty set list used to fail silently; say it out loud instead.
+    if (!allSets().length) {
+      say(t("web.noSets"), "bad");
+      return;
+    }
+    if (missingElements.length) {
+      say(t("web.stalePage", { selectors: [...new Set(missingElements)].join(", ") }), "warn");
+      return;
+    }
     say(t("web.connected"));
   } catch (error) {
     console.error(error);

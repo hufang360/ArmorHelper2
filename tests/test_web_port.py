@@ -291,6 +291,41 @@ def test_frontend_files_exist_and_are_wired():
         assert "http://" not in text
 
 
+def test_site_icon_is_used():
+    """The favicon (browser tab, top left) and the header logo."""
+    icon = WEB / "data" / "icon.png"
+    assert icon.is_file(), "web/data/icon.png is missing"
+    with Image.open(icon) as image:
+        assert image.width >= 32 and image.height >= 32
+
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="icon" type="image/png" href="data/icon.png">' in html
+    assert 'rel="apple-touch-icon" href="data/icon.png"' in html
+    assert '<img src="data/icon.png"' in html
+
+    # the header logo must not be rendered as pixel art
+    css = (WEB / "style.css").read_text(encoding="utf-8")
+    assert ".brand-icon" in css
+
+
+def test_export_does_not_touch_the_icon(tmp_path):
+    """`tools/export_web.py` regenerates web/data; the icon has to survive."""
+    import subprocess
+    import sys as _sys
+
+    result = subprocess.run(
+        [_sys.executable, str(ROOT / "tools" / "export_web.py"), "-o", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    # the script never writes or deletes files it does not own
+    written = {path.name for path in tmp_path.iterdir()}
+    assert "icon.png" not in written
+    assert (WEB / "data" / "icon.png").is_file()
+
+
 def test_no_python_left_in_the_web_app():
     """The two versions are separate: the web app must be pure static files."""
     for path in WEB.rglob("*"):
@@ -337,12 +372,43 @@ const appInfo = (doc) => ({
   tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
   subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
   guide: !!doc.querySelector("#opt-guide")?.checked,
+  source: doc.querySelector("#images-status").textContent.trim(),
   guideLabel: (doc.querySelector('[data-i18n="web.guideOverlay"]') || {}).textContent || "",
   downloadButton: doc.querySelector("#download-template")?.tagName || null,
+  favicon: doc.querySelector('link[rel="icon"]')?.getAttribute("href") || null,
+  logo: doc.querySelector(".brand img")?.getAttribute("src") || null,
 });
 
-/** Feed the app three vanilla-named texture files and hit "rebuild this set". */
-async function driveReverse(doc) {
+/** Click "rebuild this set" and wait for the result card. */
+async function runReverse(doc) {
+  doc.querySelector("#rev-head").value = "189";
+  doc.querySelector("#rev-body").value = "190";
+  doc.querySelector("#rev-legs").value = "130";
+  doc.querySelector("#do-reverse").click();
+
+  for (let tick = 0; tick < 400; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const images = doc.querySelectorAll("#reverse-result .preview img");
+    if (images.length) {
+      return {
+        previews: images.length,
+        captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
+        widths: [...images].map((img) => img.naturalWidth),
+        files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+        warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+    const warnings = doc.querySelectorAll("#reverse-result .warn");
+    if (warnings.length && doc.querySelector("#status").className !== "busy") {
+      return { error: [...warnings].map((el) => el.textContent).join(" | ") };
+    }
+  }
+  return { error: "reverse produced no preview" };
+}
+
+/** Upload the three vanilla-named textures through the page's file input. */
+async function uploadTextures(doc) {
   const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }, { pngBlob }] =
     await Promise.all([
       import("/js/data.js"),
@@ -368,30 +434,6 @@ async function driveReverse(doc) {
   for (const file of files) transfer.items.add(file);
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
-
-  doc.querySelector("#rev-head").value = "189";
-  doc.querySelector("#rev-body").value = "190";
-  doc.querySelector("#rev-legs").value = "130";
-  doc.querySelector("#do-reverse").click();
-
-  for (let tick = 0; tick < 400; tick += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    const images = doc.querySelectorAll("#reverse-result .preview img");
-    if (images.length) {
-      return {
-        previews: images.length,
-        captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
-        widths: [...images].map((img) => img.naturalWidth),
-        files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
-        status: doc.querySelector("#status").textContent.trim(),
-      };
-    }
-    const warnings = doc.querySelectorAll("#reverse-result .warn");
-    if (warnings.length && doc.querySelector("#status").className !== "busy") {
-      return { error: [...warnings].map((el) => el.textContent).join(" | ") };
-    }
-  }
-  return { error: "reverse produced no preview" };
 }
 
 let ticks = 0;
@@ -418,8 +460,13 @@ const timer = setInterval(async () => {
 
   try {
     const app = appInfo(doc);
-    const reverse = await driveReverse(doc);
-    report({ ...app, reverse });
+    // 1. no folder, no uploads — this is the phone case: the textures shipped
+    //    with the site have to be found on their own.
+    const builtin = await runReverse(doc);
+    // 2. the same thing again, but with the user's own files uploaded.
+    await uploadTextures(doc);
+    const uploaded = await runReverse(doc);
+    report({ ...app, builtin, uploaded });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
   }
@@ -565,17 +612,31 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert payload["guide"] is True
     assert "参考线" in payload["guideLabel"]
     assert payload["downloadButton"] == "BUTTON"
+    assert payload["favicon"] == "data/icon.png"
+    assert payload["logo"] == "data/icon.png"
+
+    # the bundled textures are what a phone user relies on
+    assert "内置贴图" in payload["source"], payload["source"]
+    assert "748" in payload["source"], payload["source"]
 
     # ... and "rebuild this set" has to produce a template preview that really
-    # contains the head and legs, not just the torso.
-    reverse = payload["reverse"]
-    assert not reverse.get("error"), reverse.get("error")
-    assert reverse["files"] == ["ArmorTemplate_星尘板甲_190.png"]
-    assert reverse["previews"] == 3, reverse
-    assert "绘制模板" in reverse["captions"][0]
-    assert "20 帧" in reverse["captions"][1]
-    # 128x80 magnified 4x plus the 2px border
-    assert reverse["widths"][0] == 128 * 4 + 4, reverse["widths"]
+    # contains the head and legs, not just the torso — with no folder and no
+    # uploaded files, i.e. from the bundled textures alone.
+    for label in ("builtin", "uploaded"):
+        reverse = payload[label]
+        assert not reverse.get("error"), f"{label}: {reverse.get('error')}"
+        missing = [
+            text
+            for text in reverse["warnings"]
+            if "not found" in text or "cannot be recovered" in text or "left empty" in text
+        ]
+        assert not missing, f"{label} could not find a texture: {missing}"
+        assert reverse["files"] == ["ArmorTemplate_星尘板甲_190.png"], label
+        assert reverse["previews"] == 3, reverse
+        assert "绘制模板" in reverse["captions"][0]
+        assert "20 帧" in reverse["captions"][1]
+        # 128x80 magnified 4x plus the 2px border
+        assert reverse["widths"][0] == 128 * 4 + 4, reverse["widths"]
 
 
 def test_pages_workflow_publishes_the_web_folder():

@@ -1,0 +1,11 @@
+# ArmorHelper bundled vanilla armor textures
+# copied from an extracted Content/Images folder by tools/import_vanilla_textures.py
+game=Terraria 1.4.5.7
+version=1.4.5.7
+source=Images
+count=748
+total_bytes=1679996
+checksum=0247565af4070bef
+head=292
+legs=253
+body=203

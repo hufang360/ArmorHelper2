@@ -42,6 +42,8 @@ a { color: var(--accent); }
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: 10px; }
+/* The site icon is smooth artwork, not pixel art, so no `pixelated` here. */
+.brand-icon { width: 52px; height: 52px; object-fit: contain; flex: none; }
 .brand p { margin: 0; font-size: 12px; }
 .tabs { display: flex; gap: 6px; margin-left: auto; }
 .tab {

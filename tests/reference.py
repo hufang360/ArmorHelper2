@@ -4,7 +4,7 @@ This exists purely to test the port: it is written the way the C# original was
 (a 20x560 array of colours, absolute ``Point`` offsets, ``Fill`` calls) without
 reusing any of the generator's helpers.
 
-See ``docs/armorhelper-v1.cs`` for the decompiled source this mirrors.
+See ``docs/armorhelper-v1.decompiled.cs`` for the decompiled source this mirrors.
 """
 
 from __future__ import annotations

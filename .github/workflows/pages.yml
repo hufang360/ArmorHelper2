@@ -43,7 +43,7 @@ jobs:
           node-version: "20"
 
       - name: Check the web core against the Python output
-        run: python3 -m pytest tests/test_web_port.py -q
+        run: python3 -m pytest tests/test_web_port.py tests/test_vanilla_bundle.py -q
 
       - uses: actions/configure-pages@v5
 

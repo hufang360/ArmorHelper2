@@ -20,6 +20,8 @@ DOC = ROOT / "docs" / "贴图裁切说明.md"
 REQUIREMENTS = ROOT / "docs" / "需求文档.md"
 WEB_REQUIREMENTS = ROOT / "docs" / "Web版需求文档.md"
 README = ROOT / "README.md"
+STATUS = ROOT / "PROJECT_STATUS.md"
+WEB_README = ROOT / "web" / "README.md"
 
 CELL_W = L.FRAME_W * 2  # 40
 CELL_H = L.FRAME_H * 2  # 56
@@ -89,9 +91,52 @@ def test_docs_point_at_the_reverse_tool():
 
 
 def test_the_ui_never_says_hujia():
-    """The interface and the docs consistently use 盔甲."""
-    for path in (README, DOC, REQUIREMENTS, WEB_REQUIREMENTS):
+    """The interface and the docs consistently use 盔甲.
+
+    The only allowed exception is the game's own localization, which calls one
+    item 流星护甲; that string lives in the data files, not in prose.
+    """
+    for path in (README, DOC, REQUIREMENTS, WEB_REQUIREMENTS, STATUS, WEB_README):
         assert "护甲" not in path.read_text(encoding="utf-8"), path
+
+
+def test_every_markdown_link_resolves():
+    """Folder moves must not leave dangling links behind."""
+    import re
+
+    for path in sorted(ROOT.rglob("*.md")):
+        if ".git" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"\]\(([^)\s]+)\)", text):
+            target = match.group(1)
+            if target.startswith(("http://", "https://", "#", "mailto:")):
+                continue
+            resolved = (path.parent / target).resolve()
+            assert resolved.exists(), f"{path.relative_to(ROOT)} -> {target}"
+
+
+def test_the_readme_is_chinese():
+    """The project readme is written in Chinese."""
+    text = README.read_text(encoding="utf-8")
+    han = sum(1 for char in text if "\u4e00" <= char <= "\u9fff")
+    assert han > 400, f"README looks untranslated ({han} Chinese characters)"
+    for heading in ("## 安装", "## 快速开始", "## 网页版", "## 模板"):
+        assert heading in text, heading
+
+
+def test_references_to_the_reference_folder_are_current():
+    """The reference folder was renamed; nothing may point at the old name."""
+    old = "ArmorHelper" + "_v1/"  # split so this file does not match itself
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file() or ".git" in path.parts:
+            continue
+        if path.suffix not in (".md", ".py", ".toml", ".yml", ".json", ".html", ".js", ".mjs"):
+            continue
+        if "web/data/vanilla" in str(path):
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert old not in text, f"{path.relative_to(ROOT)} still points at the old folder"
 
 
 def test_web_requirements_is_linked_and_complete():
