@@ -156,6 +156,8 @@ the zip).
 * On Chrome/Edge it can read your `Content/Images` folder and write the sheets straight back
   into it via the File System Access API; other browsers download or zip instead.
 * Chinese by default, English in the top-right dropdown.
+* An optional **guide overlay** (`data/ArmorTemplate_overlay.png`, 128x80) is composited onto
+  template *previews* and onto the drawing template you download — never onto generated sheets.
 
 To deploy: push to GitHub, set **Settings → Pages → Source** to **GitHub Actions**.
 `.github/workflows/pages.yml` regenerates `web/data/` from this package, fails if the checked

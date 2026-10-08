@@ -21,7 +21,12 @@ from armorhelper.generate import (  # noqa: E402
     generate_legs,
     new_body_frames,
 )
-from armorhelper.layout import ArmorTemplateError, load_template  # noqa: E402
+from armorhelper.layout import (  # noqa: E402
+    ArmorTemplateError,
+    bundled_overlay,
+    compose_overlay,
+    load_template,
+)
 from reference import reference_sheets  # noqa: E402
 
 
@@ -199,6 +204,51 @@ def test_glow_rows_are_a_copy_of_the_first_four(template):
 def test_bad_glow_rows_rejected(template):
     with pytest.raises(ValueError):
         generate_body_composite(template, glow_rows=3)
+
+
+# --------------------------------------------------------------------------- #
+# The guide overlay
+# --------------------------------------------------------------------------- #
+
+
+def test_overlay_is_bundled_and_matches_the_template(template):
+    overlay = bundled_overlay()
+    assert overlay is not None, "ArmorTemplate_overlay.png should ship with the package"
+    assert overlay.size == template.size
+
+    # the bundled template already carries the guide, so the overlay is a subset
+    for before, after in zip(template.getdata(), overlay.getdata()):
+        if after[3] > 1:
+            assert before == after
+    assert overlay.getbbox() is not None
+
+
+def test_compose_overlay_is_idempotent_and_keeps_the_art(template):
+    overlay = bundled_overlay()
+    composed = compose_overlay(template, overlay)
+    assert composed.size == template.size
+    # nothing the artist drew is lost
+    for before, after in zip(template.getdata(), composed.getdata()):
+        if before[3] > 1:
+            assert after == before
+    assert compose_overlay(composed, overlay).tobytes() == composed.tobytes()
+
+
+def test_compose_overlay_tolerates_a_missing_or_wrong_sized_layer(template):
+    assert compose_overlay(template, None).tobytes() == template.tobytes()
+    wrong = Image.new("RGBA", (10, 10), (255, 0, 0, 255))
+    assert compose_overlay(template, wrong).tobytes() == template.tobytes()
+
+
+def test_overlay_never_reaches_the_generated_sheets(template):
+    """The generator only reads the template; the guide is display only."""
+    composed = compose_overlay(template, bundled_overlay())
+    for builder in (generate_head, generate_legs, generate_arms, generate_body_legacy):
+        assert builder(composed).tobytes() == builder(template).tobytes()
+    assert (
+        generate_body_composite(composed).tobytes()
+        == generate_body_composite(template).tobytes()
+    )
 
 
 # --------------------------------------------------------------------------- #

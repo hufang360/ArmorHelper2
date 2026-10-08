@@ -31,6 +31,7 @@ import {
   SKIN_TINT,
   contactSheet,
   fullArmorFrames,
+  composeOverlay,
   gifFrameOrder,
   magnify,
   overlay,
@@ -70,6 +71,7 @@ const state = {
   result: null,
   folders: { output: null, images: null },
   textures: new Map(), // name -> File, for browsers without folder access
+  overlay: null, // the guide layer drawn on top of templates in the preview
   playerParts: null,
   version: "",
 };
@@ -110,6 +112,7 @@ function defaultConfig() {
     female: false,
     player: false,
     verify: false,
+    guide: true,
   };
 }
 
@@ -333,6 +336,33 @@ function keepUrl(bitmap) {
   return bitmapToDataURL(bitmap);
 }
 
+/** The template as it should be shown: with the guide layer, when enabled. */
+function withGuide(template) {
+  return state.config.guide ? composeOverlay(template, state.overlay) : template;
+}
+
+/** Load the optional guide layer; missing or broken files are not an error. */
+async function loadGuideOverlay() {
+  try {
+    const response = await fetch("data/ArmorTemplate_overlay.png");
+    if (!response.ok) return null;
+    return await decodeBitmap(await response.blob());
+  } catch {
+    return null;
+  }
+}
+
+/** Download the drawing template (with the guide, so it can be drawn on). */
+async function downloadTemplate() {
+  try {
+    const response = await fetch("data/ArmorTemplate_v1.png");
+    const raw = await decodeBitmap(await response.blob());
+    downloadBlob(await pngBlob(withGuide(raw)), "ArmorTemplate_v1.png");
+  } catch (error) {
+    say(String(error.message || error), "bad");
+  }
+}
+
 /** Build a result object from a list of `{ name, bitmap }` plus previews. */
 async function packResult(title, entries, frames, warnings = [], template = null) {
   const files = [];
@@ -352,7 +382,7 @@ async function packResult(title, entries, frames, warnings = [], template = null
   const previews = [];
   if (template) {
     previews.push({
-      url: keepUrl(magnify(template, 4)),
+      url: keepUrl(magnify(withGuide(template), 4)),
       caption: t("web.previewTemplate"),
       alt: "ArmorTemplate",
     });
@@ -783,6 +813,12 @@ function wire() {
   });
 
   $("#do-export").addEventListener("click", doExport);
+  $("#download-template").addEventListener("click", downloadTemplate);
+  $("#opt-guide").addEventListener("change", (event) => {
+    state.config.guide = event.target.checked;
+    saveConfig();
+    if (state.result) renderResult(state.result);
+  });
   $("#opt-female").addEventListener("change", (event) => {
     state.config.female = event.target.checked;
     saveConfig();
@@ -885,6 +921,7 @@ async function main() {
     $("#language").value = state.language;
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
+    $("#opt-guide").checked = state.config.guide !== false;
     $("#set-head").value = state.config.ids.id_head ?? "";
     $("#set-body").value = state.config.ids.id_body ?? "";
     $("#set-legs").value = state.config.ids.id_legs ?? "";
@@ -894,6 +931,7 @@ async function main() {
     $("#about").textContent = `ArmorHelper ${state.version} · GitHub Pages 版 · 纯前端，无服务端`;
 
     // restore previously used folders (permission is re-requested on demand)
+    state.overlay = await loadGuideOverlay();
     state.folders.output = await getHandle(HANDLE_OUTPUT);
     state.folders.images = await getHandle(HANDLE_IMAGES);
 

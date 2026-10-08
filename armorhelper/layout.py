@@ -83,6 +83,10 @@ __all__ = [
     "COMPOSITE_BACK_ARM_COL",
     "load_template",
     "template_bytes",
+    "OVERLAY_FILENAME",
+    "bundled_overlay",
+    "overlay_bytes",
+    "compose_overlay",
 ]
 
 Rect = tuple[int, int, int, int]
@@ -249,6 +253,52 @@ def bundled_template() -> Image.Image:
 
     with Image.open(io.BytesIO(template_bytes())) as image:
         return image.convert("RGBA")
+
+
+#: Optional guide layer shipped next to the template.  It holds the region
+#: backgrounds, the divider lines and the border — everything that is not armor
+#: art.  It is composited on top of a template for *display* and for the drawing
+#: base the artist gets; the generator never reads it.
+OVERLAY_FILENAME = "ArmorTemplate_overlay.png"
+
+
+def overlay_bytes() -> bytes | None:
+    """Raw bytes of the bundled guide overlay, or ``None`` when absent."""
+    try:
+        return resources.files(__package__).joinpath(f"data/{OVERLAY_FILENAME}").read_bytes()
+    except (FileNotFoundError, OSError):
+        return None
+
+
+@lru_cache(maxsize=1)
+def bundled_overlay() -> Image.Image | None:
+    """The bundled guide overlay as an RGBA image (cached), or ``None``."""
+    import io
+
+    raw = overlay_bytes()
+    if raw is None:
+        return None
+    with Image.open(io.BytesIO(raw)) as image:
+        return image.convert("RGBA")
+
+
+def compose_overlay(
+    template: Image.Image, overlay: Image.Image | None = None
+) -> Image.Image:
+    """Draw the guide overlay on top of ``template``.
+
+    Pixels of the overlay are written straight over the template (the same
+    "replace, do not blend" rule the generator uses), and a missing or
+    differently sized overlay is ignored so this is always safe to call.
+    """
+    from .imaging import paste_region
+
+    layer = bundled_overlay() if overlay is None else overlay
+    if layer is None or layer.size != template.size:
+        return template
+    result = template.copy()
+    paste_region(result, layer, (0, 0, layer.width, layer.height), (0, 0))
+    return result
 
 
 def load_template(path: str | os.PathLike[str] | None = None) -> Image.Image:

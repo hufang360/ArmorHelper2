@@ -28,6 +28,20 @@ def test_template_command(tmp_path):
     assert Image.open(target).size == (128, 80)
 
 
+def test_template_command_writes_the_guide_overlay(tmp_path):
+    with_guide = tmp_path / "with.png"
+    raw = tmp_path / "raw.png"
+    assert main(["template", "-o", str(with_guide)]) == 0
+    assert main(["template", "-o", str(raw), "--no-overlay"]) == 0
+
+    assert Image.open(with_guide).size == (128, 80)
+    assert Image.open(raw).size == (128, 80)
+    # the raw file is the bundled bytes; the default one is re-encoded with the
+    # guide drawn on, so it must have at least as many opaque pixels
+    opaque = lambda path: sum(1 for p in Image.open(path).convert("RGBA").getdata() if p[3] > 1)
+    assert opaque(with_guide) >= opaque(raw)
+
+
 def test_export_command_writes_the_default_sheets(tmp_path):
     assert main(["-i", str(TEMPLATE), "-o", str(tmp_path), "-q"]) == 0
     names = {path.name for path in tmp_path.iterdir()}

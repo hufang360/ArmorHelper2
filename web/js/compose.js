@@ -175,6 +175,23 @@ export function contactSheet(frames, scale = 3, columns = 10, gap = 2) {
 }
 
 /**
+ * Draw the guide overlay on top of a template.
+ *
+ * Used for display and for the drawing base handed to the artist — never by the
+ * generator, which only ever reads the raw template.  A missing or differently
+ * sized overlay is ignored, so this is always safe to call.
+ */
+export function composeOverlay(template, overlay) {
+  if (!overlay || overlay.width !== template.width || overlay.height !== template.height) {
+    return template;
+  }
+  const out = createBitmap(template.width, template.height);
+  out.data.set(template.data);
+  pasteBitmap(out, overlay);
+  return out;
+}
+
+/**
  * Blow a bitmap up for display, with a faint outline.
  *
  * The drawing template is only 128x80, so it needs a few times magnification to

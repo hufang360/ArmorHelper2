@@ -159,6 +159,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-18 | 可选「生成后自检」：反向还原再生成，应与原贴图一致 | 可以 | WC-16 |
 | WFR-19 | 所有错误以状态栏文字呈现，不弹原生 alert | 必须 | WC-13 |
 | WFR-20 | 页面不请求任何外部地址（离线可用） | 必须 | WC-17 |
+| WFR-21 | 可选的参考线图层（`data/ArmorTemplate_overlay.png`，128×80）叠加在模板预览与下载的绘制模板上；**生成贴图时不得参与** | 应该 | WC-21 |
 
 ---
 
@@ -198,6 +199,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WUI-07 | 套装列表 | `<select size=8>`，搜索框 140ms 防抖 |
 | WUI-08 | 处理中 | 按钮禁用 + `busy` 文案，避免重复提交 |
 | WUI-09 | 全局错误兜底 | `error` / `unhandledrejection` 都写进状态栏，不静默失败 |
+| WUI-10 | 参考线开关 | 「预览选项」里的复选框，默认开启；关闭后模板预览不叠加参考线 |
 
 ### 6.3 视觉
 
@@ -280,6 +282,7 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-18 | 数据不过期 | `test_exported_data_is_up_to_date` |
 | WC-19 | 两个版本彻底分开 | `test_no_python_left_in_the_web_app` |
 | WC-20 | Pages 工作流正确发布 | `test_pages_workflow_publishes_the_web_folder` |
+| WC-21 | 参考线叠加与 Python 一致，且不影响生成结果 | `test_guide_overlay_matches_python`、`test_overlay_never_reaches_the_generated_sheets`、`test_compose_overlay_is_idempotent_and_keeps_the_art` |
 
 ---
 

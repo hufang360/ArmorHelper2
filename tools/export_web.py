@@ -159,7 +159,14 @@ def main() -> int:
     )
     shutil.copy2(package_data / "ArmorTemplate_v1.png", args.output / "ArmorTemplate_v1.png")
 
-    for name in ("layout.json", "armor_sets.json", "i18n.json", "ArmorTemplate_v1.png"):
+    # the optional guide overlay travels with the template
+    overlay = package_data / "ArmorTemplate_overlay.png"
+    if overlay.exists():
+        shutil.copy2(overlay, args.output / overlay.name)
+    else:
+        (args.output / overlay.name).unlink(missing_ok=True)
+
+    for name in ("layout.json", "armor_sets.json", "i18n.json", "ArmorTemplate_v1.png", "ArmorTemplate_overlay.png"):
         size = (args.output / name).stat().st_size
         print(f"wrote {args.output / name}  ({size} bytes)")
     return 0

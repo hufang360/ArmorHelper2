@@ -32,7 +32,7 @@ from armorhelper.generate import (  # noqa: E402
     generate_head,
     generate_legs,
 )
-from armorhelper.layout import load_template  # noqa: E402
+from armorhelper.layout import bundled_overlay, compose_overlay, load_template  # noqa: E402
 from armorhelper.reverse import reverse_template  # noqa: E402
 
 NODE = shutil.which("node")
@@ -62,6 +62,10 @@ def js_output(tmp_path_factory, template):
     }
     for name, image in python_outputs.items():
         (workdir / f"{name}.rgba").write_bytes(image.tobytes())
+
+    overlay = bundled_overlay()
+    if overlay is not None:
+        (workdir / "overlay.rgba").write_bytes(overlay.tobytes())
 
     result = subprocess.run(
         [NODE, str(WEB / "tests" / "run.mjs"), str(workdir)],
@@ -125,6 +129,27 @@ def test_reverse_matches_python(js_output, template):
         legs=generate_legs(template),
     ).template
     compare(js_output, "js_reversed.rgba", expected)
+
+
+def test_guide_overlay_matches_python(js_output, template):
+    """The web build composites the guide layer exactly like the Python one."""
+    overlay = bundled_overlay()
+    if overlay is None:
+        pytest.skip("no guide overlay is bundled")
+
+    lookup = json.loads((js_output / "js_overlay.json").read_text(encoding="utf-8"))
+    assert lookup["hasOverlay"] is True
+
+    composed = compose_overlay(template, overlay)
+    gained = sum(
+        1
+        for before, after in zip(template.getdata(), composed.getdata())
+        if before[3] <= 1 and after[3] > 1
+    )
+    assert lookup["gainedPixels"] == gained
+    assert lookup["magnified"] == composed.width * 4 + 4
+    # the bundled template already carries the guide, so nothing changes
+    assert lookup["unchanged"] == (composed.tobytes() == template.tobytes())
 
 
 def test_texture_lookup_maps_vanilla_files_to_slots(js_output):
@@ -311,6 +336,9 @@ const appInfo = (doc) => ({
   targets: doc.querySelectorAll("#targets input").length,
   tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
   subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
+  guide: !!doc.querySelector("#opt-guide")?.checked,
+  guideLabel: (doc.querySelector('[data-i18n="web.guideOverlay"]') || {}).textContent || "",
+  downloadButton: doc.querySelector("#download-template")?.tagName || null,
 });
 
 /** Feed the app three vanilla-named texture files and hit "rebuild this set". */
@@ -531,9 +559,12 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert "已连接" in payload["status"]
     assert payload["sets"] > 150
     assert payload["targets"] == 12
-    assert payload["checkboxes"] == 16
+    assert payload["checkboxes"] == 17
     assert payload["tabs"] == ["导出贴图", "反向还原", "设置"]
     assert "网页版" in payload["subtitle"]
+    assert payload["guide"] is True
+    assert "参考线" in payload["guideLabel"]
+    assert payload["downloadButton"] == "BUTTON"
 
     # ... and "rebuild this set" has to produce a template preview that really
     # contains the head and legs, not just the torso.

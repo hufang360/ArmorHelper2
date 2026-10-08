@@ -34,7 +34,7 @@ import {
   generateHead,
   generateLegs,
 } from "../js/generate.js";
-import { contactSheet, fullArmorFrames, gifFrameOrder } from "../js/compose.js";
+import { composeOverlay, contactSheet, fullArmorFrames, gifFrameOrder, magnify } from "../js/compose.js";
 import { loadTextures, reverseTemplate, textureCandidates } from "../js/reverse.js";
 import { encodeGIF } from "../js/gif.js";
 import { encodePNG } from "../js/png.js";
@@ -132,6 +132,39 @@ writeFileSync(
     candidates: textureCandidates(190, 189, 130),
   }),
 );
+
+/* ---- guide overlay --------------------------------------------------- */
+// The overlay is composited for display only; generation must be unaffected.
+const { decodeBitmap } = await import("../js/fs.js");
+const overlay = null; // filled below when the Python side supplies the pixels
+{
+  const { readFileSync: read } = await import("node:fs");
+  const overlayPath = join(workdir, "overlay.rgba");
+  let layer = null;
+  try {
+    layer = {
+      width: layout.templateSize[0],
+      height: layout.templateSize[1],
+      data: new Uint8ClampedArray(read(overlayPath)),
+    };
+  } catch {
+    layer = null;
+  }
+  const composed = layer ? composeOverlay(template, layer) : template;
+  let gained = 0;
+  for (let i = 3; i < composed.data.length; i += 4) {
+    if (composed.data[i] > 1 && template.data[i] <= 1) gained += 1;
+  }
+  writeFileSync(
+    join(workdir, "js_overlay.json"),
+    JSON.stringify({
+      hasOverlay: !!layer,
+      gainedPixels: gained,
+      unchanged: Buffer.from(composed.data).equals(Buffer.from(template.data)),
+      magnified: magnify(composed, 4).width,
+    }),
+  );
+}
 
 /* ---- codecs ---------------------------------------------------------- */
 const frames = fullArmorFrames(template, false);

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import __version__
 from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
-from .layout import ArmorTemplateError, load_template, template_bytes
+from .layout import ArmorTemplateError, compose_overlay, load_template, template_bytes
 from .reverse import reverse_from_images
 from .vanilla import all_sets, describe, find_set, sanitize_filename, search_sets, source_info
 
@@ -60,6 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-o", "--output", default="ArmorTemplate_v1.png", help="where to write the PNG"
     )
     template_parser.add_argument("-f", "--force", action="store_true", help="overwrite an existing file")
+    template_parser.add_argument(
+        "--no-overlay",
+        action="store_true",
+        help="write the template verbatim instead of drawing the guide overlay on top",
+    )
 
     sub.add_parser("targets", help="list the output names accepted by --targets")
 
@@ -331,7 +336,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {target} already exists (pass --force to overwrite)", file=sys.stderr)
             return 1
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(template_bytes())
+        if args.no_overlay:
+            target.write_bytes(template_bytes())
+        else:
+            compose_overlay(load_template()).save(target, "PNG")
         print(f"wrote {target}")
         return 0
     if command == "targets":
