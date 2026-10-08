@@ -11,7 +11,7 @@
 | 基准游戏版本 | 泰拉瑞亚 1.4.5（新贴图格式自 1.4.4 起生效） |
 | 实测环境 | macOS · Python 3.14.8 · Pillow 12.0.0 · wxPython 4.2.4 · Node v26.10.0 · Google Chrome（headless） |
 | 规模 | 61 个文件；Python 6165 行 / JS 2809 行 / Markdown 1739 行 |
-| 测试 | `pytest tests -q` → **127 passed, 1 skipped**（约 4 秒） |
+| 测试 | `pytest tests -q` → **128 passed, 1 skipped**（约 15 秒，含无头浏览器） |
 
 ---
 
@@ -156,8 +156,13 @@ Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套�
 生成器与反向还原**只读原始模板**，有测试守着（`test_overlay_never_reaches_the_generated_sheets`）。
 
 **实测现状**：随包分发的 `ArmorTemplate_v1.png` 本身已经含参考线，overlay 的 4395 个像素
-与模板逐像素相同（模板另 1251 个像素是美术），因此当前叠加在视觉上是**空操作**。
-若希望参考线只存在于叠加层，把模板里的参考线擦掉即可——预览与下载的模板仍会带上它。
+与模板逐像素相同（模板另 1251 个像素是美术），因此当前叠加在视觉上是**空操作**
+（下载得到的模板与原始文件都是 5646 个不透明像素）。
+
+已用「只有美术的模板」（1251 像素）验证过整条路径：下载结果变成 5646 像素，
+即参考线确实被叠加了；`test_browser_download_applies_the_guide_overlay` 固化了这条断言。
+三处交出的模板现在都会叠加：Web 的下载按钮、`armorhelper template`、桌面 GUI 的「保存模板」
+与启动时还原到工作目录的那一份（GUI 原来直接写原始文件，已修正）。
 
 ### D-9 原版贴图内置到 Web 版
 
@@ -229,10 +234,10 @@ tests/test_gui.py        18   wxPython 冒烟、设置读写、还原流程（�
 tests/test_config.py      9   config.json 往返、v1 兼容、垃圾输入容错
 tests/test_cli.py         9   各子命令冒烟与错误码、template 的参考线开关
 tests/test_docs.py        9   文档裁切表与 layout 常量一致、用词、markdown 链接、README 为中文
-tests/test_web_port.py   24   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线 + 站点图标
+tests/test_web_port.py   34   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线叠加 + 站点图标
 tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可复现性
                         ---
-                        128（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
+                        129（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
 ```
 
 ### 5.2 关键验证结论（均已实跑）
@@ -403,7 +408,7 @@ python3 tools/export_web.py
 
 ```bash
 cd /Volumes/970/Games/tr/dev/ArmorHelper2
-python3 -m pytest tests -q                     # 128 项，约 4 秒
+python3 -m pytest tests -q                     # 129 项，约 15 秒（含无头浏览器）
 python3 -m armorhelper gui                     # 桌面界面
 python3 -m http.server 8000 --directory web    # Web 版 → http://127.0.0.1:8000/
 python3 -m armorhelper sets --search 星尘       # 查套装

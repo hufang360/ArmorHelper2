@@ -24,7 +24,7 @@ from armorhelper.generate import (  # noqa: E402
     generate_head,
     generate_legs,
 )
-from armorhelper.layout import load_template  # noqa: E402
+from armorhelper.layout import compose_overlay, load_template  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -73,11 +73,24 @@ def test_interface_is_chinese_by_default():
 
 def test_the_drawing_template_is_restored_next_to_the_config(frame, tmp_path):
     from armorhelper.gui import TEMPLATE_NAME
+    from armorhelper.layout import bundled_overlay, load_template
 
-    assert (tmp_path / TEMPLATE_NAME).exists()
-    assert (tmp_path / TEMPLATE_NAME).read_bytes() == (
-        ROOT / "armorhelper" / "data" / "ArmorTemplate_v1.png"
-    ).read_bytes()
+    restored = tmp_path / TEMPLATE_NAME
+    assert restored.exists()
+    with Image.open(restored) as image:
+        assert image.size == (128, 80)
+
+    # it is the template with the guide overlay drawn on, not the raw file
+    expected = compose_overlay(load_template(), bundled_overlay())
+    assert restored.read_bytes() == _png_bytes(expected)
+
+
+def _png_bytes(image) -> bytes:
+    import io
+
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
 
 
 def test_adding_an_input_enables_export(frame, tmp_path):

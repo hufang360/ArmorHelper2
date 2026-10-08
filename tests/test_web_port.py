@@ -379,6 +379,51 @@ const appInfo = (doc) => ({
   logo: doc.querySelector(".brand img")?.getAttribute("src") || null,
 });
 
+/**
+ * Click "download the drawing template" and inspect what it actually produces.
+ *
+ * Downloads are intercepted by hooking `URL.createObjectURL`, so the blob can be
+ * decoded and compared with the raw template instead of landing on disk.
+ */
+function equalBytes(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+async function checkTemplateDownload(doc, win) {
+  const { decodeBitmap } = await import("/js/fs.js");
+  const captured = [];
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    captured.push(blob);
+    return realCreate(blob);
+  };
+
+  const rawResponse = await win.fetch("/data/ArmorTemplate_v1.png");
+  const raw = await decodeBitmap(await rawResponse.blob());
+
+  doc.querySelector("#download-template").click();
+  for (let tick = 0; tick < 200 && !captured.length; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  win.URL.createObjectURL = realCreate;
+  if (!captured.length) return { error: "the download button produced nothing" };
+
+  const produced = await decodeBitmap(captured[0]);
+  const opaque = (bitmap) => {
+    let count = 0;
+    for (let i = 3; i < bitmap.data.length; i += 4) if (bitmap.data[i] > 1) count += 1;
+    return count;
+  };
+  return {
+    size: `${produced.width}x${produced.height}`,
+    rawOpaque: opaque(raw),
+    producedOpaque: opaque(produced),
+    identicalToRaw: equalBytes(produced.data, raw.data),
+  };
+}
+
 /** Click "rebuild this set" and wait for the result card. */
 async function runReverse(doc) {
   doc.querySelector("#rev-head").value = "189";
@@ -462,11 +507,12 @@ const timer = setInterval(async () => {
     const app = appInfo(doc);
     // 1. no folder, no uploads — this is the phone case: the textures shipped
     //    with the site have to be found on their own.
+    const download = await checkTemplateDownload(doc, frame.contentWindow);
     const builtin = await runReverse(doc);
     // 2. the same thing again, but with the user's own files uploaded.
     await uploadTextures(doc);
     const uploaded = await runReverse(doc);
-    report({ ...app, builtin, uploaded });
+    report({ ...app, download, builtin, uploaded });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
   }
@@ -527,7 +573,7 @@ def browser_server():
     server.server_close()
 
 
-def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
+def open_in_browser(chrome: str, url: str, tmp_path: Path, handler) -> dict:
     """Open `url`, wait for the page to report back, and return its payload."""
     profile = tmp_path / "chrome-profile"
     # `start_new_session` puts Chrome and all of its helper processes in their
@@ -552,11 +598,12 @@ def open_in_browser(chrome: str, url: str, tmp_path: Path, wait_for) -> dict:
         start_new_session=True,
     )
     try:
-        if not wait_for.wait(timeout=120):
-            pytest.fail(f"the page never reported back; requests={HarnessHandler.paths}")
+        if not handler.done.wait(timeout=120):
+            pytest.fail(f"the page never reported back; requests={handler.paths}")
     finally:
         stop_browser(process)
-    return json.loads(HarnessHandler.payload)
+    assert handler.payload, "the page reported nothing"
+    return json.loads(handler.payload)
 
 
 def stop_browser(process) -> None:
@@ -577,6 +624,30 @@ def stop_browser(process) -> None:
             process.kill()
 
 
+class ServeDir:
+    """Serve an arbitrary folder with the harness routes, for one test."""
+
+    def __init__(self, directory: Path) -> None:
+        self.directory = directory
+        self.server = None
+        self.handler = None
+
+    def start(self) -> str:
+        self.handler = type("Handler", (HarnessHandler,), {})
+        self.handler.done = threading.Event()
+        self.handler.payload = None
+        self.handler.paths = []
+        self.server = http.server.ThreadingHTTPServer(
+            ("127.0.0.1", 0), functools.partial(self.handler, directory=str(self.directory))
+        )
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        return f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def stop(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
 def test_browser_smoke_test(browser_server, tmp_path):
     """Run the web core in a real browser (Chrome/Chromium), if one is present."""
     chrome = find_chrome()
@@ -584,13 +655,67 @@ def test_browser_smoke_test(browser_server, tmp_path):
         pytest.skip("no Chrome/Chromium available")
 
     base, handler = browser_server
-    payload = open_in_browser(chrome, f"{base}/tests/smoke.html", tmp_path, handler.done)
+    payload = open_in_browser(chrome, f"{base}/tests/smoke.html", tmp_path, handler)
 
     assert not payload.get("error"), payload.get("error")
     failures = [item for item in payload["results"] if not item["ok"]]
     assert not failures, "\n".join(f"{item['name']}: {item['detail']}" for item in failures)
     assert payload["total"] >= 15
     assert payload["failures"] == 0
+
+
+@pytest.fixture()
+def clean_template_web(tmp_path):
+    """A copy of `web/` whose template has the guide stripped out.
+
+    That is the situation the overlay exists for: the bundled template already
+    contains the guide, so compositing it is invisible.  With an art-only
+    template the overlay has to put those pixels back.
+    """
+    import shutil
+
+    root = tmp_path / "web"
+    shutil.copytree(WEB, root, ignore=shutil.ignore_patterns("vanilla"))
+
+    template = load_template()
+    overlay = bundled_overlay()
+    if overlay is None:
+        pytest.skip("no guide overlay is bundled")
+
+    art_only = Image.new("RGBA", template.size, (0, 0, 0, 0))
+    source, guide, target = template.load(), overlay.load(), art_only.load()
+    for y in range(template.height):
+        for x in range(template.width):
+            if guide[x, y][3] <= 1 and source[x, y][3] > 1:
+                target[x, y] = source[x, y]
+    art_only.save(root / "data" / "ArmorTemplate_v1.png")
+    return root, art_only
+
+
+def test_browser_download_applies_the_guide_overlay(clean_template_web, tmp_path):
+    """The download button must hand out template + guide, not the bare art."""
+    chrome = find_chrome()
+    if chrome is None:
+        pytest.skip("no Chrome/Chromium available")
+
+    root, art_only = clean_template_web
+    served = ServeDir(root)
+    base = served.start()
+    try:
+        payload = open_in_browser(chrome, f"{base}/__harness.html", tmp_path, served.handler)
+    finally:
+        served.stop()
+
+    assert not payload.get("error"), payload.get("error")
+    download = payload["download"]
+    assert not download.get("error"), download
+    assert download["size"] == "128x80"
+
+    bare = sum(1 for pixel in art_only.getdata() if pixel[3] > 1)
+    assert download["rawOpaque"] == bare, "the served template should be art only"
+    assert download["producedOpaque"] > bare, "the overlay was not drawn on the download"
+    assert download["producedOpaque"] == bare + 4395
+    assert download["identicalToRaw"] is False
 
 
 def test_browser_renders_the_app(browser_server, tmp_path):
@@ -600,7 +725,7 @@ def test_browser_renders_the_app(browser_server, tmp_path):
         pytest.skip("no Chrome/Chromium available")
 
     base, handler = browser_server
-    payload = open_in_browser(chrome, f"{base}/__harness.html", tmp_path, handler.done)
+    payload = open_in_browser(chrome, f"{base}/__harness.html", tmp_path, handler)
 
     assert not payload.get("error"), f"{payload.get('error')} | requests={HarnessHandler.paths}"
     assert "已连接" in payload["status"]
@@ -614,6 +739,8 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert payload["downloadButton"] == "BUTTON"
     assert payload["favicon"] == "data/icon.png"
     assert payload["logo"] == "data/icon.png"
+    assert not payload["download"].get("error"), payload["download"]
+    assert payload["download"]["size"] == "128x80"
 
     # the bundled textures are what a phone user relies on
     assert "内置贴图" in payload["source"], payload["source"]

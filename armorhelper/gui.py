@@ -36,7 +36,12 @@ from .config import load as load_config
 from .config import save as save_config
 from .export import TARGETS, ExportSettings, export_template
 from .i18n import get_language, tr
-from .layout import ArmorTemplateError, bundled_template, load_template, template_bytes
+from .layout import (
+    ArmorTemplateError,
+    bundled_template,
+    compose_overlay,
+    load_template,
+)
 from .preview import find_images_dir
 from .reverse import reverse_from_images, texture_paths
 from .vanilla import all_sets, find_set, sanitize_filename
@@ -388,7 +393,7 @@ class ArmorHelperFrame(wx.Frame):
         if path.exists():
             return
         try:
-            path.write_bytes(template_bytes())
+            compose_overlay(load_template()).save(path, "PNG")
         except OSError:
             log.debug("could not restore %s", TEMPLATE_NAME, exc_info=True)
 
@@ -489,7 +494,9 @@ class ArmorHelperFrame(wx.Frame):
             if dialog.ShowModal() != wx.ID_OK:
                 return
             target = Path(dialog.GetPath())
-            target.write_bytes(template_bytes())
+            # Same as the web button and `armorhelper template`: hand out a
+            # drawing base with the guide overlay on it.
+            compose_overlay(load_template()).save(target, "PNG")
             self._remember_dir(target)
         self._set_status(tr("status.templateSaved", path=target), STALE_COLOUR)
 

@@ -999,6 +999,7 @@ async function main() {
       ? ` · 内置原版贴图 ${state.builtin.version}（${state.builtin.count} 张）`
       : "";
     $("#about").textContent = `ArmorHelper ${state.version} · 纯前端，无服务端${builtin}`;
+    $("#download-template").title = t("web.downloadTemplateHint");
 
     applyI18n();
     await loadSetsIndex("");
