@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "armorhelper/**"
+      - "tools/**"
+      - "tests/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -28,8 +31,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Pillow
-        run: pip install pillow
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: pip install pillow pytest
 
       - name: Regenerate the web data from the Python package
         run: python3 tools/export_web.py
@@ -37,13 +45,8 @@ jobs:
       - name: Fail if the checked in data is stale
         run: git diff --exit-code -- web/data
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Check the web core against the Python output
-        run: python3 -m pytest tests/test_web_port.py tests/test_vanilla_bundle.py -q
+      - name: Check the web core, the bundled textures and the docs
+        run: python3 -m pytest tests -q
 
       - uses: actions/configure-pages@v5
 
