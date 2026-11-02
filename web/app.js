@@ -19,7 +19,7 @@ import {
   searchSets,
   setLabel,
 } from "./js/data.js";
-import { countDifferences, stackFrames, upscale } from "./js/bitmap.js";
+import { countDifferences, cropRegion, stackFrames, upscale } from "./js/bitmap.js";
 import {
   generateArms,
   generateBodyComposite,
@@ -439,6 +439,20 @@ function makeGif(frames) {
 
 const SLOT_LABEL = { head: "web.slot.head", body: "web.slot.body", legs: "web.slot.legs" };
 
+/**
+ * What the slot shows for an uploaded sheet.
+ *
+ * The body grid (360x224) is readable as a whole, but a head/legs sheet is
+ * 40x1120: scaled down it becomes a 3px sliver, so those show their first frame
+ * at 2x instead.  The full size is still written next to the file name.
+ */
+function slotPreview(bitmap) {
+  if (bitmap.height <= bitmap.width * 4) return bitmap;
+  const cellH = Math.max(1, Math.round((bitmap.width * 28) / 20));
+  const frame = cropRegion(bitmap, [0, 0, bitmap.width, Math.min(cellH, bitmap.height)]);
+  return upscale(frame, 2);
+}
+
 /** Show what each of the three slots holds, and what is still missing. */
 function renderSlots() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
@@ -448,7 +462,16 @@ function renderSlots() {
     const clear = $(`#sheet-${role}-clear`);
     if (!slot || !nameEl || !clear) continue;
     const entry = state.sheetSlots[role];
+    const thumb = $(`#sheet-${role}-thumb`);
     slot.closest(".slot")?.classList.toggle("is-filled", !!entry);
+    if (thumb) {
+      thumb.hidden = !entry;
+      if (entry && thumb.getAttribute("src") !== (entry.url ?? "")) {
+        // keep the data URL on the entry: re-rendering must not re-encode the sheet
+        if (!entry.url) entry.url = keepUrl(slotPreview(entry.bitmap));
+        thumb.src = entry.url;
+      }
+    }
     nameEl.textContent = entry
       ? `${entry.name}  ${entry.bitmap.width}×${entry.bitmap.height}`
       : t("web.slotDrop");

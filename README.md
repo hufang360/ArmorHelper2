@@ -316,6 +316,8 @@ Content/Images/Armor/Armor_<id>.png   360 x 448   ……外加第 4~7 行的发�
   `crop(left, upper, right, lower)` 坐标与「帧号 → 格子」对照表。
 * [`docs/需求文档.md`](docs/需求文档.md) —— Python 版的完整规格。
 * [`docs/Web版需求文档.md`](docs/Web版需求文档.md) —— 网页版的规格。
+* [`docs/Web版UI线框图.md`](docs/Web版UI线框图.md) —— 网页版各标签页的 ASCII 线框图、
+  两栏比例与响应式断点（880 / 700）。
 * [`web/README.md`](web/README.md) —— 网页版自身说明（会发布到 GitHub Pages）。
 * [`PROJECT_STATUS.md`](PROJECT_STATUS.md) —— 项目交接文档：技术决策、已知问题、下一步顺序。
 * [`v1/`](v1/) —— 原版工具的压缩包、模板与论坛链接，作为溯源参考。

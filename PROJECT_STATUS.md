@@ -107,6 +107,7 @@
 | `docs/需求文档.md` | Python 版 / 核心库规格（含 9×4 格子定义、帧偏移表、验收标准） |
 | `docs/Web版需求文档.md` | Web 版规格（架构、功能/界面/非功能需求、验收标准） |
 | `docs/贴图裁切说明.md` | 铜盔甲三张贴图的逐格裁切说明（36 格全部标注 + 实测包围盒） |
+| `docs/Web版UI线框图.md` | Web 版四个标签页的 ASCII 线框图（两栏比例、响应式断点、线框 ↔ DOM 对照） |
 | `docs/armorhelper-v1.decompiled.cs` | v1 的反编译源码（移植与回归的参考基准） |
 | `v1/` | 原版工具的压缩包、模板与论坛链接，作为溯源参考 |
 
@@ -448,6 +449,7 @@ python3 tools/export_web.py
 | GIF 调色板把 bitmap 当数组遍历 | `web/js/gif.js` 要遍历 `frame.data`，不是 `frame` |
 | 还原时「文件名 → 槽位」映射写错 | `web/app.js` 曾把原版文件名当成字典键，导致只还原出躯干。映射逻辑已移进 `web/js/reverse.js` 的 `loadTextures()` 并由浏览器端到端测试覆盖 |
 | 静态服务器用 HTTP/1.0 | 见上表 |
+| 浏览器测试把文件下到 `~/Downloads` | 测试是真的点「下载」按钮，Chrome 默认落到用户下载目录（曾堆积 30 个 `ArmorTemplate_v1 (n).png`）。现在 harness 吞掉带 `download` 属性的 `<a>` 点击，并给 Chrome 写 `download.default_directory` 指向临时目录 |
 
 ---
 

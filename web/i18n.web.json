@@ -17,7 +17,6 @@
   "web.slot.body": "身体",
   "web.slot.legs": "腿部",
   "web.slotDrop": "拖到这里，或点击选择",
-  "web.slotHint": "头部 / 腿部 40×1120，身体 360×224（整数倍也行）",
   "web.slotEmpty": "未选择",
   "web.templatePopover": "绘制模板（含参考线）",
   "web.templatePopoverHint": "下载的就是这张 128×80 的图",
@@ -47,7 +46,11 @@
   "web.sheetWarnNotDivisible": "{name}：每格 {cell}px 宽，与最大贴图的 {max}px 无法整除。",
   "web.historyCleared": "已清空导出记录",
   "web.playerHint": "玩家贴图已内置，勾选即可叠加；在「设置」里选泰拉 Content/Images 可换成你自己的。",
-  "web.gifPlayerHint": "勾选后会先画上玩家本体（已内置原版玩家贴图，手机上也能用）。"
+  "web.gifPlayerHint": "勾选后会先画上玩家本体（已内置原版玩家贴图，手机上也能用）。",
+  "web.slot.headTitle": "头部（Armor_Head_ · 40×1120px）",
+  "web.slot.bodyTitle": "身体（Armor_ · 360×224，整数倍也行）",
+  "web.slot.legsTitle": "腿部（Armor_Legs_ · 40×1120px）",
+  "web.saveToOutput": "写入输出目录"
  },
  "en": {
   "web.tab.gifs": "Preview sheets",
@@ -61,7 +64,6 @@
   "web.slot.body": "Body",
   "web.slot.legs": "Legs",
   "web.slotDrop": "Drop here, or click to choose",
-  "web.slotHint": "Head / legs 40x1120, body 360x224 (multiples are fine too)",
   "web.slotEmpty": "nothing chosen",
   "web.templatePopover": "Drawing template (with guides)",
   "web.templatePopoverHint": "This is the 128x80 file you download",
@@ -91,6 +93,10 @@
   "web.sheetWarnNotDivisible": "{name}: {cell}px cells do not divide the {max}px of the largest sheet.",
   "web.historyCleared": "Export history cleared",
   "web.playerHint": "The player textures are bundled, just tick it. Pick your own Content/Images in Settings to use that instead.",
-  "web.gifPlayerHint": "When ticked the player's body is drawn first (bundled, so it also works on a phone)."
+  "web.gifPlayerHint": "When ticked the player's body is drawn first (bundled, so it also works on a phone).",
+  "web.slot.headTitle": "Head (Armor_Head_ · 40x1120px)",
+  "web.slot.bodyTitle": "Body (Armor_ · 360x224, multiples are fine)",
+  "web.slot.legsTitle": "Legs (Armor_Legs_ · 40x1120px)",
+  "web.saveToOutput": "Write to the output folder"
  }
 }

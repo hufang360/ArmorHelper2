@@ -468,6 +468,27 @@ def test_web_manifest_is_a_valid_pwa_manifest():
         assert "x" in icon["sizes"], icon
 
 
+def test_every_translation_the_app_uses_exists():
+    """A missing key shows up as `web.something` in the UI, so catch it here."""
+    import re
+
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    used = set(re.findall(r'(?<![\w.$])t\("([\w.]+)"', app))
+    # keys built at runtime: t(`web.slot.${role}`)
+    used |= {f"web.slot.{role}" for role in ("head", "body", "legs")}
+    used |= {f"web.sheetWarn{kind}" for kind in ()}
+    assert len(used) > 50, used
+
+    messages = json.loads((WEB / "data" / "i18n.json").read_text(encoding="utf-8"))["messages"]
+    for language in ("zh_CN", "en"):
+        missing = sorted(key for key in used if key not in messages[language])
+        assert not missing, f"{language} has no text for {missing}"
+
+    # ... and the html's data-i18n keys are covered above; this one used to be
+    # missing entirely, which printed the raw key on the result card button
+    assert messages["zh_CN"]["web.saveToOutput"] == "写入输出目录"
+
+
 def test_web_only_strings_are_merged_over_the_frozen_python_ones():
     """The Python package is frozen, so browser-only text lives in its own file."""
     extra = json.loads((WEB / "i18n.web.json").read_text(encoding="utf-8"))
@@ -677,6 +698,13 @@ async function runSheetGifs(doc) {
   const disabled = doc.querySelector("#do-gifs").disabled;
   const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
   const filled = [...doc.querySelectorAll(".slot")].map((slot) => slot.classList.contains("is-filled"));
+  // each slot has to show its own title and a thumbnail of what was dropped
+  const titles = [...doc.querySelectorAll(".slot-head > span")].map((el) => el.textContent.trim());
+  const thumbs = [...doc.querySelectorAll(".slot-thumb")].map((img) => ({
+    hidden: img.hidden,
+    src: (img.getAttribute("src") || "").slice(0, 5),
+    width: img.naturalWidth,
+  }));
   if (disabled) return { error: "the generate button stayed disabled", sheetStatus, wrongSlotStatus };
 
   // slow GIFs at 2x, so the test can see the settings really reach the encoder
@@ -702,6 +730,8 @@ async function runSheetGifs(doc) {
         wrongSlotStatus,
         wrongSlotFilled,
         filled,
+        titles,
+        thumbs,
         previews: images.length,
         widths,
         gifSize: gif ? gif.textContent : null,
@@ -832,12 +862,29 @@ async function runReverseAll(doc) {
   };
 }
 
+/**
+ * The harness clicks the real "download" buttons.  Anchor clicks are therefore
+ * swallowed: the tests capture the blob through `URL.createObjectURL`, and the
+ * user's Downloads folder stays empty.
+ */
+function blockDownloads(win) {
+  if (win.__downloadsBlocked) return;
+  win.__downloadsBlocked = true;
+  const proto = win.HTMLAnchorElement.prototype;
+  const real = proto.click;
+  proto.click = function click() {
+    if (this.hasAttribute && this.hasAttribute("download")) return undefined;
+    return real.call(this);
+  };
+}
+
 let ticks = 0;
 const timer = setInterval(async () => {
   ticks += 1;
   let doc;
   try {
     doc = frame.contentDocument;
+    if (frame.contentWindow) blockDownloads(frame.contentWindow);
     const status = doc.querySelector("#status");
     const text = status ? status.textContent.trim() : "";
     if (!text || text === "…") {
@@ -936,6 +983,21 @@ def browser_server():
 def open_in_browser(chrome: str, url: str, tmp_path: Path, handler) -> dict:
     """Open `url`, wait for the page to report back, and return its payload."""
     profile = tmp_path / "chrome-profile"
+    # Even if something bypasses the harness's anchor stub, downloads land in the
+    # test's temp folder instead of the user's ~/Downloads.
+    downloads = tmp_path / "downloads"
+    downloads.mkdir(parents=True, exist_ok=True)
+    prefs = profile / "Default"
+    prefs.mkdir(parents=True, exist_ok=True)
+    (prefs / "Preferences").write_text(
+        json.dumps(
+            {
+                "download": {"default_directory": str(downloads), "prompt_for_download": False},
+                "savefile": {"default_directory": str(downloads)},
+            }
+        ),
+        encoding="utf-8",
+    )
     # `start_new_session` puts Chrome and all of its helper processes in their
     # own process group, so they can be cleaned up together.  Leaving helpers
     # behind makes the *next* launch starve and time out.
@@ -1151,6 +1213,16 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert "还缺" in gifs["wrongSlotStatus"], gifs["wrongSlotStatus"]
     assert gifs["disabled"] is False
     assert gifs["filled"] == [True, True, True], gifs
+    # the public names and sizes are written on the slot headers
+    assert gifs["titles"] == [
+        "头部（Armor_Head_ · 40×1120px）",
+        "身体（Armor_ · 360×224，整数倍也行）",
+        "腿部（Armor_Legs_ · 40×1120px）",
+    ], gifs["titles"]
+    assert [thumb["hidden"] for thumb in gifs["thumbs"]] == [False, False, False], gifs["thumbs"]
+    assert [thumb["src"] for thumb in gifs["thumbs"]] == ["data:"] * 3, gifs["thumbs"]
+    # tall sheets show their first frame at 2x, the body grid shows all 9x4 cells
+    assert [thumb["width"] for thumb in gifs["thumbs"]] == [80, 360, 80], gifs["thumbs"]
     assert "头部 ✓" in gifs["sheetStatus"], gifs["sheetStatus"]
     assert gifs["files"] == [
         "Armor_190_FullArmor.png",

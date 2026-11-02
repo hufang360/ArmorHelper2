@@ -40,11 +40,10 @@
 
   <!-- ============================= 导出 ============================= -->
   <section class="panel is-active" id="tab-export">
-    <div class="split">
+    <!-- inputs | options | results (half the page) ; history under the first two -->
+    <div class="export-grid">
 
-      <!-- left: inputs, results, history -->
-      <div class="stack">
-        <div class="card">
+        <div class="card area-inputs">
           <h2 data-i18n="group.inputs"></h2>
           <div id="drop" class="drop" tabindex="0">
             <p data-i18n="web.drop"></p>
@@ -64,12 +63,25 @@
           </div>
         </div>
 
-        <div class="card">
+        <aside class="card area-options">
+          <h2 data-i18n="web.options"></h2>
+          <div id="targets" class="checklist"></div>
+
+          <h2 class="spaced" data-i18n="web.previewOptions"></h2>
+          <label class="check"><input type="checkbox" id="opt-female"><span data-i18n="web.female"></span></label>
+          <label class="check"><input type="checkbox" id="opt-player"><span data-i18n="web.player"></span></label>
+          <label class="check"><input type="checkbox" id="opt-guide"><span data-i18n="web.guideOverlay"></span></label>
+          <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
+
+          <button class="primary wide" id="do-export" data-i18n="web.export"></button>
+        </aside>
+
+        <div class="card area-results">
           <h2 data-i18n="web.results"></h2>
           <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
         </div>
 
-        <div class="card">
+        <div class="card area-history">
           <div class="cardhead">
             <h2 data-i18n="web.historyTitle"></h2>
             <button class="ghost tiny" id="clear-history" data-i18n="web.historyClear"></button>
@@ -78,21 +90,6 @@
             <li class="muted small" data-i18n="web.historyEmpty"></li>
           </ul>
         </div>
-      </div>
-
-      <!-- right: a tall options rail, level with inputs *and* results -->
-      <aside class="card sidebar">
-        <h2 data-i18n="web.options"></h2>
-        <div id="targets" class="checklist"></div>
-
-        <h2 class="spaced" data-i18n="web.previewOptions"></h2>
-        <label class="check"><input type="checkbox" id="opt-female"><span data-i18n="web.female"></span></label>
-        <label class="check"><input type="checkbox" id="opt-player"><span data-i18n="web.player"></span></label>
-        <label class="check"><input type="checkbox" id="opt-guide"><span data-i18n="web.guideOverlay"></span></label>
-        <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
-
-        <button class="primary wide" id="do-export" data-i18n="web.export"></button>
-      </aside>
 
     </div>
   </section>
@@ -108,10 +105,11 @@
           <div class="slots">
             <div class="slot" data-role="head">
               <div class="slot-head">
-                <span data-i18n="web.slot.head"></span>
+                <span data-i18n="web.slot.headTitle"></span>
                 <button class="ghost tiny" id="sheet-head-clear" data-i18n="web.remove" hidden></button>
               </div>
               <div class="slot-drop" id="sheet-head-slot" tabindex="0">
+                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
                 <span id="sheet-head-name" data-i18n="web.slotDrop"></span>
                 <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
               </div>
@@ -119,10 +117,11 @@
 
             <div class="slot" data-role="body">
               <div class="slot-head">
-                <span data-i18n="web.slot.body"></span>
+                <span data-i18n="web.slot.bodyTitle"></span>
                 <button class="ghost tiny" id="sheet-body-clear" data-i18n="web.remove" hidden></button>
               </div>
               <div class="slot-drop" id="sheet-body-slot" tabindex="0">
+                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
                 <span id="sheet-body-name" data-i18n="web.slotDrop"></span>
                 <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
               </div>
@@ -130,16 +129,16 @@
 
             <div class="slot" data-role="legs">
               <div class="slot-head">
-                <span data-i18n="web.slot.legs"></span>
+                <span data-i18n="web.slot.legsTitle"></span>
                 <button class="ghost tiny" id="sheet-legs-clear" data-i18n="web.remove" hidden></button>
               </div>
               <div class="slot-drop" id="sheet-legs-slot" tabindex="0">
+                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
                 <span id="sheet-legs-name" data-i18n="web.slotDrop"></span>
                 <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
               </div>
             </div>
           </div>
-          <p class="muted small tight" data-i18n="web.slotHint"></p>
           <p class="muted small" id="sheet-status"></p>
 
           <div class="opts-inline">
