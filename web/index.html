@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14161c">
 <title>ArmorHelper · Web</title>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/png" href="data/icon.png">
 <link rel="apple-touch-icon" href="data/icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
 
@@ -38,22 +40,48 @@
 
   <!-- ============================= 导出 ============================= -->
   <section class="panel is-active" id="tab-export">
-    <div class="row">
-      <div class="card grow">
-        <h2 data-i18n="group.inputs"></h2>
-        <div id="drop" class="drop" tabindex="0">
-          <p data-i18n="web.drop"></p>
-          <input type="file" id="file-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
+    <div class="split">
+
+      <!-- left: inputs, results, history -->
+      <div class="stack">
+        <div class="card">
+          <h2 data-i18n="group.inputs"></h2>
+          <div id="drop" class="drop" tabindex="0">
+            <p data-i18n="web.drop"></p>
+            <input type="file" id="file-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
+          </div>
+          <p class="muted small" id="file-summary"></p>
+          <ul id="file-list" class="filelist"></ul>
+          <div class="actions">
+            <button class="ghost" id="clear-files" data-i18n="web.clear"></button>
+            <span class="popwrap">
+              <button class="ghost" id="download-template" data-i18n="web.downloadTemplate"></button>
+              <figure class="popover" id="template-popover" hidden>
+                <img id="template-popover-img" alt="" class="pixel">
+                <figcaption data-i18n="web.templatePopover"></figcaption>
+              </figure>
+            </span>
+          </div>
         </div>
-        <p class="muted small" id="file-summary"></p>
-        <ul id="file-list" class="filelist"></ul>
-        <div class="actions">
-          <button class="ghost" id="clear-files" data-i18n="web.clear"></button>
-          <button class="ghost" id="download-template" data-i18n="web.downloadTemplate"></button>
+
+        <div class="card">
+          <h2 data-i18n="web.results"></h2>
+          <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
+        </div>
+
+        <div class="card">
+          <div class="cardhead">
+            <h2 data-i18n="web.historyTitle"></h2>
+            <button class="ghost tiny" id="clear-history" data-i18n="web.historyClear"></button>
+          </div>
+          <ul id="history-list" class="history">
+            <li class="muted small" data-i18n="web.historyEmpty"></li>
+          </ul>
         </div>
       </div>
 
-      <div class="card">
+      <!-- right: a tall options rail, level with inputs *and* results -->
+      <aside class="card sidebar">
         <h2 data-i18n="web.options"></h2>
         <div id="targets" class="checklist"></div>
 
@@ -64,42 +92,89 @@
         <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
 
         <button class="primary wide" id="do-export" data-i18n="web.export"></button>
-      </div>
-    </div>
+      </aside>
 
-    <div class="card">
-      <h2 data-i18n="web.results"></h2>
-      <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
     </div>
   </section>
 
-  <!-- ============================ 全身 GIF ============================ -->
+  <!-- ============================ 预览贴图 ============================ -->
   <section class="panel" id="tab-gifs">
-    <div class="row">
-      <div class="card grow">
-        <h2 data-i18n="web.gifsTitle"></h2>
+    <div class="split">
 
-        <div id="sheet-drop" class="drop" tabindex="0">
-          <p data-i18n="web.gifsDrop"></p>
-          <input type="file" id="sheet-input" accept=".png,image/png" multiple hidden>
+      <div class="stack">
+        <div class="card">
+          <h2 data-i18n="web.gifsTitle"></h2>
+
+          <div class="slots">
+            <div class="slot" data-role="head">
+              <div class="slot-head">
+                <span data-i18n="web.slot.head"></span>
+                <button class="ghost tiny" id="sheet-head-clear" data-i18n="web.remove" hidden></button>
+              </div>
+              <div class="slot-drop" id="sheet-head-slot" tabindex="0">
+                <span id="sheet-head-name" data-i18n="web.slotDrop"></span>
+                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+            </div>
+
+            <div class="slot" data-role="body">
+              <div class="slot-head">
+                <span data-i18n="web.slot.body"></span>
+                <button class="ghost tiny" id="sheet-body-clear" data-i18n="web.remove" hidden></button>
+              </div>
+              <div class="slot-drop" id="sheet-body-slot" tabindex="0">
+                <span id="sheet-body-name" data-i18n="web.slotDrop"></span>
+                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+            </div>
+
+            <div class="slot" data-role="legs">
+              <div class="slot-head">
+                <span data-i18n="web.slot.legs"></span>
+                <button class="ghost tiny" id="sheet-legs-clear" data-i18n="web.remove" hidden></button>
+              </div>
+              <div class="slot-drop" id="sheet-legs-slot" tabindex="0">
+                <span id="sheet-legs-name" data-i18n="web.slotDrop"></span>
+                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+            </div>
+          </div>
+          <p class="muted small tight" data-i18n="web.slotHint"></p>
+          <p class="muted small" id="sheet-status"></p>
+
+          <div class="opts-inline">
+            <label class="field">
+              <span data-i18n="web.gifSpeed"></span>
+              <select id="gif-speed">
+                <option value="fast" data-i18n="web.gifSpeedFast"></option>
+                <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+                <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="web.gifSize"></span>
+              <select id="gif-size">
+                <option value="1" data-i18n="web.gifSizeNative"></option>
+                <option value="2" data-i18n="web.gifSizeDouble"></option>
+                <option value="4" data-i18n="web.gifSizeQuad"></option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="gif-player"><span data-i18n="web.player"></span></label>
+          </div>
+          <p class="muted small tight" data-i18n="web.gifPlayerHint"></p>
+
+          <div class="actions">
+            <button class="primary" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
+            <button class="ghost" id="clear-sheets" data-i18n="web.clear"></button>
+          </div>
         </div>
-        <p class="muted small" id="sheet-status"></p>
-        <ul id="sheet-list" class="filelist"></ul>
-        <div class="actions">
-          <button class="ghost" id="clear-sheets" data-i18n="web.clear"></button>
-        </div>
-        <p class="muted small" data-i18n="web.gifsHint"></p>
-
-        <label class="check"><input type="checkbox" id="gif-player"><span data-i18n="web.player"></span></label>
-        <p class="muted small" data-i18n="web.gifPlayerHint"></p>
-
-        <button class="primary wide" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
       </div>
 
-      <div class="card">
+      <div class="card sidebar">
         <h2 data-i18n="web.results"></h2>
         <div id="gif-results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
       </div>
+
     </div>
   </section>
 
@@ -201,7 +276,11 @@
 
 </main>
 
-<footer class="statusbar"><span id="status" class="ok">…</span></footer>
+<footer class="statusbar">
+  <span id="status" class="ok">…</span>
+  <progress id="job-bar" max="1" value="0" hidden></progress>
+  <button class="ghost tiny" id="cancel-job" data-i18n="web.cancelJob" hidden></button>
+</footer>
 
 <script type="module" src="app.js"></script>
 </body>

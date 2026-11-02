@@ -15,6 +15,9 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` has to win over the display rules below (buttons, progress, popover). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -63,12 +66,33 @@ main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px;
 .panel { display: none; flex-direction: column; gap: 16px; }
 .panel.is-active { display: flex; }
 .row { display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; }
+
+/* Two columns: a stack of cards on the left, one tall rail on the right.  The
+   rail is as tall as input + results together, so the export button and the
+   option list do not scroll away while the results grow below. */
+.split { display: flex; gap: 16px; align-items: flex-start; }
+.stack { flex: 1 1 auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .card {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 14px; min-width: 260px;
 }
-.grow { flex: 1 1 420px; }
-.card:not(.grow) { flex: 0 1 330px; }
+.row > .card { flex: 0 1 330px; }
+.row > .card.grow { flex: 1 1 420px; }
+.split .card { flex: none; min-width: 0; }
+.sidebar {
+  flex: 0 0 320px; position: sticky; top: 16px;
+  max-height: calc(100vh - 32px); overflow: auto;
+}
+.cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cardhead h2 { margin: 0 0 8px; }
+
+/* the preview tab shows 40x56 GIFs: give the result rail a little more room */
+#tab-gifs .sidebar { flex-basis: 360px; }
+
+@media (max-width: 880px) {
+  .split { flex-direction: column; }
+  .sidebar, #tab-gifs .sidebar { position: static; flex: 1 1 auto; max-height: none; width: 100%; }
+}
 
 /* ------------------------------------------------------------------ drop */
 .drop {
@@ -80,13 +104,58 @@ main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px;
 .drop.is-over { border-color: var(--accent); background: #1e2740; }
 
 .filelist { list-style: none; margin: 8px 0 0; padding: 0; max-height: 190px; overflow: auto; }
+/* name, size and the remove button stay next to each other: pushing the size to
+   the far edge of a wide card made the row read like two unrelated columns. */
 .filelist li {
-  display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  display: flex; gap: 8px; align-items: baseline;
   padding: 4px 8px; border-radius: 6px; background: var(--panel-2);
   margin-bottom: 4px; font-size: 13px;
 }
 .filelist li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.filelist li button { background: none; border: 0; color: var(--muted); cursor: pointer; }
+.filelist li .muted { flex: none; font-size: 12px; }
+.filelist li button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.filelist li button { margin-left: auto; }
+
+/* --------------------------------------------------------------- slots -- */
+.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .slots { grid-template-columns: 1fr; } }
+.slot { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 8px; }
+.slot-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.slot-head > span { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.slot-drop {
+  margin-top: 4px; border: 1px dashed var(--line); border-radius: 6px;
+  padding: 10px 8px; font-size: 12px; color: var(--muted); text-align: center;
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.slot-drop:hover, .slot-drop:focus { border-color: var(--accent); color: var(--text); outline: none; }
+.slot-drop.is-over { border-color: var(--accent); background: #1e2740; }
+.slot.is-filled { border-color: #3d5a45; }
+.slot.is-filled .slot-drop { color: var(--text); border-style: solid; }
+.slot.is-filled .slot-drop::before { content: "\2713 "; color: var(--ok); }
+.tight { margin: 2px 0; }
+.opts-inline { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px; }
+.opts-inline .field { margin-bottom: 0; width: auto; }
+.opts-inline select { min-width: 132px; }
+
+/* A hover/focus popover with the template that the button downloads. */
+.popwrap { position: relative; display: inline-block; }
+.popover {
+  position: absolute; z-index: 20; top: calc(100% + 8px); left: 0;
+  margin: 0; padding: 8px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
+}
+.popover img { display: block; width: 256px; height: 160px; object-fit: contain; }
+.popover figcaption { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+
+/* ------------------------------------------------------------- history -- */
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow: auto; }
+.history li { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.history img { width: 48px; height: 30px; padding: 2px; flex: none; border-radius: 4px;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 12px 12px; }
+.history .when { color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
+.history .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history .count { color: var(--muted); font-size: 12px; flex: none; margin-left: auto; }
 
 /* -------------------------------------------------------------- controls */
 button, .link {
@@ -100,6 +169,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .primary { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
 .primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
 .ghost { background: transparent; }
+.tiny { padding: 3px 8px; font-size: 12px; border-radius: 6px; }
 .wide { width: 100%; margin-top: 14px; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
 
@@ -133,14 +203,22 @@ input:focus, select:focus { outline: 1px solid var(--accent); }
   letter-spacing: .02em;
 }
 .job .files { list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; max-height: 220px; overflow: auto; }
-.job .files li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.job .files li { display: flex; align-items: baseline; gap: 8px; padding: 2px 0; }
+.job .files li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job .files li .muted { flex: none; font-size: 12px; }
 .warn { color: var(--warn); font-size: 12px; }
 
 /* ---------------------------------------------------------------- status */
 .statusbar {
   padding: 8px 18px; border-top: 1px solid var(--line);
   background: var(--panel); font-size: 13px; position: sticky; bottom: 0;
+  display: flex; align-items: center; gap: 12px;
 }
+#status { flex: 1 1 auto; min-width: 0; }
+#job-bar { width: 160px; height: 6px; flex: none; appearance: none; }
+#job-bar::-webkit-progress-bar { background: var(--panel-2); border-radius: 4px; }
+#job-bar::-webkit-progress-value { background: var(--accent); border-radius: 4px; }
+#job-bar::-moz-progress-bar { background: var(--accent); border-radius: 4px; }
 #status.ok { color: var(--ok); }
 #status.warn { color: var(--warn); }
 #status.bad { color: var(--bad); }

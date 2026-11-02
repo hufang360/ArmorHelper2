@@ -1,0 +1,21 @@
+{
+ "name": "ArmorHelper — Terraria armor sheets",
+ "short_name": "ArmorHelper",
+ "description": "Expand a 128x80 template into Terraria 1.4.4+ armor sheets, rebuild templates from vanilla armor and preview full-body GIFs — all in the browser.",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#14161c",
+ "theme_color": "#14161c",
+ "lang": "zh-CN",
+ "categories": ["graphics", "utilities"],
+ "icons": [
+  {
+   "src": "data/icon.png",
+   "sizes": "120x120",
+   "type": "image/png",
+   "purpose": "any"
+  }
+ ]
+}

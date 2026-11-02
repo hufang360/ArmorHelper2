@@ -388,6 +388,104 @@ def test_export_does_not_touch_the_icon(tmp_path):
     assert (WEB / "data" / "icon.png").is_file()
 
 
+def test_player_textures_are_bundled():
+    """Overlay-player must work without a Content/Images folder (phones)."""
+    folder = WEB / "data" / "player"
+    expected = {"Player_0_3.png": (360, 224), "Player_0_7.png": (360, 224), "Player_0_10.png": (40, 1120)}
+    for name, size in expected.items():
+        path = folder / name
+        assert path.is_file(), f"{name} is not bundled"
+        with Image.open(path) as image:
+            assert image.size == size, f"{name}: {image.size}"
+
+    info = (folder / "version.txt").read_text(encoding="utf-8")
+    assert "count=3" in info
+    assert "version=" in info
+
+    # the page loads them by name, and the service worker caches them
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'data/player' in app
+    worker = (WEB / "sw.js").read_text(encoding="utf-8")
+    for name in expected:
+        assert f"data/player/{name}" in worker, name
+
+    # an importer keeps them reproducible instead of hand-copied blobs
+    assert (ROOT / "tools" / "import_player_textures.py").is_file()
+
+
+def test_service_worker_precaches_the_whole_app():
+    """Offline support is only real if every boot-time file is in the cache."""
+    import re
+
+    script = (WEB / "sw.js").read_text(encoding="utf-8")
+    assert re.search(r'const VERSION = "[^"]+"', script), "the cache needs a version to bust"
+    assert "skipWaiting" in script and "clients.claim" in script
+
+    core = re.search(r"const CORE = \[(.*?)\];", script, re.S)
+    assert core, "sw.js has no CORE list"
+    files = re.findall(r'"([^"]+)"', core.group(1))
+    assert "index.html" in files and "app.js" in files
+
+    for name in files:
+        if name == "./":
+            continue
+        assert (WEB / name).is_file(), f"sw.js precaches a missing file: {name}"
+
+    # every module the app imports has to be precached, or an offline boot 404s
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    modules = {name.removeprefix("./") for name in re.findall(r'from "(\./js/[^"]+)"', app)}
+    missing = sorted(module for module in modules if module not in files)
+    assert not missing, f"sw.js does not cache {missing}"
+
+    # the bundled textures are big: they are cached on use, not on install
+    assert "data/vanilla/" in script
+    assert "data/vanilla/version.txt" not in files
+
+    # Pages serves the site from /<repo>/, so paths must be scope-relative
+    assert "self.registration.scope" in script
+
+
+def test_the_service_worker_is_registered_and_scoped_to_the_site():
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'register("sw.js")' in app
+    assert "serviceWorker" in app
+
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="manifest" href="manifest.webmanifest">' in html
+    assert '<meta name="theme-color"' in html
+
+
+def test_web_manifest_is_a_valid_pwa_manifest():
+    manifest = json.loads((WEB / "manifest.webmanifest").read_text(encoding="utf-8"))
+    assert manifest["start_url"] == "./"
+    assert manifest["display"] == "standalone"
+    assert manifest["name"] and manifest["short_name"]
+    assert manifest["theme_color"].startswith("#")
+    icons = manifest["icons"]
+    assert icons, "a PWA needs at least one icon"
+    for icon in icons:
+        assert (WEB / icon["src"]).is_file(), icon
+        assert "x" in icon["sizes"], icon
+
+
+def test_web_only_strings_are_merged_over_the_frozen_python_ones():
+    """The Python package is frozen, so browser-only text lives in its own file."""
+    extra = json.loads((WEB / "i18n.web.json").read_text(encoding="utf-8"))
+    messages = json.loads((WEB / "data" / "i18n.json").read_text(encoding="utf-8"))["messages"]
+
+    assert set(extra) - {"_comment"} == set(messages), "both languages have to be covered"
+    for language, strings in extra.items():
+        if language.startswith("_"):
+            continue
+        for key, value in strings.items():
+            assert messages[language][key] == value, f"{language}: {key} was not exported"
+            assert "护甲" not in value, f"{language}: {key} uses the wrong word"
+
+    # the exporter must not have touched the frozen Python sources
+    exporter = (ROOT / "tools" / "export_web.py").read_text(encoding="utf-8")
+    assert "i18n.web.json" in exporter, "the exporter must merge the web-only strings"
+
+
 def test_no_python_left_in_the_web_app():
     """The two versions are separate: the web app must be pure static files."""
     for path in WEB.rglob("*"):
@@ -514,63 +612,224 @@ async function runReverse(doc) {
   return { error: "reverse produced no preview" };
 }
 
-/** Upload the three vanilla-named textures through one of the page's inputs. */
-async function uploadTextures(doc, selector = "#texture-input") {
-  const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }, { pngBlob }] =
+/** Build the three generated sheets (and the template) once per call. */
+async function makeSheets() {
+  const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }] =
     await Promise.all([
       import("/js/data.js"),
       import("/js/fs.js"),
       import("/js/generate.js"),
-      import("/js/png.js"),
     ]);
   await loadLayout("/data/layout.json");
-
   const template = await decodeBitmap(await (await fetch("/data/ArmorTemplate_v1.png")).blob());
-  const sheets = [
-    ["Armor_Head_189.png", generateHead(template)],
-    ["Armor_190.png", generateBodyComposite(template)],
-    ["Armor_Legs_130.png", generateLegs(template)],
-  ];
-  const files = [];
-  for (const [name, bitmap] of sheets) {
-    files.push(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
-  }
+  return {
+    template,
+    head: ["Armor_Head_189.png", generateHead(template)],
+    body: ["Armor_190.png", generateBodyComposite(template)],
+    legs: ["Armor_Legs_130.png", generateLegs(template)],
+  };
+}
 
-  const input = doc.querySelector(selector);
+/** Put a list of `[name, bitmap]` into one file input, like a real pick would. */
+async function putFiles(doc, selector, pairs) {
+  const { pngBlob } = await import("/js/png.js");
   const transfer = new DataTransfer();
-  for (const file of files) transfer.items.add(file);
+  for (const [name, bitmap] of pairs) {
+    transfer.items.add(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
+  }
+  const input = doc.querySelector(selector);
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-/** Upload the same sheets into the "full body GIF" tab and run it. */
+/** Upload three vanilla-named textures through one of the page's inputs. */
+async function uploadTextures(doc, selector = "#texture-input") {
+  const sheets = await makeSheets();
+  await putFiles(doc, selector, [sheets.head, sheets.body, sheets.legs]);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The "preview sheets" tab: three labelled slots, speed/size selects and the
+ * generated PNGs plus animated GIFs.  Also checks that a sheet dropped into the
+ * wrong slot is rejected with a translated message instead of silently used.
+ */
 async function runSheetGifs(doc) {
-  await uploadTextures(doc, "#sheet-input");
+  const sheets = await makeSheets();
+
+  // wrong slot first: the body grid is not a valid head sheet
+  await putFiles(doc, "#sheet-head-input", [sheets.body]);
+  await sleep(60);
+  const wrongSlotStatus = doc.querySelector("#sheet-status").textContent.trim();
+  const wrongSlotFilled = doc
+    .querySelector('#sheet-head-slot')
+    .closest(".slot")
+    .classList.contains("is-filled");
+
+  for (const role of ["head", "body", "legs"]) {
+    await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
+  }
   for (let tick = 0; tick < 200; tick += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await sleep(25);
     if (!doc.querySelector("#do-gifs").disabled) break;
   }
   const disabled = doc.querySelector("#do-gifs").disabled;
   const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
-  if (disabled) return { error: "the generate button stayed disabled", sheetStatus };
+  const filled = [...doc.querySelectorAll(".slot")].map((slot) => slot.classList.contains("is-filled"));
+  if (disabled) return { error: "the generate button stayed disabled", sheetStatus, wrongSlotStatus };
+
+  // slow GIFs at 2x, so the test can see the settings really reach the encoder
+  const speed = doc.querySelector("#gif-speed");
+  speed.value = "slow";
+  speed.dispatchEvent(new Event("change", { bubbles: true }));
+  const size = doc.querySelector("#gif-size");
+  size.value = "2";
+  size.dispatchEvent(new Event("change", { bubbles: true }));
 
   doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await sleep(25);
     const images = doc.querySelectorAll("#gif-results .preview img");
     if (images.length) {
+      // GIFs decode lazily: wait so naturalWidth is the real frame size
+      await Promise.all([...images].map((img) => img.decode().catch(() => null)));
+      const widths = [...images].map((img) => img.naturalWidth);
+      const gif = doc.querySelector('#gif-results .files a[download$=".gif"]');
       return {
         disabled,
         sheetStatus,
+        wrongSlotStatus,
+        wrongSlotFilled,
+        filled,
         previews: images.length,
+        widths,
+        gifSize: gif ? gif.textContent : null,
         captions: [...doc.querySelectorAll("#gif-results figcaption")].map((el) => el.textContent),
         files: [...doc.querySelectorAll("#gif-results .files a")].map((a) => a.textContent),
+        sizes: [...doc.querySelectorAll("#gif-results .files li .muted")].map((el) => el.textContent),
         sources: [...images].map((img) => img.src.slice(0, 5)),
         status: doc.querySelector("#status").textContent.trim(),
+        settings: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.settings") || "{}"),
+        history: doc.querySelectorAll("#history-list li img").length,
       };
     }
   }
   return { error: "no GIF result", sheetStatus };
+}
+
+/**
+ * "Overlay player" has to work without any folder: the site ships the three
+ * player textures (`data/player/`), which is what makes it usable on a phone.
+ */
+async function runPlayerOverlay(doc) {
+  doc.querySelector("#gif-player").checked = true;
+  doc.querySelector("#gif-player").dispatchEvent(new Event("change", { bubbles: true }));
+
+  // exporting with player preview on: the hint must stay hidden (parts found)
+  const optPlayer = doc.querySelector("#opt-player");
+  optPlayer.checked = true;
+  optPlayer.dispatchEvent(new Event("change", { bubbles: true }));
+  const exportHintHidden = doc.querySelector("#player-hint").hidden;
+
+  doc.querySelector("#do-gifs").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    const links = doc.querySelectorAll("#gif-results .files a");
+    if (links.length > 4) {
+      return {
+        exportHintHidden,
+        files: [...links].map((a) => a.textContent),
+        previews: doc.querySelectorAll("#gif-results .preview img").length,
+        warnings: [...doc.querySelectorAll("#gif-results .warn")].map((el) => el.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+  }
+  return { error: "no player overlay result" };
+}
+
+/** Run a plain export and report what the results card plus history look like. */
+async function runExport(doc) {
+  const sheets = await makeSheets();
+  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
+  // decoding is async: wait until the template shows up in the input list
+  for (let tick = 0; tick < 200; tick += 1) {
+    if (doc.querySelectorAll("#file-list li").length) break;
+    await sleep(25);
+  }
+  doc.querySelector("#do-export").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    if (doc.querySelector("#results .files a")) break;
+  }
+  await sleep(120);
+  const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
+  return {
+    files: [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent),
+    previews: doc.querySelectorAll("#results .preview img").length,
+    sizes: [...doc.querySelectorAll("#results .files li")][0]?.textContent.trim() ?? "",
+    history,
+    stored: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.history") || "[]"),
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
+/** Hovering "download the drawing template" shows that image in a popover. */
+async function checkTemplatePopover(doc) {
+  const figure = doc.querySelector("#template-popover");
+  const image = doc.querySelector("#template-popover-img");
+  const button = doc.querySelector("#download-template");
+  const hiddenAtStart = figure.hidden;
+  button.dispatchEvent(new MouseEvent("mouseenter"));
+  for (let tick = 0; tick < 200; tick += 1) {
+    await sleep(25);
+    if ((image.getAttribute("src") || "").startsWith("data:") && image.complete && image.naturalWidth) break;
+  }
+  const visible = !figure.hidden;
+  const width = image.naturalWidth;
+  button.dispatchEvent(new MouseEvent("mouseleave"));
+  return { hiddenAtStart, visible, width, hiddenAfter: figure.hidden };
+}
+
+/** Fire "rebuild every set" and cancel it right away. */
+async function runReverseAllCancel(doc) {
+  doc.querySelector("#do-reverse-all").click();
+  const cancel = doc.querySelector("#cancel-job");
+  const sawCancelButton = !cancel.hidden;
+  const sawBar = !doc.querySelector("#job-bar").hidden;
+  cancel.click();
+  for (let tick = 0; tick < 2000; tick += 1) {
+    await sleep(25);
+    const status = doc.querySelector("#status");
+    if (status.className !== "busy") break;
+  }
+  return {
+    sawCancelButton,
+    sawBar,
+    status: doc.querySelector("#status").textContent.trim(),
+    files: doc.querySelectorAll("#reverse-result .files a").length,
+    cancelHiddenAfter: doc.querySelector("#cancel-job").hidden,
+  };
+}
+
+/** Fire "rebuild every set" and let it finish, watching the progress messages. */
+async function runReverseAll(doc) {
+  doc.querySelector("#do-reverse-all").click();
+  let sawProgress = false;
+  for (let tick = 0; tick < 8000; tick += 1) {
+    await sleep(25);
+    const status = doc.querySelector("#status");
+    if (/\\d+\\/\\d+/.test(status.textContent)) sawProgress = true;
+    if (tick > 4 && status.className !== "busy") break;
+  }
+  await sleep(150);
+  return {
+    sawProgress,
+    status: doc.querySelector("#status").textContent.trim(),
+    files: doc.querySelectorAll("#reverse-result .files a").length,
+    history: doc.querySelectorAll("#history-list li img").length,
+  };
 }
 
 let ticks = 0;
@@ -600,13 +859,20 @@ const timer = setInterval(async () => {
     // 1. no folder, no uploads — this is the phone case: the textures shipped
     //    with the site have to be found on their own.
     const download = await checkTemplateDownload(doc, frame.contentWindow);
+    const popover = await checkTemplatePopover(doc);
     const builtin = await runReverse(doc);
-    // 2. the same thing again, but with the user's own files uploaded.
+    // 2. an export from a dropped template, which also fills the history
+    const exported = await runExport(doc);
+    // 3. the same thing again, but with the user's own files uploaded.
     await uploadTextures(doc);
     const uploaded = await runReverse(doc);
-    // 3. the sheets -> full body GIF tab, with the same three textures.
+    // 4. the preview-sheets tab, with three separate slots
     const gifs = await runSheetGifs(doc);
-    report({ ...app, download, builtin, uploaded, gifs });
+    const player = await runPlayerOverlay(doc);
+    // 5. the long task: cancel works, and a full run reports progress
+    const cancelled = await runReverseAllCancel(doc);
+    const reverseAll = await runReverseAll(doc);
+    report({ ...app, download, popover, builtin, exported, uploaded, gifs, player, cancelled, reverseAll });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
   }
@@ -826,7 +1092,7 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert payload["sets"] > 150
     assert payload["targets"] == 12
     assert payload["checkboxes"] == 18
-    assert payload["tabs"] == ["导出贴图", "全身 GIF", "反向还原", "设置"]
+    assert payload["tabs"] == ["导出贴图", "预览贴图", "反向还原", "设置"]
     assert "网页版" in payload["subtitle"]
     assert payload["guide"] is True
     assert "参考线" in payload["guideLabel"]
@@ -859,10 +1125,32 @@ def test_browser_renders_the_app(browser_server, tmp_path):
         # 128x80 magnified 4x plus the 2px border
         assert reverse["widths"][0] == 128 * 4 + 4, reverse["widths"]
 
-    # the sheets -> full-body GIF tab works on the same three textures
+    # the hover popover really shows the template that the button downloads
+    popover = payload["popover"]
+    assert popover["hiddenAtStart"] is True, popover
+    assert popover["visible"] is True, popover
+    assert popover["width"] == 128 * 4 + 4, popover  # magnified 4x + the 2px border
+    assert popover["hiddenAfter"] is True, popover
+
+    # a plain export, and the history entry it leaves behind
+    exported = payload["exported"]
+    assert exported["files"], exported
+    assert exported["previews"] == 3, exported
+    assert "40×1120" in exported["sizes"], exported
+    assert len(exported["history"]) >= 1, exported
+    assert "MyArmor" in exported["history"][0], exported
+    assert exported["stored"][0]["files"] == len(exported["files"]), exported["stored"]
+    assert exported["stored"][0]["thumb"].startswith("data:image/png"), exported["stored"]
+
+    # the preview-sheets tab: three labelled slots, speed/size, and the GIFs
     gifs = payload["gifs"]
     assert not gifs.get("error"), gifs.get("error")
+    # a body sheet in the head slot is refused, in the user's language
+    assert gifs["wrongSlotFilled"] is False, gifs
+    assert "Armor_190.png" in gifs["wrongSlotStatus"], gifs["wrongSlotStatus"]
+    assert "还缺" in gifs["wrongSlotStatus"], gifs["wrongSlotStatus"]
     assert gifs["disabled"] is False
+    assert gifs["filled"] == [True, True, True], gifs
     assert "头部 ✓" in gifs["sheetStatus"], gifs["sheetStatus"]
     assert gifs["files"] == [
         "Armor_190_FullArmor.png",
@@ -875,6 +1163,42 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert gifs["sources"][:2] == ["blob:", "blob:"], gifs["sources"]
     assert gifs["sources"][2] == "data:", gifs["sources"]
     assert "已生成" in gifs["status"], gifs["status"]
+    # 2x was chosen, so the GIFs (and their preview) are twice as wide
+    assert gifs["widths"][:2] == [80, 80], gifs["widths"]
+    assert gifs["widths"][2] > 800, gifs["widths"]  # the 20 frame contact sheet
+    assert gifs["settings"]["gifSpeed"] == "slow", gifs["settings"]
+    assert gifs["settings"]["gifSize"] == 2, gifs["settings"]
+
+    # "overlay player" works with no folder at all (bundled player textures)
+    player = payload["player"]
+    assert not player.get("error"), player.get("error")
+    assert player["exportHintHidden"] is True, player
+    assert player["files"] == [
+        "Armor_190_FullArmor.png",
+        "Armor_190_FullArmorFemale.png",
+        "Armor_190_FullArmorPlayer.png",
+        "Armor_190_FullArmorPlayerFemale.png",
+        "Armor_190_FullArmor.gif",
+        "Armor_190_FullArmorFemale.gif",
+        "Armor_190_FullArmorPlayer.gif",
+        "Armor_190_FullArmorPlayerFemale.gif",
+    ], player["files"]
+    assert player["previews"] == 5, player
+    assert not player["warnings"], player
+
+    # cancelling the long "rebuild every set" task
+    cancelled = payload["cancelled"]
+    assert cancelled["sawCancelButton"] is True, cancelled
+    assert cancelled["sawBar"] is True, cancelled
+    assert "已取消" in cancelled["status"], cancelled
+    assert cancelled["cancelHiddenAfter"] is True, cancelled
+
+    # ... and letting it finish reports progress on the way
+    reverse_all = payload["reverseAll"]
+    assert reverse_all["sawProgress"] is True, reverse_all
+    assert reverse_all["files"] > 100, reverse_all
+    assert "已还原" in reverse_all["status"], reverse_all
+    assert reverse_all["history"] >= 2, reverse_all
 
 
 def test_pages_workflow_publishes_the_web_folder():

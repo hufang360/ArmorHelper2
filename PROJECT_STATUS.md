@@ -10,8 +10,8 @@
 | 版本号 | `armorhelper 2.0.0`（`pyproject.toml`）——**Python 侧已冻结**，Web 版仍在演进 |
 | 基准游戏版本 | 泰拉瑞亚 1.4.5（新贴图格式自 1.4.4 起生效） |
 | 实测环境 | macOS · Python 3.14.8 · Pillow 12.0.0 · wxPython 4.2.4 · Node v26.10.0 · Google Chrome（headless） |
-| 规模 | 815 个文件（含内置贴图 748 张）；Python 8272 行 / JS 3489 行 / Markdown 2336 行 |
-| 测试 | `pytest tests -q` → **171 passed, 1 skipped**（共 172 项；未装 wxPython 时为 149 passed / 2 skipped），约 19 秒，含无头浏览器 |
+| 规模 | 818 个文件（含内置贴图 748 张）；Python 8300 行 / JS 3678 行 / Markdown 2500 行 |
+| 测试 | `pytest tests -q` → **176 passed, 1 skipped**（共 177 项；未装 wxPython 时为 154 passed / 2 skipped），约 21 秒，含无头 Chrome |
 
 ---
 
@@ -80,8 +80,16 @@
 
 - `web/js/` — 核心移植：`bitmap` / `data` / `generate` / `compose` / `reverse` /
   `sheets` / `png` / `gif` / `zip` / `fs` / `idb`，全部原生 ES 模块，无框架、无构建、无 CDN。
-- `web/app.js` — 单页应用：导出贴图、全身 GIF、反向还原、设置四个标签页；结果卡片并排显示
+- `web/app.js` — 单页应用：导出贴图、预览贴图、反向还原、设置四个标签页；结果卡片并排显示
   「绘制模板 (128×80)」「生成效果 (20 帧)」「GIF 动画」。
+  导出页左侧是「输入文件 / 导出结果 / 最近导出」竖排，右侧是等高的粘性「导出选项」侧栏；
+  「下载绘制模板」悬停/聚焦会弹出 4× 模板 popover。
+  「预览贴图」页是**三个部位槽位**（头部 / 身体 / 腿部各一个拖放区，放错尺寸会被拒绝），
+  GIF 速率（100 / 500 / 1000ms）与尺寸（1× / 2× / 4×）可选；批量任务带 `i/n` 进度与取消。
+- `web/sw.js` + `web/manifest.webmanifest` — 离线缓存与可安装 PWA（`CORE` 清单由测试守卫，
+  748 张内置贴图改为首次使用时缓存）。
+- `web/i18n.web.json` — **仅 Web** 的文案（标签页改名、GIF 速率、历史、槽位提示…），
+  `tools/export_web.py` 把它合并覆盖到 Python 的 `MESSAGES` 上，因此不用解冻 Python 就能改界面文字。
 - `web/data/` — 由 `tools/export_web.py` 从 Python 侧导出（layout / armor_sets / i18n / 模板 / 参考线）。
 - `web/data/vanilla/` — 内置原版盔甲贴图（748 张 + `version.txt`），由
   `tools/import_vanilla_textures.py` 从一个已解包的 `Content/Images` 导入。
@@ -93,6 +101,7 @@
 |---|---|
 | `tools/build_armor_sets.py` | 由游戏源码生成套装表（`ArmorSetBonuses.cs` + `ArmorIDs.cs` + `Item.cs` + 简中本地化） |
 | `tools/export_web.py` | 把 Python 侧的常量导出成 `web/data/*` |
+| `tools/import_player_textures.py` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/`（含 `version.txt`），让「叠加玩家」在手机 / Firefox / Safari 上也能用 |
 | `tools/import_vanilla_textures.py` | 把已解包的 `Content/Images` 里的盔甲贴图导入 `web/data/vanilla/`（只取 `Armor_*`，身体贴图保留 `Armor/` 子目录），并写 `version.txt`（版本 / 张数 / 分类张数 / 总字节 / checksum） |
 | `tools/inspect_armor.py` | 按引擎算法渲染任意 1.4.4+ 身体贴图，用于与原版对照 |
 | `docs/需求文档.md` | Python 版 / 核心库规格（含 9×4 格子定义、帧偏移表、验收标准） |
@@ -225,6 +234,47 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 
 ---
 
+### D-13 Web 专属文案单独成文件，不动冻结的 Python
+
+界面改名（「全身 GIF」→「预览贴图」）、速率/尺寸、导出历史、槽位提示这些只有浏览器需要的
+文字，写在 `web/i18n.web.json`；`tools/export_web.py` 把它按语言合并覆盖到 Python 的
+`MESSAGES` 上再导出 `data/i18n.json`。这样就不必为了改动「一行 UI 文案」去解冻 Python，`test_web_only_strings_are_merged_over_the_frozen_python_ones` 会检查合并结果，
+`test_exported_data_is_up_to_date` 仍然守着「数据没过期」。
+
+### D-14 部位改用三个槽位，而不是相信文件名
+
+最初的实现是「拖三张图，按文件名猜部位」。识别错了用户只能删掉重试（而 40×1120 的头和腿
+在尺寸上完全一样，猜错是常事）。改成三个槽位后，**部位由用户放的位置决定**，
+`classifySheets()` 只在「一次拖入多个文件」时用来自动分配；每个槽位入口都会跑
+`validateSheet()`（列数 / 宽高比 / 高度），不合格直接拒绝并给出该槽位能接受的尺寸，
+绝不静默缩放。核心警告从英文句子改成 `{key, vars}`，由 UI 翻译成中文/英文。
+
+### D-15 长任务：进度条 + 取消，用轮询而不是 AbortController 硬中断
+
+「还原全部套装」要读约 450 张内置贴图（151 套 × 3 张），中途没有反馈、也不能停。
+现在每个任务有 `state.job = {cancelled, done, total}`：状态栏显示 `正在处理 12/151：星尘板甲`、
+右侧是进度条与「取消」按钮；循环在每个 item 前检查 `jobCancelled()`，`nextFrame()`
+让浏览器有机会重绘。**没有**用 `AbortController` 去断掉进行中的 fetch —— 中断到一半
+反而会留下不一致的结果，逐项检查更简单也更可测。取消后已完成的结果仍然可用。
+
+顺带把「还原全部」开头的目录选择挪到**保存时**才问，避免点一下按钮先弹一个文件选择器。
+
+### D-16 离线用 Service Worker，缓存分两层
+
+`CORE`（启动必需：HTML/CSS/JS/JSON/模板/图标，约 60 KB）在 install 时预缓存；
+748 张内置贴图（约 1.6 MB）走 `data/vanilla/` 前缀，命中后用后台 fetch 刷新（stale-while-revalidate），
+没命中就按需缓存。这样手机首次打开不会一次性下载 1.6 MB。
+坑：`event.waitUntil()` 只能在事件派发期间调用，放在 `respondWith` 的 `.then()` 里会抛
+`InvalidStateError` 并让这次 fetch 直接失败 —— 后台缓存必须用普通浮动 promise。
+
+### D-17 玩家贴图内置，而不是只靠 Content/Images
+
+「叠加玩家」原来只从 Chromium 的目录句柄读 `Player_0_3 / 0_7 / 0_10.png`，于是手机上这个
+复选框永远拿不到贴图（除非用户手动挑 748 个文件——不可能）。现在把这三张（约 4 KB）
+一并放进 `web/data/player/`，启动时就加载；用户选了 `Content/Images` 时优先用用户的
+（可能是材质包），失败再回落到内置版。顺带把这一块补上了端到端断言：勾上之后应有
+8 个文件 / 5 个预览（4 张 PNG + 4 个 GIF，其中两个是「玩家 + 盔甲」）。
+
 ## 4. 修改过的核心文件
 
 按后续开发最可能触碰的顺序：
@@ -243,7 +293,10 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 | `armorhelper/gui.py` | wxPython 界面 | 中：弹窗拆成了可替换的钩子便于测试 |
 | `armorhelper/vanilla.py` + `data/armor_sets.json` | 套装表 | 低 |
 | `web/js/*.js` | Web 核心（含 `sheets.js`） | 中：改完必须跑等价性测试 |
-| `web/app.js` | Web 界面 | 中 |
+| `web/app.js` | Web 界面（含进度/取消、历史、popover、槽位） | 中 |
+| `web/i18n.web.json` | 仅 Web 的文案（覆盖 Python 的键） | 低：改完必须跑 `tools/export_web.py` |
+| `web/sw.js` + `manifest.webmanifest` | 离线缓存 / PWA | 中：`CORE` 清单与 `VERSION` 必须同步 |
+| `web/data/player/` | 内置玩家贴图（3 张 + version.txt，约 4 KB） | 低：由 `tools/import_player_textures.py` 生成，不要手改 |
 | `web/data/*` | **生成产物，不要手改**（含 `ArmorTemplate_overlay.png`） | 改完会被 CI 判定过期 |
 | `tools/export_web.py` | 导出 Web 数据 | 改常量结构时必须同步改这里与 `web/js/data.js` |
 | `tools/build_armor_sets.py` | 生成套装表 | 低 |
@@ -263,10 +316,11 @@ tests/test_config.py      9   config.json 往返、v1 兼容、垃圾输入容�
 tests/test_cli.py         9   各子命令冒烟与错误码、template 的参考线开关
 tests/test_docs.py        9   文档裁切表与 layout 常量一致、用词、markdown 链接、README 为中文
 tests/test_sheets.py     35   部位识别/ID 解析、混合尺度归一化、短末帧容错、帧合成、gif 子命令落盘
-tests/test_web_port.py   29   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端 + 参考线叠加 + 站点图标
+tests/test_web_port.py   34   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端（导出/还原/预览贴图/
+                          取消/进度/历史/popover）+ 参考线 + 站点图标 + SW/Manifest + 文案合并
 tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可复现性
                         ---
-                        172（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
+                        177（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
 ```
 
 ### 5.2 关键验证结论（均已实跑）
@@ -286,6 +340,12 @@ tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可
 | 参考线叠加（Python vs JS） | 新增像素数一致；叠加幂等；**不改变任何生成结果** |
 | `web/data` 与 `tools/export_web.py` 输出 | 一致（未过期） |
 | 套装表 | 204 条；151 条同时有头与腿；202 条有中文名；23 条来自套装加成（权威） |
+| 「预览贴图」三个槽位 | 无头 Chrome 实测：错槽位被拒绝并给出中文原因；三格填满后生成 4 个文件、3 个预览；选「慢 + 2×」后 GIF 宽度 80、设置写进 localStorage |
+| 进度与取消 | 取消「还原全部套装」后状态栏显示「已取消」、按钮复位；完整跑完显示 `i/151` 进度并产出 > 100 个模板 |
+| 导出历史 | 无头 Chrome 实测：导出后 `armorhelper.history` 有 1 条（含缩略图 data URL），列表显示名称与文件数；还原全部后再增 1 条 |
+| 模板 popover | 悬停后 popover 出现且图片 `naturalWidth = 516`（128×4 + 2px 边框），移开后隐藏 |
+| 叠加玩家（内置贴图） | 无头 Chrome 实测：不选目录、只勾复选框 → 4 张 PNG + 4 个 GIF、5 个预览，玩家提示消失 |
+| 离线缓存 | 静态断言：`CORE` 覆盖启动所需的每个文件与模块、内置贴图走按需缓存；Manifest 合法；`app.js` 注册 `sw.js` |
 
 ### 5.3 复现命令
 
@@ -347,9 +407,10 @@ python3 tools/export_web.py
 |---|---|
 | 文件夹读写仅 Chromium | `showDirectoryPicker` 是 Chromium 独有；其它浏览器降级为下载 / zip / 手动上传贴图，**还原**则自动用内置贴图 |
 | 无法自动定位游戏目录 | 浏览器拿不到本机路径，用户需自己选一次（不选也能用内置贴图还原） |
-| 内置贴图不含玩家皮肤 | 只打包了 `Armor_*`；「叠加玩家」预览仍需自备 `Player_0_3/0_7/0_10.png` |
+| 内置玩家贴图是原版皮肤 | `data/player/` 只有默认肤色；用材质包 / 自己改过的皮肤时请在设置里选 `Content/Images` |
 | `file://` 不能直接用 | ES 模块受 CORS 限制，必须经静态服务器打开 |
-| 无 Service Worker | 刷新后需重新加载资源 |
+| Service Worker 需要 HTTPS / localhost | `file://` 打开时没有离线缓存（浏览器限制），但功能本身可用 |
+| 改文件后要给缓存换版本 | `sw.js` 的 `VERSION` 不变时，已安装的旧缓存会继续命中 |
 | 全部在内存处理 | 一次几百套盔甲可能吃紧 |
 | 文件夹授权 | 刷新后被浏览器收回，每次操作会再请求一次（句柄本身存在 IndexedDB） |
 
@@ -358,9 +419,8 @@ python3 tools/export_web.py
 - **GitHub Pages 实际部署未跑过**：`.github/workflows/pages.yml` 已写好但从未推送运行。
 - **桌面 GUI 只在 macOS 实测**（wxPython 4.2.4 / cocoa），Windows / Linux 未验证。
   Python 侧已冻结，因此这一项只在需要修 bug 时才补。
-- **Web 版只断言了单套还原**；「还原全部套装」与「玩家贴图预览」在浏览器里没有端到端断言
-  （Python 侧有覆盖）。
-- **非 Chromium 浏览器的降级路径**（Firefox / Safari）未实测。
+- **非 Chromium 浏览器**（Firefox / Safari）的降级路径与 Service Worker 未实测。
+- **离线只做了静态断言**，没有真的断网重载过。
 - 套装表的中文名来自游戏源码里的 `zh-Hans` 本地化；游戏版本升级后需要重新生成。
 
 ---
@@ -403,21 +463,22 @@ python3 tools/export_web.py
 
 ### P1 — 补齐 Web 版测试覆盖面（只改 `tests/test_web_port.py` 与 `web/tests/`）
 
-2. 「还原全部套装」的浏览器端到端断言（当前只有 Python 侧覆盖）。
-3. 「叠加玩家」预览的端到端断言（需要 Player_0_3 / 0_7 / 0_10 三张贴图；
-   若要在手机上也能用，考虑把这三张一并内置）。
-4. 「全身 GIF」标签页的浏览器端到端断言（上传三张贴图 → 两张 PNG + 两个 GIF）；
-   Python 侧已有 `tests/test_sheets.py` 做基准。
-5. Firefox / Safari 的降级路径实测（文件夹 API 不可用时的下载 / zip / 手动上传）。
+2. Firefox / Safari 的降级路径实测（文件夹 API 不可用时的下载 / zip / 手动上传，
+   以及 Service Worker 在这两个浏览器上的注册）。
+3. 离线路径的自动化：用 Chrome 断网（`Network.emulateNetworkConditions`）后重载，
+   断言页面仍能启动。目前只有静态断言（`CORE` 清单 + Manifest + 注册代码）。
+
+> 已完成（原先列在这里）：还原全部的端到端、预览贴图的端到端、取消与进度、导出历史、
+> 模板 popover、SW/Manifest 静态校验、**叠加玩家的端到端**（顺带把玩家贴图内置）。
 
 ### P2 — Web 版质量增强
 
-6. Service Worker（离线 / PWA），以及导出历史记录。
-7. GIF 帧率与尺寸做成可调。
-8. 「全身 GIF」支持就地编辑（例如一键换成内置原版贴图、部位手动重新指派）。
-9. **套装表补全**（数据侧，`tools/build_armor_sets.py` → `web/data/armor_sets.json`）：
+5. 「预览贴图」支持一键换成内置原版贴图（套装列表 → 直接看动画），目前只能自己上传。
+6. **套装表补全**（数据侧，`tools/build_armor_sets.py` → `web/data/armor_sets.json`）：
    53 条缺头或缺腿的条目，做一张人工覆盖表（例如 `data/armor_set_overrides.json`），
    避免每次重新生成又被覆盖。此改动**不影响 Python 运行时行为**，不违反冻结。
+7. 导出历史可点击回填（现在只是记录时间 / 名称 / 文件数 / 缩略图，不能重新下载）。
+8. GIF 速率/尺寸目前只有「预览贴图」页有控件（设置全局生效）；若用户反馈，可在导出页也放一份。
 
 ### P3 — 可选（需先解冻 Python，暂缓）
 
@@ -437,7 +498,7 @@ python3 tools/export_web.py
 
 ```bash
 cd /Volumes/970/Games/tr/dev/ArmorHelper2
-python3 -m pytest tests -q                     # 172 项，约 15~19 秒（含无头浏览器；未装 wxPython 会跳过桌面用例）
+python3 -m pytest tests -q                     # 177 项，约 21 秒（含无头 Chrome；未装 wxPython 会跳过桌面用例）
 python3 -m armorhelper gui                     # 桌面界面（已冻结，仅供对照）
 python3 -m http.server 8000 --directory web    # Web 版 → http://127.0.0.1:8000/
 python3 -m armorhelper sets --search 星尘       # 查套装
@@ -448,8 +509,12 @@ python3 -m armorhelper reverse --images "<Content/Images>" --body 190 -o out.png
 
 0. **默认只改 `web/`**。动 `armorhelper/*.py` 前先确认是「修正确性缺陷」；改完必须
    同时改 `web/js/` 对应实现，否则两边会立刻不一致。
-1. 万一改了 `armorhelper/layout.py` / `generate.py` / `i18n.py` → 必须跑 `python3 tools/export_web.py`，
-   否则 `tests/test_web_port.py::test_exported_data_is_up_to_date` 会失败。
+1. 改了 `web/i18n.web.json`、或万一改了 `armorhelper/layout.py` / `generate.py` / `i18n.py`
+   → 必须跑 `python3 tools/export_web.py`，否则
+   `tests/test_web_port.py::test_exported_data_is_up_to_date` 会失败。
+   界面新文案优先写 `web/i18n.web.json`（Python 已冻结）。
+1.5 改了 `web/` 的文件名或新增模块 → 同步 `web/sw.js` 的 `CORE` 与 `VERSION`，
+   `test_service_worker_precaches_the_whole_app` 会逐项检查。
 2. 改了 `web/js/` → 必须跑 `pytest tests/test_web_port.py`（会跑 Node 对比 + 无头 Chrome）。
 3. 界面新增文案 → 中英文都要加，`test_frontend_files_exist_and_are_wired` 会检查。
    注意 `#opt-guide` 让复选框总数变为 17，`test_browser_renders_the_app` 里有断言。

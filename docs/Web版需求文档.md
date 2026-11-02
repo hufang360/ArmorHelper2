@@ -52,10 +52,13 @@
 * 贴图生成（头部 / 腿部 / 身体复合 / 旧格式 / 发光遮罩）
 * 20 帧合成、拼版预览、GIF 动画
 * 反向还原（单套 / 全部套装）
-* 成品贴图 → 全身 20 帧 / GIF（不经模板）
+* 成品贴图 → 全身 20 帧 / GIF（不经模板），三个部位各一个上传格子
+* GIF 速率（快 / 中 / 慢）与尺寸（1× / 2× / 4×）可调
 * PNG / GIF / ZIP 编码
-* 设置持久化（localStorage）与目录句柄持久化（IndexedDB）
+* 设置持久化（localStorage）、目录句柄持久化（IndexedDB）与导出历史
+* 长任务进度与取消
 * File System Access API 集成（可选增强）
+* Service Worker 离线缓存 + Web App Manifest（可安装为 PWA）
 * Node 下的核心自检 + 浏览器内自检
 
 ### 2.3 范围外
@@ -63,7 +66,7 @@
 * 服务端渲染 / 后端接口（v1 的能力已移除）
 * 账号、云端存储、多用户
 * `.xnb` 解码
-* 浏览器扩展、PWA 离线缓存（后续可做）
+* 浏览器扩展；应用商店上架
 
 ---
 
@@ -101,14 +104,23 @@
 | 自己做 PNG/GIF/ZIP 编码 | 不引入依赖；PNG 绕开 canvas 的 alpha 预乘问题，保证像素精确 |
 | 目录句柄存 IndexedDB | 句柄不能进 localStorage，但可以被结构化克隆 |
 | 浏览器不支持文件夹时降级 | 用下载 / zip / 手动上传贴图，功能不缺失 |
+| 仅 Web 的文案单独放 `web/i18n.web.json` | Python 侧已冻结，导出时合并覆盖，不必为一行界面文字解冻 Python |
+| 离线用 Service Worker 预缓存 | 启动所需文件全部进缓存；1.6 MB 内置贴图改为按需缓存，安装不吃流量 |
+| 预览贴图用三个槽位而不是自动识别 | 用户直接指定部位，识别只作为「一次拖入多个文件」时的便利，错了随时可换 |
+| GIF 速率/尺寸只改播放参数 | 帧像素与 Python 完全一致，一致性断言不受影响 |
 
 ### 3.3 目录结构
 
 ```
 web/
-  index.html  style.css  app.js  package.json  .nojekyll  README.md
-  js/     bitmap data generate compose reverse png gif zip fs idb
-  data/   layout.json  armor_sets.json  i18n.json  ArmorTemplate_v1.png
+  index.html  style.css  app.js  sw.js  manifest.webmanifest
+  i18n.web.json（仅 Web 的文案，导出时合并进 data/i18n.json）
+  package.json  .nojekyll  README.md
+  js/     bitmap data generate compose reverse sheets png gif zip fs idb
+  data/   layout.json  armor_sets.json  i18n.json
+          ArmorTemplate_v1.png  ArmorTemplate_overlay.png  icon.png
+          vanilla/（748 张内置原版贴图 + version.txt）
+          player/（内置玩家贴图 Player_0_3 / 0_7 / 0_10 + version.txt）
   tests/  run.mjs（Node 自检）  smoke.html（浏览器自检）
 ```
 
@@ -138,6 +150,10 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 
 `web/.nojekyll` 防止 Jekyll 忽略下划线开头的路径。
 
+`web/sw.js` 与 `web/manifest.webmanifest` 让站点可以离线打开、并被浏览器「安装」成
+独立窗口。`sw.js` 里的 `CORE` 清单必须覆盖启动所需的每个文件，`test_service_worker_precaches_the_whole_app`
+会逐一检查；改文件名后记得同时升级 `CORE` 与 `VERSION`。
+
 ---
 
 ## 5. 功能需求
@@ -151,7 +167,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-05 | 结果卡片并排显示「绘制模板 (128×80)」「生成效果 (20 帧)」「GIF 动画」三个带标题的预览 | 必须 | WC-05 |
 | WFR-06 | 指定盔甲 ID 时使用原版文件名与 `Armor/` 子目录 | 必须 | WC-06 |
 | WFR-07 | 单文件下载与打包 zip 下载，zip 保留目录结构 | 必须 | WC-05 |
-| WFR-08 | 可选「女性版本」「叠加玩家」用于预览 | 应该 | WC-07 |
+| WFR-08 | 可选「女性版本」「叠加玩家」用于预览；玩家贴图**内置**（`data/player/`），无 `Content/Images` 时也能用 | 应该 | WC-07 |
 | WFR-09 | 反向还原：可搜索套装列表（中文名 / 英文名 / ID），条目形如 `中文名  英文名  (ID)` | 必须 | WC-08 |
 | WFR-10 | 选中套装自动填入头/身/腿 ID，可手改 | 必须 | WC-08 |
 | WFR-11 | 还原结果展示 128×80 模板（放大 4 倍）与其 20 帧预览，可下载 | 必须 | WC-09 |
@@ -165,8 +181,14 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-19 | 所有错误以状态栏文字呈现，不弹原生 alert | 必须 | WC-13 |
 | WFR-20 | 页面不请求任何外部地址（离线可用） | 必须 | WC-17 |
 | WFR-21 | 可选的参考线图层（`data/ArmorTemplate_overlay.png`，128×80）叠加在模板预览与下载的绘制模板上；**生成贴图时不得参与** | 应该 | WC-21 |
-| WFR-22 | 「全身 GIF」标签页：上传 / 拖入头部、身体、腿部三张成品贴图，按文件名自动识别部位，生成男女 20 帧 PNG 与 GIF；可选叠加玩家；结果可下载、打包或写入输出目录 | 必须 | WC-24 |
-| WFR-23 | 识别结果实时显示（✓ / 缺少），缺部位时禁用生成按钮；重复部位与无法识别的文件给出提示 | 应该 | WC-24 |
+| WFR-22 | 「预览贴图」标签页：头部 / 身体 / 腿部**三个独立的上传格子**（各有点击、拖放、移除），生成男女 20 帧 PNG 与 GIF；可选叠加玩家；结果可下载、打包或写入输出目录 | 必须 | WC-24 |
+| WFR-23 | 槽位状态实时显示（✓ / 缺少），缺部位时禁用生成按钮；一次拖入多个文件时按文件名自动分配到**空**槽位，重复与无法识别给出提示 | 应该 | WC-24 |
+| WFR-24 | 拖进槽位的文件尺寸不合法（列数、宽高比、高度）时**拒绝放入**并在状态栏给出该槽位能接受的尺寸，不做静默缩放 | 必须 | WC-25 |
+| WFR-25 | GIF 速率可选快（每帧 100ms）/ 中（500ms）/ 慢（1000ms），尺寸可选 1× / 2× / 4×（最近邻），选择写入 localStorage 并作用于所有 GIF | 必须 | WC-26 |
+| WFR-26 | 批量任务（导出、还原全部套装）显示 `i/n` 进度与进度条，并可中途取消；取消后保留已完成的结果、按钮恢复可用 | 必须 | WC-27 |
+| WFR-27 | 导出历史：记下时间、名称、文件数与缩略图，最多 20 条，可清空；写满配额时静默跳过，不影响导出 | 应该 | WC-28 |
+| WFR-28 | Service Worker 预缓存启动所需的全部文件（内置贴图按需缓存），Web App Manifest 提供名称/图标/独立窗口，注册失败时静默降级 | 应该 | WC-29 |
+| WFR-29 | 「下载绘制模板」按钮 hover / 聚焦时弹出 popover，显示**即将下载的那张图**（含参考线，随参考线开关变化） | 应该 | WC-30 |
 
 ---
 
@@ -209,7 +231,11 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WUI-10 | 参考线开关 | 「预览选项」里的复选框，默认开启；关闭后模板预览不叠加参考线 |
 | WUI-11 | 站点图标 | `data/icon.png` 同时用作 `<link rel="icon">`、`apple-touch-icon` 与页头标志；页头标志按平滑渲染（不加 `image-rendering: pixelated`） |
 | WUI-12 | 启动自检 | 若套装表为空或页面缺少脚本引用的元素，状态栏给出明确原因（含强制刷新提示），不得静默留下空列表 |
-| WUI-13 | 「全身 GIF」标签页 | 独立拖放区（点击 / 键盘 / 拖放）、部位识别状态、文件列表可单个移除、清空；生成时按钮禁用并显示 busy |
+| WUI-13 | 「预览贴图」标签页 | 三个槽位各自可点击 / 键盘 / 拖放 / 移除，状态行显示 ✓ 与缺失项；GIF 速率与尺寸在标签页内直接可选（紧凑排布） |
+| WUI-14 | 两栏布局 | 左侧为「输入文件 / 导出结果 / 最近导出」竖排，右侧「导出选项」为等高的粘性侧栏（窄屏自动堆叠） |
+| WUI-15 | 模板 popover | 悬停或聚焦「下载绘制模板」时显示 4× 放大、带棋盘格底的模板图，移开即隐藏；参考线开关变化后重新取图 |
+| WUI-16 | 进度与取消 | 状态栏左侧是文字进度，右侧是进度条与「取消」按钮，仅在多步任务中出现 |
+| WUI-17 | 文件行 | 文件名、尺寸、操作按钮相邻排列，尺寸不被推到卡片另一侧 |
 
 ### 6.3 视觉
 
@@ -227,7 +253,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WNFR-02 | 一致性 | 与 Python 版输出逐像素一致，由 `tests/test_web_port.py` 断言 |
 | WNFR-03 | 静态性 | `web/` 目录内不得出现 `.py`；发布产物就是源码 |
 | WNFR-04 | 性能 | 单张模板全量导出（含预览与 GIF）< 2 秒（桌面 Chrome） |
-| WNFR-05 | 离线 | 页面不发起任何外部请求 |
+| WNFR-05 | 离线 | 页面不发起任何外部请求；首次打开后由 Service Worker 缓存，断网可继续使用 |
 | WNFR-06 | 可测试性 | 核心模块不碰 DOM，可在 Node 下运行并对比 |
 | WNFR-07 | 兼容性 | Chrome / Edge / Firefox / Safari 最新版；文件夹功能仅 Chromium |
 | WNFR-08 | 健壮性 | IndexedDB 不可用时不得卡死（2 秒超时降级） |
@@ -278,10 +304,10 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-04 | 生成结果与 Python 逐像素一致 | `test_generated_sheets_match_python` 等 8 项 |
 | WC-05 | 预览、GIF、zip 正确 | `test_gif_matches_the_python_frames`、`test_zip_has_the_expected_structure`、`test_browser_smoke_test`（含 `magnify` 尺寸） |
 | WC-06 | 原版 ID 命名与子目录 | 浏览器自检 + Python `test_export_uses_vanilla_names` |
-| WC-07 | 女性 / 玩家预览可生成 | 浏览器自检 `20 composed frames` |
+| WC-07 | 女性 / 玩家预览可生成（玩家贴图内置，无需目录） | 浏览器自检 `20 composed frames`、`test_browser_renders_the_app`（勾选叠加玩家后产出 8 个文件 / 5 个预览）、`test_player_textures_are_bundled` |
 | WC-08 | 套装搜索含中文名与 ID | 浏览器自检 `set search finds stardust` |
 | WC-09 | 还原结果可下载且为 128×80，卡片里并排出现三个带标题的预览 | `test_reverse_matches_python`、`test_browser_renders_the_app`（在浏览器里模拟上传贴图并点「还原这一套」） |
-| WC-10 | 还原全部可批量产出 | `test_reverse_result_regenerates_the_sheets` + 手工 |
+| WC-10 | 还原全部可批量产出（并带进度） | `test_browser_renders_the_app`（完整跑一次，断言 > 100 个文件）、`test_reverse_result_regenerates_the_sheets` |
 | WC-11 | 目录读取与手动上传 | 手工（需真实浏览器授权） |
 | WC-12 | 目录写入 | 手工（需真实浏览器授权） |
 | WC-13 | 非法输入有提示不崩溃 | 浏览器自检的错误分支 + 手工 |
@@ -296,6 +322,13 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-22 | 内置贴图可用（含手机场景） | `test_bundle_has_a_version_file` 等 11 项 + `test_browser_renders_the_app`（仅靠内置贴图还原一次） |
 | WC-23 | 站点图标被引用，且不会被导出脚本覆盖 | `test_site_icon_is_used`、`test_export_does_not_touch_the_icon` |
 | WC-24 | 三张成品贴图 → 男女 20 帧 / GIF，且与 Python 逐像素一致 | `test_sheet_frames_match_python`、`test_sheet_stack_matches_python`、`test_sheet_classification_matches_python`、`test_browser_renders_the_app` |
+| WC-25 | 槽位拒绝不合尺寸的贴图并给出可读原因 | `test_browser_renders_the_app`（把身体贴图拖进头部槽位）、`test_sheet_classification_matches_python` |
+| WC-26 | GIF 速率与尺寸生效且被记住 | `test_browser_renders_the_app`（选「慢 + 2×」后 GIF 宽度翻倍、localStorage 里是 slow/2） |
+| WC-27 | 批量任务有进度且能取消 | `test_browser_renders_the_app`（取消一次 + 完整跑完一次） |
+| WC-28 | 导出历史写入 localStorage 且有缩略图 | `test_browser_renders_the_app`（`armorhelper.history`） |
+| WC-29 | 预缓存清单完整、Manifest 合法、SW 已注册 | `test_service_worker_precaches_the_whole_app`、`test_web_manifest_is_a_valid_pwa_manifest`、`test_the_service_worker_is_registered_and_scoped_to_the_site` |
+| WC-30 | 模板 popover 显示 4× 模板 | `test_browser_renders_the_app` |
+| WC-31 | 仅 Web 的文案单独存放并合并进导出数据 | `test_web_only_strings_are_merged_over_the_frozen_python_ones` |
 
 ---
 

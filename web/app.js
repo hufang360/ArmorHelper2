@@ -39,7 +39,7 @@ import {
   tintFrames,
 } from "./js/compose.js";
 import { loadTextures, reverseTemplate } from "./js/reverse.js";
-import { classifySheets, composeFrames } from "./js/sheets.js";
+import { classifySheets, composeFrames, detectId as detectSheetId, validateSheet } from "./js/sheets.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
 import { zipBlob } from "./js/zip.js";
@@ -55,12 +55,20 @@ import {
 import { ensurePermission, getHandle, putHandle, dropHandle } from "./js/idb.js";
 
 const SETTINGS_KEY = "armorhelper.settings";
+const HISTORY_KEY = "armorhelper.history";
+const HISTORY_LIMIT = 20;
 const HANDLE_OUTPUT = "output";
 const HANDLE_IMAGES = "images";
 const PLAYER_PARTS = { torso: "Player_0_3.png", arm: "Player_0_7.png", legs: "Player_0_10.png" };
+/** The same three textures ship with the site: phones have no game folder. */
+const PLAYER_DIR = "data/player";
 const REVERSE_SUBDIR = "ArmorTemplate";
 /** Armor textures shipped with the site, so phones work without a game folder. */
 const BUILTIN_DIR = "data/vanilla";
+/** Per-frame delay of the three GIF speeds offered in the UI. */
+const GIF_SPEEDS = { fast: 100, medium: 500, slow: 1000 };
+/** The three sheet slots of the preview tab, in display order. */
+const SHEET_ROLES = ["head", "body", "legs"];
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -88,10 +96,13 @@ const state = {
   result: null,
   folders: { output: null, images: null },
   textures: new Map(), // name -> File, for browsers without folder access
-  sheetFiles: [], // uploaded head/body/legs textures for the full-body GIFs
+  sheetSlots: { head: null, body: null, legs: null }, // {name, bitmap} per slot
+  sheetIssues: [], // warnings from the last upload, as {key, vars}
   builtin: null, // {version, count, ...} when data/vanilla is bundled
   overlay: null, // the guide layer drawn on top of templates in the preview
+  templateBitmap: null, // the raw 128x80 template, for the hover popover
   playerParts: null,
+  job: null, // {cancelled, done, total} while a long task runs
   version: "",
 };
 
@@ -101,6 +112,14 @@ function t(key, vars) {
   let text = state.messages[key] ?? key;
   if (vars) for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, value);
   return text;
+}
+
+/** Render a core warning `{ key, vars }` in the current language. */
+function warnText(warning) {
+  if (typeof warning === "string") return warning;
+  const vars = { ...(warning.vars ?? {}) };
+  if (vars.role) vars.role = t(`web.slot.${vars.role}`);
+  return t(warning.key, vars);
 }
 
 function say(message, kind = "ok") {
@@ -115,8 +134,9 @@ function applyI18n() {
   for (const el of $$("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
   renderTargets();
   renderFiles();
-  renderSheets();
+  renderSlots();
   renderFolders();
+  renderHistory();
   if (state.result) renderResult(state.result);
 }
 
@@ -132,6 +152,8 @@ function defaultConfig() {
     female: false,
     player: false,
     gifPlayer: false,
+    gifSpeed: "fast",
+    gifSize: 1,
     verify: false,
     guide: true,
   };
@@ -237,7 +259,7 @@ function renderFiles() {
     meta.textContent = file.bitmap ? `${file.bitmap.width}×${file.bitmap.height}` : "";
     const remove = document.createElement("button");
     remove.textContent = "✕";
-    remove.title = "remove";
+    remove.title = t("web.remove");
     remove.addEventListener("click", () => {
       state.files.splice(index, 1);
       renderFiles();
@@ -248,56 +270,266 @@ function renderFiles() {
   $("#file-summary").textContent = state.files.length ? t("web.selected", { count: state.files.length }) : "";
 }
 
-/* --------------------------------------------------------- full-body GIF -- */
+/* --------------------------------------------------------- long tasks -- */
 
-const SHEET_ROLE_LABELS = { head: "web.sheetHead", body: "web.sheetBody", legs: "web.sheetLegs" };
+/** Let the browser repaint, so the progress text is actually visible. */
+function nextFrame() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
-/** Show the uploaded sheets and what the classifier made of them. */
-function renderSheets() {
-  const list = $("#sheet-list");
+/** Begin a task with `total` steps: shows the progress bar and cancel button. */
+function startJob(total) {
+  state.job = { cancelled: false, done: 0, total };
+  const bar = $("#job-bar");
+  const cancel = $("#cancel-job");
+  const long = total > 1;
+  if (bar) {
+    bar.hidden = !long;
+    bar.max = Math.max(1, total);
+    bar.value = 0;
+  }
+  if (cancel) {
+    cancel.hidden = !long;
+    cancel.disabled = false;
+  }
+}
+
+/** Say what step we are on; `index` is 0-based. */
+function jobProgress(index, name) {
+  if (!state.job) return;
+  state.job.done = index;
+  const bar = $("#job-bar");
+  if (bar) bar.value = index;
+  say(
+    t("web.progress", {
+      index: Math.min(index + 1, state.job.total),
+      total: state.job.total,
+      name,
+    }),
+    "busy",
+  );
+}
+
+/** True once the user pressed cancel: the loop stops at its next step. */
+function jobCancelled() {
+  return !!state.job?.cancelled;
+}
+
+/** Hide the bar, reset the buttons and hand back the finished job. */
+function endJob() {
+  const job = state.job;
+  state.job = null;
+  const bar = $("#job-bar");
+  const cancel = $("#cancel-job");
+  if (bar) {
+    bar.hidden = true;
+    bar.value = 0;
+  }
+  if (cancel) cancel.hidden = true;
+  return job;
+}
+
+function cancelJob() {
+  if (!state.job) return;
+  state.job.cancelled = true;
+  const cancel = $("#cancel-job");
+  if (cancel) cancel.disabled = true;
+  say(t("web.cancelling"), "warn");
+}
+
+/* --------------------------------------------------------------- history -- */
+
+function loadHistory() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(stored) ? stored.slice(0, HISTORY_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, HISTORY_LIMIT)));
+  } catch {
+    /* The history is a nicety; never fail an export because of the quota. */
+  }
+}
+
+/** Remember one export: when, what, how many files, plus a small thumbnail. */
+function addHistory(title, files, thumbnail) {
+  const entries = loadHistory();
+  entries.unshift({ at: Date.now(), title, files: files.length, thumb: thumbnail ?? null });
+  saveHistory(entries);
+  renderHistory();
+}
+
+function formatTime(ms) {
+  const date = new Date(ms);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function renderHistory() {
+  const list = $("#history-list");
   if (!list) return;
-  const classified = classifySheets(state.sheetFiles);
-
+  const entries = loadHistory();
   list.innerHTML = "";
-  state.sheetFiles.forEach((file, index) => {
+  if (!entries.length) {
     const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.textContent = file.name;
-    const meta = document.createElement("span");
-    meta.className = "muted";
-    meta.textContent = `${file.bitmap.width}×${file.bitmap.height}`;
-    const remove = document.createElement("button");
-    remove.textContent = "✕";
-    remove.title = "remove";
-    remove.addEventListener("click", () => {
-      state.sheetFiles.splice(index, 1);
-      renderSheets();
-    });
-    li.append(name, meta, remove);
+    li.className = "muted small";
+    li.textContent = t("web.historyEmpty");
     list.append(li);
-  });
+    return;
+  }
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    if (entry.thumb) {
+      const img = document.createElement("img");
+      img.src = entry.thumb;
+      img.alt = "";
+      img.className = "pixel";
+      li.append(img);
+    }
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = formatTime(entry.at);
+    const what = document.createElement("span");
+    what.className = "what";
+    what.textContent = entry.title;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = t("web.historyEntry", { count: entry.files });
+    li.append(when, what, count);
+    list.append(li);
+  }
+}
 
-  const missing = Object.keys(SHEET_ROLE_LABELS).filter((role) => !classified[role]);
+function clearHistory() {
+  saveHistory([]);
+  renderHistory();
+  say(t("web.historyCleared"));
+}
+
+/* ------------------------------------------------------- full-body GIFs -- */
+
+/** Per-frame delay chosen in the UI (fast / medium / slow). */
+function gifDelay() {
+  return GIF_SPEEDS[state.config.gifSpeed] ?? GIF_SPEEDS.fast;
+}
+
+/** The GIF scale chosen in the UI: 1, 2 or 4. */
+function gifScale() {
+  const value = Math.floor(Number(state.config.gifSize) || 1);
+  return value > 1 ? value : 1;
+}
+
+/** Frames as they go into the GIF: nearest-neighbour scaled to the chosen size. */
+function gifFrames(frames) {
+  const factor = gifScale();
+  return factor > 1 ? frames.map((frame) => upscale(frame, factor)) : frames;
+}
+
+/** Encode a GIF with the current speed, size and frame order. */
+function makeGif(frames) {
+  return gifBlob(gifFrames(frames), { order: gifFrameOrder(), delayMs: gifDelay() });
+}
+
+/* ------------------------------------------------------- preview sheets -- */
+
+const SLOT_LABEL = { head: "web.slot.head", body: "web.slot.body", legs: "web.slot.legs" };
+
+/** Show what each of the three slots holds, and what is still missing. */
+function renderSlots() {
+  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
+  for (const role of SHEET_ROLES) {
+    const slot = $(`#sheet-${role}-slot`);
+    const nameEl = $(`#sheet-${role}-name`);
+    const clear = $(`#sheet-${role}-clear`);
+    if (!slot || !nameEl || !clear) continue;
+    const entry = state.sheetSlots[role];
+    slot.closest(".slot")?.classList.toggle("is-filled", !!entry);
+    nameEl.textContent = entry
+      ? `${entry.name}  ${entry.bitmap.width}×${entry.bitmap.height}`
+      : t("web.slotDrop");
+    clear.hidden = !entry;
+  }
+
   const status = $("#sheet-status");
-  const button = $("#do-gifs");
-  if (!state.sheetFiles.length) {
-    status.textContent = "";
-  } else {
-    const found = Object.keys(SHEET_ROLE_LABELS)
-      .map((role) => `${t(SHEET_ROLE_LABELS[role])} ${classified[role] ? "✓" : "—"}`)
-      .join("  ·  ");
-    const lines = [found];
-    if (missing.length) {
+  if (status) {
+    const lines = [];
+    if (SHEET_ROLES.some((role) => state.sheetSlots[role])) {
       lines.push(
-        t("web.gifsMissing", {
-          roles: missing.map((role) => t(SHEET_ROLE_LABELS[role])).join(" / "),
-        }),
+        SHEET_ROLES.map(
+          (role) => `${t(SLOT_LABEL[role])} ${state.sheetSlots[role] ? "✓" : "—"}`,
+        ).join("  ·  "),
       );
     }
-    lines.push(...classified.warnings);
+    if (missing.length) {
+      lines.push(
+        t("web.gifsMissing", { roles: missing.map((role) => t(SLOT_LABEL[role])).join(" / ") }),
+      );
+    }
+    if (state.sheetIssues?.length) lines.push(...state.sheetIssues.map(warnText));
     status.textContent = lines.join("\n");
   }
+  const button = $("#do-gifs");
   if (button) button.disabled = missing.length > 0;
+}
+
+/** Put one decoded file in a slot, validating it against that role. */
+function setSlot(role, entry, issues = []) {
+  if (entry) {
+    try {
+      validateSheet(role, entry.bitmap);
+      state.sheetSlots[role] = entry;
+    } catch (error) {
+      issues.push({
+        key: error.key ?? "web.sheetWarnBadRatio",
+        vars: { name: entry.name, ...(error.vars ?? {}) },
+      });
+    }
+  } else {
+    state.sheetSlots[role] = null;
+  }
+  state.sheetIssues = issues;
+  renderSlots();
+}
+
+/**
+ * Files dropped on a slot: one file fills that slot, several are sorted by
+ * name/dimensions (which is what makes "any order" uploads work).
+ */
+async function addSheetFiles(fileList, role = null) {
+  const items = [];
+  for (const file of fileList) {
+    if (!/\.(png|bmp)$/i.test(file.name)) continue;
+    try {
+      items.push({ name: file.name, bitmap: await decodeBitmap(file) });
+    } catch (error) {
+      console.error(error);
+      say(t("web.dropped", { name: file.name }), "warn");
+    }
+  }
+  if (!items.length) return;
+
+  if (role && items.length === 1) {
+    setSlot(role, items[0]);
+    return;
+  }
+
+  const classified = classifySheets(items);
+  const issues = [...classified.warnings];
+  for (const kind of SHEET_ROLES) {
+    if (!classified[kind]) continue;
+    if (state.sheetSlots[kind]) {
+      issues.push({ key: "web.sheetWarnDuplicate", vars: { role: kind, name: classified.names[kind] } });
+      continue;
+    }
+    state.sheetSlots[kind] = { name: classified.names[kind], bitmap: classified[kind] };
+  }
+  state.sheetIssues = issues;
+  renderSlots();
 }
 
 /** File name stem of the body sheet, used when it has no vanilla id. */
@@ -328,12 +560,13 @@ async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames 
 
   const previews = [];
   for (const item of gifs) {
-    const blob = gifBlob(item.frames, { order: gifFrameOrder() });
+    const shown = gifFrames(item.frames);
+    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay() });
     blobs.push({ name: item.name, blob });
     files.push({
       name: item.name,
-      width: item.frames[0].width,
-      height: item.frames[0].height,
+      width: shown[0].width,
+      height: shown[0].height,
       size: blob.size,
       url: URL.createObjectURL(blob),
     });
@@ -364,34 +597,26 @@ async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames 
   };
 }
 
-async function addSheetFiles(fileList) {
-  for (const file of fileList) {
-    if (!/\.(png|bmp)$/i.test(file.name)) continue;
-    try {
-      state.sheetFiles.push({ name: file.name, bitmap: await decodeBitmap(file) });
-    } catch (error) {
-      console.error(error);
-      say(t("web.dropped", { name: file.name }), "warn");
-    }
-  }
-  renderSheets();
-}
-
 async function doGifs() {
-  const sheets = classifySheets(state.sheetFiles);
-  const missing = Object.keys(SHEET_ROLE_LABELS).filter((role) => !sheets[role]);
+  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   if (missing.length) {
     say(t("web.gifsNeed"), "warn");
     return;
   }
 
+  $("#do-gifs").disabled = true;
   say(t("web.working"), "busy");
   try {
-    const input = { head: sheets.head, body: sheets.body, legs: sheets.legs };
+    const input = {
+      head: state.sheetSlots.head.bitmap,
+      body: state.sheetSlots.body.bitmap,
+      legs: state.sheetSlots.legs.bitmap,
+    };
     const frames = composeFrames(input);
     const femaleFrames = composeFrames({ ...input, female: true });
-    const stem = sheets.ids.body != null ? `Armor_${sheets.ids.body}` : sheetStem(sheets.names.body);
-    const warnings = [...sheets.warnings];
+    const bodyId = detectSheetId(state.sheetSlots.body.name);
+    const stem = bodyId !== null ? `Armor_${bodyId}` : sheetStem(state.sheetSlots.body.name);
+    const warnings = (state.sheetIssues ?? []).map(warnText);
 
     const entries = [
       { name: `${stem}_FullArmor.png`, bitmap: stackFrames(frames) },
@@ -405,7 +630,7 @@ async function doGifs() {
     if ($("#gif-player").checked) {
       const parts = await loadPlayerParts();
       if (!parts) {
-        warnings.push(t("web.playerHint"));
+        warnings.push(t("web.gifPlayerHint"));
       } else {
         // Player art is always native 2x, so upscale 1x sheets first.
         const factor = frames[0].width === 40 ? 1 : 40 / frames[0].width;
@@ -434,10 +659,13 @@ async function doGifs() {
     const host = $("#gif-results");
     host.innerHTML = "";
     host.append(resultCard(result, host));
+    addHistory(stem, result.files, keepUrl(frames[0]));
     say(t("web.gifsDone", { count: gifs.length }));
   } catch (error) {
     console.error(error);
     say(String(error.message || error), "bad");
+  } finally {
+    $("#do-gifs").disabled = SHEET_ROLES.some((role) => !state.sheetSlots[role]);
   }
 }
 
@@ -578,6 +806,50 @@ async function loadGuideOverlay() {
   }
 }
 
+/**
+ * The hover/focus popover next to "download the drawing template": it shows the
+ * very image the button hands out, guides included.  Loaded lazily, so the page
+ * does not pay for it unless someone hovers.
+ */
+async function showTemplatePopover() {
+  const figure = $("#template-popover");
+  const image = $("#template-popover-img");
+  if (!figure || !image) return;
+  if (!image.getAttribute("src")) {
+    try {
+      if (!state.templateBitmap) {
+        const response = await fetch("data/ArmorTemplate_v1.png");
+        state.templateBitmap = await decodeBitmap(await response.blob());
+      }
+      image.src = keepUrl(magnify(withGuide(state.templateBitmap), 4));
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+  }
+  figure.hidden = false;
+}
+
+function hideTemplatePopover() {
+  const figure = $("#template-popover");
+  if (figure) figure.hidden = true;
+}
+
+/** Register the offline cache; a static host without HTTPS just skips it. */
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (!/^https?:$/.test(location.protocol)) return;
+  navigator.serviceWorker
+    .register("sw.js")
+    .then(() => {
+      // Mention it in the about line: the status bar belongs to the app.
+      state.offlineReady = true;
+      const about = $("#about");
+      if (about) about.textContent = `${about.textContent} · ${t("web.offlineReady")}`;
+    })
+    .catch((error) => console.debug("offline cache unavailable", error));
+}
+
 /** Download the drawing template (with the guide, so it can be drawn on). */
 async function downloadTemplate() {
   try {
@@ -619,7 +891,7 @@ async function packResult(title, entries, frames, warnings = [], template = null
       caption: t("web.previewFrames"),
       alt: t("web.previewSheet"),
     });
-    const gif = gifBlob(frames, { order: gifFrameOrder() });
+    const gif = makeGif(frames);
     blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
     previews.push({ url: URL.createObjectURL(gif), caption: t("web.previewGif"), alt: "GIF" });
   }
@@ -672,19 +944,40 @@ async function ensureOutputFolder() {
   return state.folders.output;
 }
 
-/** Load the three player textures from the chosen folder, if possible. */
-async function loadPlayerParts() {
-  const images = state.folders.images;
-  if (!images) return null;
-  if (!(await ensurePermission(images, "read"))) return null;
+/** The player textures bundled with the site (works on any browser, offline too). */
+async function loadBundledPlayerParts() {
   try {
     const [torso, arm, legs] = await Promise.all(
-      Object.values(PLAYER_PARTS).map(async (name) => decodeBitmap(await readFromFolder(images, name))),
+      Object.values(PLAYER_PARTS).map(async (name) => {
+        const response = await fetch(`${PLAYER_DIR}/${name}`);
+        if (!response.ok) throw new Error(name);
+        return decodeBitmap(await response.blob());
+      }),
     );
     return { torso, arm, legs };
   } catch {
     return null;
   }
+}
+
+/**
+ * The player body used by "overlay player": the user's `Content/Images` when a
+ * Chromium folder is available (they may have retextured it), otherwise the
+ * copies shipped in `data/player/`.
+ */
+async function loadPlayerParts() {
+  const images = state.folders.images;
+  if (images && (await ensurePermission(images, "read"))) {
+    try {
+      const [torso, arm, legs] = await Promise.all(
+        Object.values(PLAYER_PARTS).map(async (name) => decodeBitmap(await readFromFolder(images, name))),
+      );
+      return { torso, arm, legs };
+    } catch {
+      /* fall through to the bundled copies */
+    }
+  }
+  return loadBundledPlayerParts();
 }
 
 /* --------------------------------------------------------------- export -- */
@@ -702,6 +995,7 @@ async function doExport() {
 
   $("#do-export").disabled = true;
   say(t("web.exporting"), "busy");
+  startJob(templates.length);
   try {
     const female = $("#opt-female").checked;
     const wantsPlayer = $("#opt-player").checked;
@@ -710,7 +1004,10 @@ async function doExport() {
     const host = $("#results");
     host.innerHTML = "";
 
-    for (const file of templates) {
+    for (const [step, file] of templates.entries()) {
+      if (jobCancelled()) break;
+      jobProgress(step, file.name);
+      await nextFrame();
       const stem = file.name.replace(/\.[^.]+$/, "") || "template";
       const names = outputNames(stem);
       const entries = [];
@@ -752,9 +1049,13 @@ async function doExport() {
 
       const result = await packResult(stem, entries, withPlayer, warnings, file.bitmap);
       host.append(resultCard(result));
+      addHistory(stem, result.files, keepUrl(file.bitmap));
     }
-    say(t("status.done"));
+    const job = endJob();
+    if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
+    else say(t("status.done"));
   } catch (error) {
+    endJob();
     console.error(error);
     say(String(error.message || error), "bad");
   } finally {
@@ -908,7 +1209,8 @@ async function doReverseAll() {
     say(t("web.needTextures"), "warn");
     return;
   }
-  const folder = canUseFolders ? await ensureOutputFolder() : null;
+  // The folder is only asked for when the results are actually written, so the
+  // batch does not open a picker before it produces anything.
   $("#do-reverse-all").disabled = true;
   say(t("web.working"), "busy");
 
@@ -919,7 +1221,11 @@ async function doReverseAll() {
       (item) => item.head !== null && item.legs !== null && item.body !== null,
     );
     const read = textureReader();
-    for (const item of jobs) {
+    startJob(jobs.length);
+    for (const [step, item] of jobs.entries()) {
+      if (jobCancelled()) break;
+      jobProgress(step, displayName(item.zh) || item.name);
+      await nextFrame();
       const { textures } = await loadTextures(
         { body: item.body, head: item.head, legs: item.legs },
         read,
@@ -934,9 +1240,10 @@ async function doReverseAll() {
         failed += 1;
       }
     }
+    const job = endJob();
 
     if (!entries.length) {
-      say(t("reverse.allNone", { dir: "" }), "warn");
+      say(job?.cancelled ? t("web.cancelled", { done: job.done, total: job.total }) : t("reverse.allNone", { dir: "" }), "warn");
       return;
     }
 
@@ -956,7 +1263,7 @@ async function doReverseAll() {
       zip: { save: () => downloadBlob(zipBlob(blobs), "ArmorTemplate.zip") },
       save: {
         save: async () => {
-          const target = folder ?? (await ensureOutputFolder());
+          const target = await ensureOutputFolder();
           if (!target) return;
           for (const item of blobs) await writeToFolder(target, item.name, item.blob);
           say(t("web.savedTo", { count: blobs.length }));
@@ -967,11 +1274,15 @@ async function doReverseAll() {
     const host = $("#reverse-result");
     host.innerHTML = "";
     host.append(resultCard(result, host));
-    say(t("reverse.allDone", { count: entries.length, dir: REVERSE_SUBDIR }));
+    addHistory(`${t("reverse.allTitle")} ×${entries.length}`, entries, keepUrl(entries[0].bitmap));
+    if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
+    else say(t("reverse.allDone", { count: entries.length, dir: REVERSE_SUBDIR }));
   } catch (error) {
+    endJob();
     console.error(error);
     say(String(error.message || error), "bad");
   } finally {
+    endJob();
     $("#do-reverse-all").disabled = false;
   }
 }
@@ -1071,46 +1382,75 @@ function wire() {
     renderFiles();
   });
 
-  const sheetDrop = $("#sheet-drop");
-  const sheetInput = $("#sheet-input");
-  if (sheetDrop && sheetInput) {
-    sheetDrop.addEventListener("click", () => sheetInput.click());
-    sheetDrop.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") sheetInput.click();
+  // one drop zone / picker per sheet slot: the user says what each file is,
+  // and dropping several files at once still sorts them by name.
+  for (const role of SHEET_ROLES) {
+    const slot = $(`#sheet-${role}-slot`);
+    const input = $(`#sheet-${role}-input`);
+    if (!slot || !input) {
+      missingElements.push(`#sheet-${role}-slot`);
+      continue;
+    }
+    slot.addEventListener("click", () => input.click());
+    slot.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        input.click();
+      }
     });
-    sheetInput.addEventListener("change", () => {
-      const files = [...sheetInput.files];
-      sheetInput.value = "";
-      addSheetFiles(files);
+    input.addEventListener("change", () => {
+      const files = [...input.files];
+      input.value = "";
+      addSheetFiles(files, role);
     });
     for (const type of ["dragenter", "dragover"]) {
-      sheetDrop.addEventListener(type, (event) => {
+      slot.addEventListener(type, (event) => {
         event.preventDefault();
-        sheetDrop.classList.add("is-over");
+        slot.classList.add("is-over");
       });
     }
     for (const type of ["dragleave", "drop"]) {
-      sheetDrop.addEventListener(type, () => sheetDrop.classList.remove("is-over"));
+      slot.addEventListener(type, () => slot.classList.remove("is-over"));
     }
-    sheetDrop.addEventListener("drop", (event) => {
+    slot.addEventListener("drop", (event) => {
       event.preventDefault();
-      addSheetFiles(event.dataTransfer.files);
+      addSheetFiles(event.dataTransfer.files, role);
     });
+    on(`#sheet-${role}-clear`, "click", () => setSlot(role, null));
   }
   on("#clear-sheets", "click", () => {
-    state.sheetFiles = [];
-    renderSheets();
+    state.sheetSlots = { head: null, body: null, legs: null };
+    state.sheetIssues = [];
+    renderSlots();
   });
   on("#do-gifs", "click", doGifs);
   on("#gif-player", "change", (event) => {
     state.config.gifPlayer = event.target.checked;
     saveConfig();
   });
+  on("#gif-speed", "change", (event) => {
+    state.config.gifSpeed = event.target.value;
+    saveConfig();
+  });
+  on("#gif-size", "change", (event) => {
+    state.config.gifSize = Number(event.target.value) || 1;
+    saveConfig();
+  });
+  on("#clear-history", "click", clearHistory);
+  on("#cancel-job", "click", cancelJob);
+
+  const templateButton = $("#download-template");
+  if (templateButton) {
+    for (const type of ["mouseenter", "focus"]) templateButton.addEventListener(type, showTemplatePopover);
+    for (const type of ["mouseleave", "blur"]) templateButton.addEventListener(type, hideTemplatePopover);
+  }
 
   on("#do-export", "click", doExport);
-  on("#download-template", "click", downloadTemplate);  on("#opt-guide", "change", (event) => {
+  on("#download-template", "click", downloadTemplate);
+  on("#opt-guide", "change", (event) => {
     state.config.guide = event.target.checked;
     saveConfig();
+    $("#template-popover-img")?.removeAttribute("src");
     if (state.result) renderResult(state.result);
   });
   on("#opt-female", "change", (event) => {
@@ -1217,6 +1557,8 @@ async function main() {
     $("#opt-player").checked = !!state.config.player;
     $("#opt-guide").checked = state.config.guide !== false;
     $("#gif-player").checked = !!state.config.gifPlayer;
+    $("#gif-speed").value = state.config.gifSpeed ?? "fast";
+    $("#gif-size").value = String(state.config.gifSize ?? 1);
     $("#set-head").value = state.config.ids.id_head ?? "";
     $("#set-body").value = state.config.ids.id_body ?? "";
     $("#set-legs").value = state.config.ids.id_legs ?? "";
@@ -1226,6 +1568,7 @@ async function main() {
     // restore previously used folders (permission is re-requested on demand)
     state.overlay = await loadGuideOverlay();
     state.builtin = await loadBuiltinInfo();
+    state.playerParts = await loadBundledPlayerParts();
     state.folders.output = await getHandle(HANDLE_OUTPUT);
     state.folders.images = await getHandle(HANDLE_IMAGES);
 
@@ -1248,6 +1591,7 @@ async function main() {
       return;
     }
     say(t("web.connected"));
+    registerServiceWorker();
   } catch (error) {
     console.error(error);
     say(String(error && error.message ? error.message : error), "bad");

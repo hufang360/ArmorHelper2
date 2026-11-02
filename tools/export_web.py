@@ -34,6 +34,12 @@ from armorhelper.vanilla import all_sets  # noqa: E402
 
 DEFAULT_OUT = ROOT / "web" / "data"
 
+# Web-only strings (tab renames, GIF speed, export history, service worker
+# notices).  The Python package is frozen, so new interface text for the
+# browser lives here and is merged over ``MESSAGES`` at export time.  Later
+# entries win, so a key may also override a Python string.
+WEB_I18N = ROOT / "web" / "i18n.web.json"
+
 
 def _rect(rect) -> list[int]:
     return [int(value) for value in rect]
@@ -143,6 +149,18 @@ def build_sets() -> dict:
     }
 
 
+def build_messages() -> dict[str, dict[str, str]]:
+    """The Python strings, with the web-only additions layered on top."""
+    messages: dict[str, dict[str, str]] = {name: dict(text) for name, text in MESSAGES.items()}
+    if WEB_I18N.exists():
+        extra = json.loads(WEB_I18N.read_text(encoding="utf-8"))
+        for language, strings in extra.items():
+            if language.startswith("_") or not isinstance(strings, dict):
+                continue  # comments such as "_comment"
+            messages.setdefault(language, {}).update(strings)
+    return messages
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUT)
@@ -163,7 +181,7 @@ def main() -> int:
 
     write_json("layout.json", build_layout())
     write_json("armor_sets.json", build_sets())
-    write_json("i18n.json", {"version": __version__, "messages": MESSAGES})
+    write_json("i18n.json", {"version": __version__, "messages": build_messages()})
     shutil.copy2(package_data / "ArmorTemplate_v1.png", args.output / "ArmorTemplate_v1.png")
 
     # the optional guide overlay travels with the template

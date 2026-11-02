@@ -96,19 +96,29 @@ Firefox / Safari 没有这个 API，此时请用**下载 / 打包下载**，或�
 > 这条路径有测试守着：`test_browser_download_applies_the_guide_overlay`
 > 会用「只有美术的模板」跑一遍，断言下载结果确实多出那 4395 个像素。
 
-### 三张贴图 → 全身 GIF
+### 预览贴图：三张贴图 → 全身动画
 
-「全身 GIF」标签页：
+「预览贴图」标签页：
 
-1. 把头部 / 身体 / 腿部三张贴图**拖进去**（顺序随意）。文件名里带 `Head` / `Legs` / `Armor`
-   会自动分配部位；看不出来时按尺寸猜（宽图当身体，40×1120 需要靠文件名区分头/腿）。
-2. 点「生成全身 GIF」。右侧会得到：**全身盔甲（男）**、**全身盔甲（女）**两个 GIF，
-   以及 20 帧拼版预览和两张 40×1120 的 PNG。
-3. 勾选「叠加玩家」并且设置里有 `Content/Images` 时，会再多两个「玩家 + 盔甲」的 GIF。
-4. 结果可以单独下载、打包 zip，或一键写入输出目录。
+1. 头部 / 身体 / 腿部**各有一个格子**，把对应贴图拖进去（也可以点击选择）。格子会显示
+   文件名与尺寸，认错了就点「移除」换一张；塞进去的图尺寸不对会被拒绝并说明原因。
+   一次把三张一起拖进任意一格也可以，会按文件名分配到头 / 身 / 腿。
+2. 选 **GIF 速率**（快 100ms / 中 500ms / 慢 1000ms）和 **GIF 尺寸**（1× / 2× / 4×）。
+3. 点「生成预览」。右侧会得到：**全身盔甲（男）**、**全身盔甲（女）**两个 GIF，
+   以及 20 帧拼版预览和两张 PNG。
+4. 勾选「叠加玩家」会再多两个「玩家 + 盔甲」的 GIF。玩家贴图**已内置**（`data/player/`，
+   约 4 KB），所以手机上也能用；在设置里选了自己的 `Content/Images` 时优先用你的。
+5. 结果可以单独下载、打包 zip，或一键写入输出目录。
 
 这一步**不经过 128×80 模板**，而是像引擎那样直接采样成品贴图（腿 → 后肩 → 后臂 → 躯干 →
 前肩 → 前臂 → 头），所以比「反向还原 → 重新生成」更准确，任何材质包都能预览。
+
+### 离线与安装
+
+`sw.js` 会预缓存启动所需的全部文件（`CORE` 清单），748 张内置贴图改成首次使用时再缓存，
+所以断网也能打开，刷新也不用重新下载。`manifest.webmanifest` 让 Chrome / Edge 可以把它
+「安装」成独立窗口。首屏是 `file://` 打开时不会有 Service Worker（浏览器限制），
+用静态服务器（本地或 Pages）即可。
 
 ### 反向还原
 
@@ -178,7 +188,10 @@ python3 tools/export_web.py
 web/
   index.html            单页应用
   style.css             深色主题，无外部资源
-  app.js                UI 逻辑（导入 / 导出 / 还原 / 设置）
+  app.js                UI 逻辑（导入 / 导出 / 还原 / 预览贴图 / 设置）
+  sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
+  manifest.webmanifest  Web App Manifest（可安装成独立窗口）
+  i18n.web.json         仅 Web 的文案，导出时合并进 data/i18n.json
   js/
     bitmap.js           RGBA 位图操作（等价于 armorhelper/imaging.py）
     data.js             布局 / 套装表 / 文案的加载与查询
@@ -195,6 +208,8 @@ web/
                         （含可选的 ArmorTemplate_overlay.png 参考线图层）
   data/icon.png         站点图标（浏览器标签页与页头左上角）
   data/vanilla/         内置的原版盔甲贴图 + version.txt（手机离线可用）
+  data/player/          内置的玩家贴图（Player_0_3 / 0_7 / 0_10 + version.txt），
+                        「叠加玩家」在手机上也能用 → tools/import_player_textures.py
   tests/
     run.mjs             Node 下的核心自检（供 Python 测试对比）
     smoke.html          浏览器内的端到端自检

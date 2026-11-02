@@ -39,6 +39,14 @@ function fileStem(path) {
   return base.replace(/\.[^.]+$/, "");
 }
 
+/** An error that the UI can translate: `key` names an i18n string, `vars` fills it. */
+function sheetError(key, vars, message) {
+  const error = new Error(message);
+  error.key = key;
+  error.vars = vars;
+  return error;
+}
+
 /** Validate a sheet and return its `[cell width, cell height]`. */
 function cellSize(role, image) {
   const layout = L();
@@ -46,7 +54,9 @@ function cellSize(role, image) {
   let rows;
   if (role === "body") {
     if (image.width % layout.bodyComposite.cols) {
-      throw new Error(
+      throw sheetError(
+        "web.sheetWarnNotColumns",
+        { cols: layout.bodyComposite.cols },
         `${role} sheet: ${image.width}x${image.height} is not ${layout.bodyComposite.cols} columns wide`,
       );
     }
@@ -58,7 +68,9 @@ function cellSize(role, image) {
   }
   const cellH = Math.round((cellW * layout.frame.h) / layout.frame.w);
   if (cellW <= 0 || cellH <= 0 || Math.abs(cellH - (cellW * layout.frame.h) / layout.frame.w) > 1e-6) {
-    throw new Error(
+    throw sheetError(
+      "web.sheetWarnBadRatio",
+      { w: layout.frame.w, h: layout.frame.h },
       `${role} sheet: ${image.width}x${image.height} does not have the ${layout.frame.w}x${layout.frame.h} frame aspect ratio`,
     );
   }
@@ -67,12 +79,24 @@ function cellSize(role, image) {
     // engine samples transparent pixels there).  Tolerate only that.
     const minimum = cellH * (role === "body" ? rows : rows - 1);
     if (image.height < minimum) {
-      throw new Error(
+      throw sheetError(
+        "web.sheetWarnTooSmall",
+        { need: cellH * rows },
         `${role} sheet: ${image.width}x${image.height} is too small, expected ${image.width}x${cellH * rows} (or at least ${minimum} with a short last frame)`,
       );
     }
   }
   return [cellW, cellH];
+}
+
+/**
+ * Check one sheet against a role, for the UI (which shows one slot per role).
+ *
+ * Throws a translatable error, so the caller can put it in the status bar.
+ */
+export function validateSheet(role, image) {
+  cellSize(role, image);
+  return true;
 }
 
 /**
@@ -88,7 +112,9 @@ export function normalizeSheets({ head = null, body = null, legs = null } = {}) 
     if (!present[role]) continue;
     const [cellW, cellH] = cellSize(role, present[role]);
     if ((cellW * layout.frame.h) % layout.frame.w) {
-      throw new Error(
+      throw sheetError(
+        "web.sheetWarnNotMultiple",
+        { w: layout.frame.w },
         `${role} sheet: ${cellW}x${cellH} cells are not a whole-number multiple of the ${layout.frame.w}x${layout.frame.h} frame`,
       );
     }
@@ -103,7 +129,9 @@ export function normalizeSheets({ head = null, body = null, legs = null } = {}) 
   for (const role of roles) {
     const [width] = sizes[role];
     if (cellW % width) {
-      throw new Error(
+      throw sheetError(
+        "web.sheetWarnNotDivisible",
+        { cell: width, max: cellW },
         `${role} sheet is ${width}px per cell, which does not divide the ${cellW}px of the largest sheet`,
       );
     }
@@ -179,7 +207,9 @@ export function stackFrames(frames) {
  * Split uploaded files into the three slots, guessing each role from its name.
  *
  * `items` is `[{ name, bitmap }]`.  Returns the slots plus `warnings` for
- * duplicates and files that could not be classified.
+ * duplicates and files that could not be classified.  A warning is
+ * `{ key, vars }` — an i18n key plus its placeholders, so the browser can show
+ * it in the user's language (`role` in `vars` is a raw role name: head/body/legs).
  */
 export function classifySheets(items) {
   const slots = { head: null, body: null, legs: null };
@@ -194,17 +224,23 @@ export function classifySheets(items) {
       if (item.bitmap.width > item.bitmap.height) role = "body";
     }
     if (role === null) {
-      warnings.push(`cannot tell what ${item.name} is (head, body or legs?)`);
+      warnings.push({ key: "web.sheetWarnUnknown", vars: { name: item.name } });
       continue;
     }
     if (slots[role]) {
-      warnings.push(`more than one ${role} sheet: keeping ${names[role]}, ignoring ${item.name}`);
+      warnings.push({
+        key: "web.sheetWarnDuplicate",
+        vars: { role, name: item.name },
+      });
       continue;
     }
     try {
       cellSize(role, item.bitmap);
     } catch (error) {
-      warnings.push(error.message);
+      warnings.push({
+        key: error.key ?? "web.sheetWarnBadRatio",
+        vars: { name: item.name, ...(error.vars ?? {}) },
+      });
       continue;
     }
     slots[role] = item.bitmap;
