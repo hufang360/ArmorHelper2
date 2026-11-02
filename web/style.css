@@ -86,32 +86,14 @@ main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px;
 .cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .cardhead h2 { margin: 0 0 8px; }
 
-/* Export tab: inputs and options on the left third each, results half the page.
-   The history card sits under the first two, so nothing is left floating. */
-.export-grid {
-  display: grid; gap: 16px; align-items: start;
-  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) minmax(320px, 2fr);
-  grid-template-areas:
-    "inputs options results"
-    "history history results";
-}
-.export-grid > .card { flex: none; min-width: 0; }
-.area-inputs { grid-area: inputs; }
-.area-options { grid-area: options; }
-.area-results { grid-area: results; }
-.area-history { grid-area: history; }
-
-@media (max-width: 1040px) {
-  .export-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "inputs options"
-      "results results"
-      "history history";
-  }
-}
-@media (max-width: 700px) {
-  .export-grid { grid-template-columns: 1fr; grid-template-areas: "inputs" "options" "results" "history"; }
+/* Export tab: one card on the left (inputs + options + the export button) and
+   the results on the right, taking half the page width. */
+.export-split { align-items: flex-start; }
+.export-split > .stack { flex: 1 1 0; min-width: 0; }
+.export-split > .results-card { flex: 1 1 0; min-width: 0; }
+@media (max-width: 900px) {
+  .export-split { flex-direction: column; }
+  .export-split > .stack, .export-split > .results-card { width: 100%; flex: none; }
 }
 
 /* the preview tab shows 40x56 GIFs: keep the result rail wide enough */

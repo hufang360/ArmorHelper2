@@ -40,10 +40,11 @@
 
   <!-- ============================= 导出 ============================= -->
   <section class="panel is-active" id="tab-export">
-    <!-- inputs | options | results (half the page) ; history under the first two -->
-    <div class="export-grid">
+    <div class="split export-split">
 
-        <div class="card area-inputs">
+      <!-- left: inputs + options in one card, history underneath -->
+      <div class="stack">
+        <div class="card">
           <h2 data-i18n="group.inputs"></h2>
           <div id="drop" class="drop" tabindex="0">
             <p data-i18n="web.drop"></p>
@@ -61,10 +62,8 @@
               </figure>
             </span>
           </div>
-        </div>
 
-        <aside class="card area-options">
-          <h2 data-i18n="web.options"></h2>
+          <h2 class="spaced" data-i18n="web.options"></h2>
           <div id="targets" class="checklist"></div>
 
           <h2 class="spaced" data-i18n="web.previewOptions"></h2>
@@ -74,14 +73,9 @@
           <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
 
           <button class="primary wide" id="do-export" data-i18n="web.export"></button>
-        </aside>
-
-        <div class="card area-results">
-          <h2 data-i18n="web.results"></h2>
-          <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
         </div>
 
-        <div class="card area-history">
+        <div class="card">
           <div class="cardhead">
             <h2 data-i18n="web.historyTitle"></h2>
             <button class="ghost tiny" id="clear-history" data-i18n="web.historyClear"></button>
@@ -90,6 +84,13 @@
             <li class="muted small" data-i18n="web.historyEmpty"></li>
           </ul>
         </div>
+      </div>
+
+      <!-- right: half the page, so the 20 frame previews have room -->
+      <div class="card results-card">
+        <h2 data-i18n="web.results"></h2>
+        <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
+      </div>
 
     </div>
   </section>
