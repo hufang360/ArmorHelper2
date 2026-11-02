@@ -16,7 +16,9 @@
  * and then checks everything this script writes:
  *   js_head.rgba, js_legs.rgba, js_body.rgba, js_body_glow.rgba,
  *   js_arms.rgba, js_body_legacy.rgba, js_frame0.rgba .. js_frame19.rgba,
- *   js_reversed.rgba, js_preview.gif, js_head.png
+ *   js_reversed.rgba, js_preview.gif, js_head.png,
+ *   js_sheet_frame0..19.rgba, js_sheet_female0..19.rgba, js_sheet_stacked.rgba,
+ *   js_sheet_short19.rgba, js_sheet_classify.json
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -130,6 +132,70 @@ writeFileSync(
       missing: bodyOnly.missing,
     },
     candidates: textureCandidates(190, 189, 130),
+  }),
+);
+
+/* ---- full-body frames straight from the three sheets ------------------ */
+// The same input textures used for the reverse test are composed directly,
+// which is the "sheets -> GIF" feature. Python compares every frame.
+import {
+  classifySheets,
+  composeFrames,
+  detectId as detectSheetId,
+  detectRole as detectSheetRole,
+  stackFrames as stackSheet,
+} from "../js/sheets.js";
+
+const sheetInput = {
+  head: readBitmap("py_head.rgba", layout.frame.w * 2, layout.frame.h * 2 * layout.frame.count),
+  legs: readBitmap("py_legs.rgba", layout.frame.w * 2, layout.frame.h * 2 * layout.frame.count),
+  body: readBitmap(
+    "py_body.rgba",
+    layout.frame.w * 2 * layout.bodyComposite.cols,
+    layout.frame.h * 2 * layout.bodyComposite.rows,
+  ),
+};
+
+const sheetFrames = composeFrames(sheetInput);
+sheetFrames.forEach((frame, index) => writeBitmap(`js_sheet_frame${index}.rgba`, frame));
+writeBitmap("js_sheet_stacked.rgba", stackSheet(sheetFrames));
+
+const sheetFemaleFrames = composeFrames({ ...sheetInput, female: true });
+sheetFemaleFrames.forEach((frame, index) => writeBitmap(`js_sheet_female${index}.rgba`, frame));
+
+// A few vanilla head sheets are 40x1118; the last frame has to come out with a
+// transparent bottom row. Both implementations must tolerate it the same way.
+const shortHead = cropRegion(sheetInput.head, [0, 0, sheetInput.head.width, 1118]);
+const shortFrames = composeFrames({ ...sheetInput, head: shortHead });
+writeBitmap("js_sheet_short19.rgba", shortFrames[19]);
+
+// Role detection and duplicate handling, including the dimension fallback.
+const blank = (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) });
+const classified = classifySheets([
+  { name: "Armor_32.png", bitmap: blank(360, 224) },
+  { name: "Armor_Head_52.png", bitmap: blank(40, 1120) },
+  { name: "Armor_Legs_31.png", bitmap: blank(40, 1120) },
+  { name: "mystery.png", bitmap: blank(360, 224) },
+  { name: "unknown_tall.png", bitmap: blank(40, 1120) },
+  { name: "Armor_Head_99.png", bitmap: blank(40, 1120) },
+]);
+writeFileSync(
+  join(workdir, "js_sheet_classify.json"),
+  JSON.stringify({
+    roles: Object.fromEntries(
+      ["head", "body", "legs"].map((role) => [role, classified[role] ? classified[role].width : null]),
+    ),
+    ids: classified.ids,
+    names: classified.names,
+    warnings: classified.warnings,
+    detect: [
+      "Armor_Head_52.png",
+      "Armor_Legs_31.png",
+      "Armor_32.png",
+      "Armor/Armor_1.png",
+      "Player_0_3.png",
+      "thing.png",
+    ].map((name) => [name, detectSheetRole(name), detectSheetId(name)]),
   }),
 );
 

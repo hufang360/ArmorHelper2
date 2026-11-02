@@ -34,6 +34,12 @@ from armorhelper.generate import (  # noqa: E402
 )
 from armorhelper.layout import bundled_overlay, compose_overlay, load_template  # noqa: E402
 from armorhelper.reverse import reverse_template  # noqa: E402
+from armorhelper.sheets import (  # noqa: E402
+    compose_frames as compose_sheet_frames,
+    detect_id as sheet_id,
+    detect_role as sheet_role,
+    stack_sheet,
+)
 
 NODE = shutil.which("node")
 
@@ -229,6 +235,62 @@ def test_zip_has_the_expected_structure(js_output):
         assert archive.read("notes.txt").decode("utf-8") == "hello 盔甲"
         with Image.open(io.BytesIO(archive.read("Armor/Armor_190.png"))) as image:
             assert image.size == (360, 224)
+
+
+# --------------------------------------------------------------------------- #
+# Full-body frames straight from the three sheets
+# --------------------------------------------------------------------------- #
+
+
+def test_sheet_frames_match_python(js_output, template):
+    head = generate_head(template)
+    body = generate_body_composite(template)
+    legs = generate_legs(template)
+
+    for female, prefix in ((False, "js_sheet_frame"), (True, "js_sheet_female")):
+        frames = compose_sheet_frames(head=head, body=body, legs=legs, female=female)
+        assert len(frames) == 20
+        for index, expected in enumerate(frames):
+            compare(js_output, f"{prefix}{index}.rgba", expected)
+
+
+def test_sheet_tolerates_a_short_last_frame(js_output, template):
+    """Vanilla ships some 40x1118 head sheets; the last frame is 2px short."""
+    head = generate_head(template).crop((0, 0, 40, 1118))
+    frames = compose_sheet_frames(
+        head=head,
+        body=generate_body_composite(template),
+        legs=generate_legs(template),
+    )
+    compare(js_output, "js_sheet_short19.rgba", frames[19])
+
+
+def test_sheet_stack_matches_python(js_output, template):
+    frames = compose_sheet_frames(
+        head=generate_head(template),
+        body=generate_body_composite(template),
+        legs=generate_legs(template),
+    )
+    compare(js_output, "js_sheet_stacked.rgba", stack_sheet(frames))
+
+
+def test_sheet_classification_matches_python(js_output):
+    """Role and id detection has to agree in both implementations."""
+    lookup = json.loads((js_output / "js_sheet_classify.json").read_text(encoding="utf-8"))
+
+    assert lookup["roles"] == {"head": 40, "body": 360, "legs": 40}
+    assert lookup["ids"] == {"head": 52, "body": 32, "legs": 31}
+    assert lookup["names"] == {
+        "head": "Armor_Head_52.png",
+        "body": "Armor_32.png",
+        "legs": "Armor_Legs_31.png",
+    }
+    # the duplicate head, the duplicate body and the unclassifiable tall file
+    assert len(lookup["warnings"]) == 3
+
+    for name, role, ident in lookup["detect"]:
+        assert role == sheet_role(name), name
+        assert ident == sheet_id(name), name
 
 
 # --------------------------------------------------------------------------- #
@@ -452,8 +514,8 @@ async function runReverse(doc) {
   return { error: "reverse produced no preview" };
 }
 
-/** Upload the three vanilla-named textures through the page's file input. */
-async function uploadTextures(doc) {
+/** Upload the three vanilla-named textures through one of the page's inputs. */
+async function uploadTextures(doc, selector = "#texture-input") {
   const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }, { pngBlob }] =
     await Promise.all([
       import("/js/data.js"),
@@ -474,11 +536,41 @@ async function uploadTextures(doc) {
     files.push(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
   }
 
-  const input = doc.querySelector("#texture-input");
+  const input = doc.querySelector(selector);
   const transfer = new DataTransfer();
   for (const file of files) transfer.items.add(file);
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/** Upload the same sheets into the "full body GIF" tab and run it. */
+async function runSheetGifs(doc) {
+  await uploadTextures(doc, "#sheet-input");
+  for (let tick = 0; tick < 200; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    if (!doc.querySelector("#do-gifs").disabled) break;
+  }
+  const disabled = doc.querySelector("#do-gifs").disabled;
+  const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
+  if (disabled) return { error: "the generate button stayed disabled", sheetStatus };
+
+  doc.querySelector("#do-gifs").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const images = doc.querySelectorAll("#gif-results .preview img");
+    if (images.length) {
+      return {
+        disabled,
+        sheetStatus,
+        previews: images.length,
+        captions: [...doc.querySelectorAll("#gif-results figcaption")].map((el) => el.textContent),
+        files: [...doc.querySelectorAll("#gif-results .files a")].map((a) => a.textContent),
+        sources: [...images].map((img) => img.src.slice(0, 5)),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+  }
+  return { error: "no GIF result", sheetStatus };
 }
 
 let ticks = 0;
@@ -512,7 +604,9 @@ const timer = setInterval(async () => {
     // 2. the same thing again, but with the user's own files uploaded.
     await uploadTextures(doc);
     const uploaded = await runReverse(doc);
-    report({ ...app, download, builtin, uploaded });
+    // 3. the sheets -> full body GIF tab, with the same three textures.
+    const gifs = await runSheetGifs(doc);
+    report({ ...app, download, builtin, uploaded, gifs });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
   }
@@ -731,8 +825,8 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert "已连接" in payload["status"]
     assert payload["sets"] > 150
     assert payload["targets"] == 12
-    assert payload["checkboxes"] == 17
-    assert payload["tabs"] == ["导出贴图", "反向还原", "设置"]
+    assert payload["checkboxes"] == 18
+    assert payload["tabs"] == ["导出贴图", "全身 GIF", "反向还原", "设置"]
     assert "网页版" in payload["subtitle"]
     assert payload["guide"] is True
     assert "参考线" in payload["guideLabel"]
@@ -764,6 +858,23 @@ def test_browser_renders_the_app(browser_server, tmp_path):
         assert "20 帧" in reverse["captions"][1]
         # 128x80 magnified 4x plus the 2px border
         assert reverse["widths"][0] == 128 * 4 + 4, reverse["widths"]
+
+    # the sheets -> full-body GIF tab works on the same three textures
+    gifs = payload["gifs"]
+    assert not gifs.get("error"), gifs.get("error")
+    assert gifs["disabled"] is False
+    assert "头部 ✓" in gifs["sheetStatus"], gifs["sheetStatus"]
+    assert gifs["files"] == [
+        "Armor_190_FullArmor.png",
+        "Armor_190_FullArmorFemale.png",
+        "Armor_190_FullArmor.gif",
+        "Armor_190_FullArmorFemale.gif",
+    ], gifs["files"]
+    assert gifs["previews"] == 3, gifs
+    assert gifs["captions"][:2] == ["全身盔甲（男）", "全身盔甲（女）"], gifs["captions"]
+    assert gifs["sources"][:2] == ["blob:", "blob:"], gifs["sources"]
+    assert gifs["sources"][2] == "data:", gifs["sources"]
+    assert "已生成" in gifs["status"], gifs["status"]
 
 
 def test_pages_workflow_publishes_the_web_folder():

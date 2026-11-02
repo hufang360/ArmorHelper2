@@ -4,7 +4,7 @@
 |---|---|
 | 文档名称 | ArmorHelper Web 版需求规格说明书 |
 | 版本 | v2.0（纯静态，可部署 GitHub Pages） |
-| 状态 | 已实现（对应 `web/` 目录，与 Python 版 2.0.0 输出一致） |
+| 状态 | 已实现（对应 `web/` 目录，与 Python 版 2.0.0 输出一致）；**项目唯一在维护的形态** |
 | 基准游戏版本 | 泰拉瑞亚 1.4.5（贴图格式自 1.4.4 起生效） |
 | 兄弟文档 | [`需求文档.md`](需求文档.md)（Python 版 / 核心库规格） |
 | 目标读者 | 模组作者、贴图美术、工具维护者 |
@@ -12,6 +12,10 @@
 > **v1 到 v2 的变化**：v1 是「本地 Python HTTP 服务 + 浏览器前端」，无法部署到
 > GitHub Pages。v2 把全部图像逻辑移植成原生 ES 模块，**没有任何服务端**，
 > 是一个纯静态站点。Python 版与 Web 版从此完全分开，各自独立运行。
+>
+> **后续方向（冻结 Python）**：Python 工具已冻结于 2.0.0，只作为参考实现与
+> 等价性基准（`tests/test_web_port.py` 逐像素比对）。此后的需求、改动与验收全部以本文档
+> 为准；`docs/需求文档.md` 只描述已冻结的行为，不再新增条目。
 
 ---
 
@@ -36,7 +40,7 @@
 | 编号 | 目标 |
 |---|---|
 | WG-1 | 纯静态：任意静态托管（含 GitHub Pages）都能跑，无服务端、无构建步骤 |
-| WG-2 | 功能对齐桌面版：导出、反向还原、还原全部、预览、GIF、原版命名 |
+| WG-2 | 功能对齐桌面版：导出、反向还原、还原全部、预览、GIF、原版命名、成品贴图 → 全身 GIF |
 | WG-3 | 与 Python 版**逐像素一致**，并有自动化测试证明 |
 | WG-4 | 零依赖：无框架、无 npm 包、无 CDN，离线可用 |
 | WG-5 | 中英文界面，与桌面版共用同一份文案 |
@@ -48,6 +52,7 @@
 * 贴图生成（头部 / 腿部 / 身体复合 / 旧格式 / 发光遮罩）
 * 20 帧合成、拼版预览、GIF 动画
 * 反向还原（单套 / 全部套装）
+* 成品贴图 → 全身 20 帧 / GIF（不经模板）
 * PNG / GIF / ZIP 编码
 * 设置持久化（localStorage）与目录句柄持久化（IndexedDB）
 * File System Access API 集成（可选增强）
@@ -160,6 +165,8 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-19 | 所有错误以状态栏文字呈现，不弹原生 alert | 必须 | WC-13 |
 | WFR-20 | 页面不请求任何外部地址（离线可用） | 必须 | WC-17 |
 | WFR-21 | 可选的参考线图层（`data/ArmorTemplate_overlay.png`，128×80）叠加在模板预览与下载的绘制模板上；**生成贴图时不得参与** | 应该 | WC-21 |
+| WFR-22 | 「全身 GIF」标签页：上传 / 拖入头部、身体、腿部三张成品贴图，按文件名自动识别部位，生成男女 20 帧 PNG 与 GIF；可选叠加玩家；结果可下载、打包或写入输出目录 | 必须 | WC-24 |
+| WFR-23 | 识别结果实时显示（✓ / 缺少），缺部位时禁用生成按钮；重复部位与无法识别的文件给出提示 | 应该 | WC-24 |
 
 ---
 
@@ -168,7 +175,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 ### 6.1 布局
 
 ```
-┌ ArmorHelper · 泰拉盔甲贴图工具 · 网页版 ──────── [导出贴图][反向还原][设置]  [中文▾] ┐
+┌ ArmorHelper · 泰拉盔甲贴图工具 · 网页版 ─── [导出贴图][全身 GIF][反向还原][设置] [中文▾] ┐
 │ ┌─ 输入文件 ───────────────────────────┐ ┌─ 导出选项 ──────────────────┐            │
 │ │ ┌──────────────────────────────────┐ │ │ ☑ 头部贴图 (Armor_Head)     │            │
 │ │ │  把 128×80 的绘制模板拖到这里     │ │ │ ☑ 腿部贴图 (Armor_Legs)     │            │
@@ -190,7 +197,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 
 | 编号 | 控件 | 需求 |
 |---|---|---|
-| WUI-01 | 顶部标签页 | 三个面板纯前端切换，不重新加载 |
+| WUI-01 | 顶部标签页 | 四个面板纯前端切换，不重新加载 |
 | WUI-02 | 语言下拉 | 立即切换全部文案与 `<html lang>`，写入 localStorage |
 | WUI-03 | 拖放区 | `dragenter/dragover` 高亮；支持点击与键盘 Enter |
 | WUI-04 | 结果卡片 | 预览图 `image-rendering: pixelated` + 棋盘格底；每张预览下方有 `figcaption` 说明 |
@@ -202,6 +209,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WUI-10 | 参考线开关 | 「预览选项」里的复选框，默认开启；关闭后模板预览不叠加参考线 |
 | WUI-11 | 站点图标 | `data/icon.png` 同时用作 `<link rel="icon">`、`apple-touch-icon` 与页头标志；页头标志按平滑渲染（不加 `image-rendering: pixelated`） |
 | WUI-12 | 启动自检 | 若套装表为空或页面缺少脚本引用的元素，状态栏给出明确原因（含强制刷新提示），不得静默留下空列表 |
+| WUI-13 | 「全身 GIF」标签页 | 独立拖放区（点击 / 键盘 / 拖放）、部位识别状态、文件列表可单个移除、清空；生成时按钮禁用并显示 busy |
 
 ### 6.3 视觉
 
@@ -249,7 +257,7 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 |---|---|---|
 | 运行方式 | 命令行 / wxPython 桌面窗口 | 浏览器（静态站点） |
 | 依赖 | Pillow；桌面界面需 wxPython | 无 |
-| 图像逻辑 | `armorhelper/*.py` | `web/js/*.js`（等价移植） |
+| 图像逻辑 | `armorhelper/*.py`（含 `sheets.py`） | `web/js/*.js`（等价移植，含 `sheets.js`） |
 | 一致性保证 | 自身即参考实现 | 逐像素对比测试 |
 | 输入 | 文件对话框 / 拖放 | 拖放 / 点选（浏览器） |
 | 输出目录 | 直接写文件系统 | File System Access（Chromium）或下载 / zip |
@@ -287,6 +295,7 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-21 | 参考线叠加与 Python 一致，且不影响生成结果 | `test_guide_overlay_matches_python`、`test_overlay_never_reaches_the_generated_sheets`、`test_compose_overlay_is_idempotent_and_keeps_the_art` |
 | WC-22 | 内置贴图可用（含手机场景） | `test_bundle_has_a_version_file` 等 11 项 + `test_browser_renders_the_app`（仅靠内置贴图还原一次） |
 | WC-23 | 站点图标被引用，且不会被导出脚本覆盖 | `test_site_icon_is_used`、`test_export_does_not_touch_the_icon` |
+| WC-24 | 三张成品贴图 → 男女 20 帧 / GIF，且与 Python 逐像素一致 | `test_sheet_frames_match_python`、`test_sheet_stack_matches_python`、`test_sheet_classification_matches_python`、`test_browser_renders_the_app` |
 
 ---
 

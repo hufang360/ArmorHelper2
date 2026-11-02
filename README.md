@@ -13,6 +13,22 @@
 
 ---
 
+## 版本状态：Python 版已冻结，之后只做 Web 版
+
+| 形态 | 状态 |
+|---|---|
+| Web 版（[`web/`](web/README.md)） | **活跃开发**。新功能、界面调整、兼容性修复都只加在这里 |
+| Python 命令行 / 桌面界面 | **已冻结（2.0.0）**。保留为参考实现与等价性基准，不再新增功能，也不主动做平台适配 |
+
+冻结的含义：Python 侧的输出是 Web 版的**验收基准**（`tests/test_web_port.py` 会把 JS 核心
+与 Python 逐像素比对），所以它的行为不能变。除修正正确性缺陷外不接受改动；万一要改，
+必须同时改 `web/js/` 并让两侧测试一起通过。新需求请只写进
+[`docs/Web版需求文档.md`](docs/Web版需求文档.md)。
+
+下面「安装 / 快速开始 / 命令行 / 桌面界面」各节继续有效（工具仍然能跑），只是不再演进。
+
+---
+
 ## 安装
 
 ```bash
@@ -47,6 +63,37 @@ python3 -m armorhelper -i MyArmor.png -o "Terraria/Content/Images" \
 python3 -m armorhelper -i MyArmor.png -o out/ --targets all \
     --images "Terraria/Content/Images"
 ```
+
+## 从成品贴图生成全身 GIF
+
+有时候三张成品贴图已经在手上了（原版、材质包、别人的作品），只想看看动画效果。
+`gif` 子命令**直接按引擎的采样方式**合成 20 帧，不经过 128×80 模板：
+
+```bash
+# 三个文件顺序随意，角色按文件名自动识别（Head / Legs / Armor）
+python3 -m armorhelper gif -i Armor_Head_52.png Armor_32.png Armor_Legs_31.png -o out/
+#   -> out/Armor_32_FullArmor.png             40×1120（20 帧竖排）
+#      out/Armor_32_FullArmor.gif             GIF 动画
+#      out/Armor_32_FullArmorFemale.png/.gif  女性版本
+
+# 也可以直接指向一个目录（只挑名字像盔甲贴图的文件）
+python3 -m armorhelper gif -i "材质包/爱神木/01" -o out/
+
+# 文件名看不出部位时显式指定
+python3 -m armorhelper gif --head a.png --body b.png --legs c.png -o out/
+
+# 有已解包的 Content/Images 时，额外输出「叠上玩家」的 GIF
+python3 -m armorhelper gif -i ... -o out/ --images "Terraria/Content/Images"
+```
+
+* 绘制顺序与游戏一致：腿 → 后肩 → 后臂 → 躯干 → 前肩 → 前臂 → 头。
+  原版贴图的肩部格也会参与合成，所以拿起任何材质包都能还原引擎里的样子。
+* 1× 素材会自动放大到 2×（游戏原生尺度）；带发光遮罩的身体贴图（360×448）只用第 0~3 行。
+* 比「反推模板再生成」更准确：反推对头部无损，但腿只有 90~100%、身体只有 90~97%
+  （前后脚互相遮挡、4 个行走手臂姿态被合并）。这里直接读贴图，因此是游戏实际画面。
+* 行走帧 7~10 等本来就共用同一格手臂素材（引擎就是这样采样的），所以这几帧手臂形状一致。
+
+桌面界面右侧多了一个「全身预览 → 从三张贴图生成 GIF...」按钮，效果相同。
 
 ## 反向还原：由原版盔甲反推出模板
 
@@ -129,6 +176,9 @@ python3 -m armorhelper gui        # 或：armorhelper-gui
 [`web/`](web/README.md) 是一个**完全独立的纯静态站点** —— 不需要 Python、不需要服务端、
 没有构建步骤，可以直接发布到 **GitHub Pages**。
 
+**这是项目的活跃开发目标**（Python 侧已冻结，只做参考实现与等价性基准）：新功能、界面改动、
+浏览器兼容都只在这里落地。
+
 ```bash
 python3 -m http.server 8000 --directory web
 # 然后打开 http://127.0.0.1:8000/
@@ -140,6 +190,8 @@ python3 -m http.server 8000 --directory web
 
 * 拖放 128×80 模板，勾选要导出的内容，得到预览 + 下载 + 打包 zip。
 * 可搜索的套装列表（中文名 / 英文名 / ID）与「还原全部套装」。
+* **全身 GIF** 标签页：上传头部 / 身体 / 腿部三张贴图（顺序随意，按文件名自动识别），
+  直接得到男 / 女两张 20 帧 PNG 与两个 GIF，可选叠加玩家；不需要 128×80 模板。
 * **内置 748 张原版盔甲贴图（Terraria 1.4.5.7，约 1.6 MB）**，手机上不用准备任何文件
   就能还原任意一套盔甲。
 * Chrome / Edge 上可以直接读取你的 `Content/Images` 文件夹，并把贴图写回游戏资源目录

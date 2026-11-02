@@ -21,6 +21,7 @@
 
   <nav class="tabs">
     <button class="tab is-active" data-tab="export" data-i18n="web.tab.export"></button>
+    <button class="tab" data-tab="gifs" data-i18n="web.tab.gifs"></button>
     <button class="tab" data-tab="reverse" data-i18n="web.tab.reverse"></button>
     <button class="tab" data-tab="settings" data-i18n="web.tab.settings"></button>
   </nav>
@@ -69,6 +70,36 @@
     <div class="card">
       <h2 data-i18n="web.results"></h2>
       <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
+    </div>
+  </section>
+
+  <!-- ============================ 全身 GIF ============================ -->
+  <section class="panel" id="tab-gifs">
+    <div class="row">
+      <div class="card grow">
+        <h2 data-i18n="web.gifsTitle"></h2>
+
+        <div id="sheet-drop" class="drop" tabindex="0">
+          <p data-i18n="web.gifsDrop"></p>
+          <input type="file" id="sheet-input" accept=".png,image/png" multiple hidden>
+        </div>
+        <p class="muted small" id="sheet-status"></p>
+        <ul id="sheet-list" class="filelist"></ul>
+        <div class="actions">
+          <button class="ghost" id="clear-sheets" data-i18n="web.clear"></button>
+        </div>
+        <p class="muted small" data-i18n="web.gifsHint"></p>
+
+        <label class="check"><input type="checkbox" id="gif-player"><span data-i18n="web.player"></span></label>
+        <p class="muted small" data-i18n="web.gifPlayerHint"></p>
+
+        <button class="primary wide" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="web.results"></h2>
+        <div id="gif-results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
+      </div>
     </div>
   </section>
 

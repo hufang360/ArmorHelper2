@@ -77,8 +77,14 @@ __all__ = [
     "BACK_ARM_CELL",
     "TORSO_CELL",
     "TORSO_JUMP_CELL",
+    "FEMALE_TORSO_CELL",
+    "FEMALE_TORSO_JUMP_CELL",
     "FRONT_SHOULDER_CELL",
     "BACK_SHOULDER_CELL",
+    "FEMALE_FRONT_SHOULDER_CELL",
+    "FEMALE_BACK_SHOULDER_CELL",
+    "TORSO_CELL_FOR",
+    "SHOULDER_CELLS_FOR",
     "COMPOSITE_FRONT_ARM_COL",
     "COMPOSITE_BACK_ARM_COL",
     "load_template",
@@ -192,6 +198,27 @@ TORSO_CELL: Final[tuple[int, int]] = (0, 0)
 TORSO_JUMP_CELL: Final[tuple[int, int]] = (1, 0)
 FRONT_SHOULDER_CELL: Final[tuple[int, int]] = (0, 1)
 BACK_SHOULDER_CELL: Final[tuple[int, int]] = (1, 1)
+
+#: The female torso and shoulders live on the third row of the grid.
+FEMALE_TORSO_CELL: Final[tuple[int, int]] = (0, 2)
+FEMALE_TORSO_JUMP_CELL: Final[tuple[int, int]] = (1, 2)
+FEMALE_FRONT_SHOULDER_CELL: Final[tuple[int, int]] = (0, 3)
+FEMALE_BACK_SHOULDER_CELL: Final[tuple[int, int]] = (1, 3)
+
+#: ``(torso, torso while jumping)`` for a gender.
+def TORSO_CELL_FOR(female: bool) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Return the ``(walking, jumping)`` torso cells for a gender."""
+    if female:
+        return FEMALE_TORSO_CELL, FEMALE_TORSO_JUMP_CELL
+    return TORSO_CELL, TORSO_JUMP_CELL
+
+
+#: ``(front, back)`` shoulder cells for a gender.
+def SHOULDER_CELLS_FOR(female: bool) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Return the ``(front, back)`` shoulder cells for a gender."""
+    if female:
+        return FEMALE_FRONT_SHOULDER_CELL, FEMALE_BACK_SHOULDER_CELL
+    return FRONT_SHOULDER_CELL, BACK_SHOULDER_CELL
 COMPOSITE_FRONT_ARM_COL: Final[int] = 7
 COMPOSITE_BACK_ARM_COL: Final[int] = 8
 

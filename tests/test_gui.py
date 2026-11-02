@@ -318,10 +318,98 @@ def test_the_reverse_buttons_are_disabled_while_working(frame, tmp_path):
     frame._refresh()
     assert not frame.reverse_button.IsEnabled()
     assert not frame.reverse_all_button.IsEnabled()
+    assert not frame.sheet_gifs_button.IsEnabled()
     frame.working = False
     frame._refresh()
     assert frame.reverse_button.IsEnabled()
     assert frame.reverse_all_button.IsEnabled()
+    assert frame.sheet_gifs_button.IsEnabled()
+
+
+# --------------------------------------------------------------------------- #
+# Three sheets -> full body GIFs
+# --------------------------------------------------------------------------- #
+
+
+def _write_sheet_trio(directory: Path) -> list[str]:
+    template = load_template(TEMPLATE)
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "head": directory / "Armor_Head_52.png",
+        "body": directory / "Armor_52.png",
+        "legs": directory / "Armor_Legs_52.png",
+    }
+    generate_head(template).save(paths["head"])
+    generate_body_composite(template).save(paths["body"])
+    generate_legs(template).save(paths["legs"])
+    return [str(path) for path in paths.values()]
+
+
+def test_sheet_gifs_write_into_the_output_folder(frame, tmp_path, monkeypatch):
+    files = _write_sheet_trio(tmp_path / "in")
+    output = tmp_path / "out"
+    output.mkdir()
+    frame.output_ctrl.SetValue(str(output))
+    monkeypatch.setattr(frame, "_ask_sheet_files", lambda: files)
+    monkeypatch.setattr(wx, "MessageBox", lambda *args, **kwargs: wx.NO)
+
+    frame._sheet_gifs()
+
+    names = {path.name for path in output.iterdir()}
+    assert {
+        "Armor_52_FullArmor.png",
+        "Armor_52_FullArmor.gif",
+        "Armor_52_FullArmorFemale.png",
+        "Armor_52_FullArmorFemale.gif",
+    } <= names
+    assert "已生成" in frame.status.text()
+
+
+def test_sheet_gifs_abort_when_no_files_are_picked(frame, monkeypatch):
+    monkeypatch.setattr(frame, "_ask_sheet_files", lambda: None)
+    before = frame.status.text()
+    frame._sheet_gifs()
+    assert frame.status.text() == before  # untouched, no error either
+
+
+def test_sheet_gifs_ask_for_the_output_folder(frame, tmp_path, monkeypatch):
+    files = _write_sheet_trio(tmp_path / "in")
+    chosen = tmp_path / "chosen"
+    monkeypatch.setattr(frame, "_ask_sheet_files", lambda: files)
+    monkeypatch.setattr(frame, "_ask_for_output_dir", lambda: str(chosen))
+    monkeypatch.setattr(wx, "MessageBox", lambda *args, **kwargs: wx.NO)
+
+    frame._sheet_gifs()
+
+    assert frame.output_ctrl.GetValue() == str(chosen)
+    assert (chosen / "Armor_52_FullArmor.gif").is_file()
+
+
+def test_sheet_gifs_warn_about_missing_sheets(frame, tmp_path, monkeypatch):
+    directory = tmp_path / "in"
+    directory.mkdir()
+    head = directory / "Armor_Head_52.png"
+    generate_head(load_template(TEMPLATE)).save(head)
+    output = tmp_path / "out"
+    output.mkdir()
+    frame.output_ctrl.SetValue(str(output))
+    monkeypatch.setattr(frame, "_ask_sheet_files", lambda: [str(head)])
+
+    prompts = []
+
+    def refuse(message, title, style, parent):
+        prompts.append(message)
+        return wx.NO
+
+    monkeypatch.setattr(wx, "MessageBox", refuse)
+    frame._sheet_gifs()
+    assert prompts and "身体" in prompts[0] and "腿部" in prompts[0]
+    assert not list(output.iterdir())
+
+    monkeypatch.setattr(wx, "MessageBox", lambda *args, **kwargs: wx.YES)
+    frame._sheet_gifs()
+    # the only sheet is the head, so it names the output after it
+    assert (output / "Armor_Head_52_FullArmor.gif").is_file()
 
 
 def test_config_round_trip(frame, tmp_path):

@@ -19,7 +19,7 @@ import {
   searchSets,
   setLabel,
 } from "./js/data.js";
-import { countDifferences, stackFrames } from "./js/bitmap.js";
+import { countDifferences, stackFrames, upscale } from "./js/bitmap.js";
 import {
   generateArms,
   generateBodyComposite,
@@ -39,6 +39,7 @@ import {
   tintFrames,
 } from "./js/compose.js";
 import { loadTextures, reverseTemplate } from "./js/reverse.js";
+import { classifySheets, composeFrames } from "./js/sheets.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
 import { zipBlob } from "./js/zip.js";
@@ -87,6 +88,7 @@ const state = {
   result: null,
   folders: { output: null, images: null },
   textures: new Map(), // name -> File, for browsers without folder access
+  sheetFiles: [], // uploaded head/body/legs textures for the full-body GIFs
   builtin: null, // {version, count, ...} when data/vanilla is bundled
   overlay: null, // the guide layer drawn on top of templates in the preview
   playerParts: null,
@@ -113,6 +115,7 @@ function applyI18n() {
   for (const el of $$("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
   renderTargets();
   renderFiles();
+  renderSheets();
   renderFolders();
   if (state.result) renderResult(state.result);
 }
@@ -128,6 +131,7 @@ function defaultConfig() {
     skin: 0,
     female: false,
     player: false,
+    gifPlayer: false,
     verify: false,
     guide: true,
   };
@@ -242,6 +246,199 @@ function renderFiles() {
     list.append(li);
   });
   $("#file-summary").textContent = state.files.length ? t("web.selected", { count: state.files.length }) : "";
+}
+
+/* --------------------------------------------------------- full-body GIF -- */
+
+const SHEET_ROLE_LABELS = { head: "web.sheetHead", body: "web.sheetBody", legs: "web.sheetLegs" };
+
+/** Show the uploaded sheets and what the classifier made of them. */
+function renderSheets() {
+  const list = $("#sheet-list");
+  if (!list) return;
+  const classified = classifySheets(state.sheetFiles);
+
+  list.innerHTML = "";
+  state.sheetFiles.forEach((file, index) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = file.name;
+    const meta = document.createElement("span");
+    meta.className = "muted";
+    meta.textContent = `${file.bitmap.width}×${file.bitmap.height}`;
+    const remove = document.createElement("button");
+    remove.textContent = "✕";
+    remove.title = "remove";
+    remove.addEventListener("click", () => {
+      state.sheetFiles.splice(index, 1);
+      renderSheets();
+    });
+    li.append(name, meta, remove);
+    list.append(li);
+  });
+
+  const missing = Object.keys(SHEET_ROLE_LABELS).filter((role) => !classified[role]);
+  const status = $("#sheet-status");
+  const button = $("#do-gifs");
+  if (!state.sheetFiles.length) {
+    status.textContent = "";
+  } else {
+    const found = Object.keys(SHEET_ROLE_LABELS)
+      .map((role) => `${t(SHEET_ROLE_LABELS[role])} ${classified[role] ? "✓" : "—"}`)
+      .join("  ·  ");
+    const lines = [found];
+    if (missing.length) {
+      lines.push(
+        t("web.gifsMissing", {
+          roles: missing.map((role) => t(SHEET_ROLE_LABELS[role])).join(" / "),
+        }),
+      );
+    }
+    lines.push(...classified.warnings);
+    status.textContent = lines.join("\n");
+  }
+  if (button) button.disabled = missing.length > 0;
+}
+
+/** File name stem of the body sheet, used when it has no vanilla id. */
+function sheetStem(name) {
+  const base = String(name ?? "Armor")
+    .split("/")
+    .pop()
+    .replace(/\.[^.]+$/, "");
+  return sanitizeFilename(base || "Armor");
+}
+
+/** Build a result object with the 20 frame PNGs plus the animated GIFs. */
+async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames = []) {
+  const blobs = [];
+  const files = [];
+
+  for (const entry of entries) {
+    const blob = await pngBlob(entry.bitmap);
+    blobs.push({ name: entry.name, blob });
+    files.push({
+      name: entry.name,
+      width: entry.bitmap.width,
+      height: entry.bitmap.height,
+      size: blob.size,
+      url: URL.createObjectURL(blob),
+    });
+  }
+
+  const previews = [];
+  for (const item of gifs) {
+    const blob = gifBlob(item.frames, { order: gifFrameOrder() });
+    blobs.push({ name: item.name, blob });
+    files.push({
+      name: item.name,
+      width: item.frames[0].width,
+      height: item.frames[0].height,
+      size: blob.size,
+      url: URL.createObjectURL(blob),
+    });
+    previews.push({ url: URL.createObjectURL(blob), caption: item.caption, alt: item.caption });
+  }
+  if (previewFrames.length) {
+    previews.push({
+      url: keepUrl(contactSheet(previewFrames)),
+      caption: t("web.previewFrames"),
+      alt: t("web.previewSheet"),
+    });
+  }
+
+  return {
+    title,
+    files,
+    previews,
+    warnings,
+    zip: { save: () => downloadBlob(zipBlob(blobs), `${sanitizeFilename(title)}.zip`) },
+    save: {
+      save: async () => {
+        const folder = await ensureOutputFolder();
+        if (!folder) return;
+        for (const item of blobs) await writeToFolder(folder, item.name, item.blob);
+        say(t("web.savedTo", { count: blobs.length }));
+      },
+    },
+  };
+}
+
+async function addSheetFiles(fileList) {
+  for (const file of fileList) {
+    if (!/\.(png|bmp)$/i.test(file.name)) continue;
+    try {
+      state.sheetFiles.push({ name: file.name, bitmap: await decodeBitmap(file) });
+    } catch (error) {
+      console.error(error);
+      say(t("web.dropped", { name: file.name }), "warn");
+    }
+  }
+  renderSheets();
+}
+
+async function doGifs() {
+  const sheets = classifySheets(state.sheetFiles);
+  const missing = Object.keys(SHEET_ROLE_LABELS).filter((role) => !sheets[role]);
+  if (missing.length) {
+    say(t("web.gifsNeed"), "warn");
+    return;
+  }
+
+  say(t("web.working"), "busy");
+  try {
+    const input = { head: sheets.head, body: sheets.body, legs: sheets.legs };
+    const frames = composeFrames(input);
+    const femaleFrames = composeFrames({ ...input, female: true });
+    const stem = sheets.ids.body != null ? `Armor_${sheets.ids.body}` : sheetStem(sheets.names.body);
+    const warnings = [...sheets.warnings];
+
+    const entries = [
+      { name: `${stem}_FullArmor.png`, bitmap: stackFrames(frames) },
+      { name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) },
+    ];
+    const gifs = [
+      { name: `${stem}_FullArmor.gif`, frames, caption: t("web.gifMale") },
+      { name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames, caption: t("web.gifFemale") },
+    ];
+
+    if ($("#gif-player").checked) {
+      const parts = await loadPlayerParts();
+      if (!parts) {
+        warnings.push(t("web.playerHint"));
+      } else {
+        // Player art is always native 2x, so upscale 1x sheets first.
+        const factor = frames[0].width === 40 ? 1 : 40 / frames[0].width;
+        const withPlayer = (list, isFemale) => {
+          const armor = factor === 1 ? list : list.map((frame) => upscale(frame, factor));
+          return overlay(tintFrames(playerFrames(parts, isFemale), SKIN_TINT), armor);
+        };
+        const playerMale = withPlayer(frames, false);
+        const playerFemale = withPlayer(femaleFrames, true);
+        entries.push(
+          { name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(playerMale) },
+          { name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) },
+        );
+        gifs.push(
+          { name: `${stem}_FullArmorPlayer.gif`, frames: playerMale, caption: t("web.gifMalePlayer") },
+          {
+            name: `${stem}_FullArmorPlayerFemale.gif`,
+            frames: playerFemale,
+            caption: t("web.gifFemalePlayer"),
+          },
+        );
+      }
+    }
+
+    const result = await packSheetGifs(stem, entries, gifs, warnings, frames);
+    const host = $("#gif-results");
+    host.innerHTML = "";
+    host.append(resultCard(result, host));
+    say(t("web.gifsDone", { count: gifs.length }));
+  } catch (error) {
+    console.error(error);
+    say(String(error.message || error), "bad");
+  }
 }
 
 /** Which vanilla textures the reverse conversion will use, in words. */
@@ -852,8 +1049,9 @@ function wire() {
     if (event.key === "Enter" || event.key === " ") input.click();
   });
   input.addEventListener("change", () => {
-    addFiles(input.files);
+    const files = [...input.files];
     input.value = "";
+    addFiles(files);
   });
   for (const type of ["dragenter", "dragover"]) {
     drop.addEventListener(type, (event) => {
@@ -873,9 +1071,44 @@ function wire() {
     renderFiles();
   });
 
+  const sheetDrop = $("#sheet-drop");
+  const sheetInput = $("#sheet-input");
+  if (sheetDrop && sheetInput) {
+    sheetDrop.addEventListener("click", () => sheetInput.click());
+    sheetDrop.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") sheetInput.click();
+    });
+    sheetInput.addEventListener("change", () => {
+      const files = [...sheetInput.files];
+      sheetInput.value = "";
+      addSheetFiles(files);
+    });
+    for (const type of ["dragenter", "dragover"]) {
+      sheetDrop.addEventListener(type, (event) => {
+        event.preventDefault();
+        sheetDrop.classList.add("is-over");
+      });
+    }
+    for (const type of ["dragleave", "drop"]) {
+      sheetDrop.addEventListener(type, () => sheetDrop.classList.remove("is-over"));
+    }
+    sheetDrop.addEventListener("drop", (event) => {
+      event.preventDefault();
+      addSheetFiles(event.dataTransfer.files);
+    });
+  }
+  on("#clear-sheets", "click", () => {
+    state.sheetFiles = [];
+    renderSheets();
+  });
+  on("#do-gifs", "click", doGifs);
+  on("#gif-player", "change", (event) => {
+    state.config.gifPlayer = event.target.checked;
+    saveConfig();
+  });
+
   on("#do-export", "click", doExport);
-  on("#download-template", "click", downloadTemplate);
-  on("#opt-guide", "change", (event) => {
+  on("#download-template", "click", downloadTemplate);  on("#opt-guide", "change", (event) => {
     state.config.guide = event.target.checked;
     saveConfig();
     if (state.result) renderResult(state.result);
@@ -983,6 +1216,7 @@ async function main() {
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
     $("#opt-guide").checked = state.config.guide !== false;
+    $("#gif-player").checked = !!state.config.gifPlayer;
     $("#set-head").value = state.config.ids.id_head ?? "";
     $("#set-body").value = state.config.ids.id_body ?? "";
     $("#set-legs").value = state.config.ids.id_legs ?? "";

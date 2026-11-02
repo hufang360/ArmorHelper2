@@ -11,7 +11,16 @@ from pathlib import Path
 from . import __version__
 from .export import DEFAULT_TARGETS, TARGETS, ExportSettings, export_template
 from .layout import ArmorTemplateError, compose_overlay, load_template, template_bytes
+from .preview import find_images_dir, player_available
 from .reverse import reverse_from_images
+from .sheets import (
+    SHEET_ROLES,
+    SheetSet,
+    detect_id,
+    detect_role,
+    export_sheet_previews,
+    load_sheet,
+)
 from .vanilla import all_sets, describe, find_set, sanitize_filename, search_sets, source_info
 
 __all__ = ["main", "build_parser"]
@@ -39,6 +48,9 @@ examples:
 
   # Look up which head/legs ids belong to a body armor
   armorhelper sets --search stardust
+
+  # Compose full-body GIFs straight from the three finished armor sheets
+  armorhelper gif -i Armor_Head_52.png Armor_32.png Armor_Legs_31.png -o out/
 """
 
 
@@ -73,6 +85,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="rebuild a 128x80 drawing template from Terraria's armor textures",
     )
     _add_reverse_arguments(reverse)
+
+    gif = sub.add_parser(
+        "gif",
+        aliases=["sheets"],
+        help="compose full-body frames and GIFs from the three finished armor sheets",
+    )
+    _add_gif_arguments(gif)
 
     sets = sub.add_parser("sets", help="list or search the known vanilla armor sets")
     sets.add_argument("-s", "--search", default="", help="filter by name or id")
@@ -168,6 +187,171 @@ def _add_reverse_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("-f", "--force", action="store_true", help="overwrite existing files")
     parser.add_argument("-q", "--quiet", action="store_true", help="only print errors")
+
+
+def _add_gif_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "-i",
+        "--input",
+        dest="inputs",
+        nargs="*",
+        default=[],
+        metavar="PATH",
+        help=(
+            "the head, body and legs sheets, in any order.  Directories are "
+            "scanned for armor textures and the role is detected from the name."
+        ),
+    )
+    parser.add_argument(
+        "-o", "--output", required=True, metavar="DIR", help="folder to write the frames and GIFs into"
+    )
+    parser.add_argument(
+        "--head", metavar="PNG", help="head sheet, when the file name does not say it"
+    )
+    parser.add_argument(
+        "--body", metavar="PNG", help="body sheet, when the file name does not say it"
+    )
+    parser.add_argument(
+        "--legs", metavar="PNG", help="legs sheet, when the file name does not say it"
+    )
+    parser.add_argument(
+        "--name", metavar="TEXT", help="file name stem (default: Armor_<body id>)"
+    )
+    parser.add_argument(
+        "--images",
+        metavar="DIR",
+        help="Terraria Content/Images folder, needed for the 'with player' variants",
+    )
+    parser.add_argument("--skin", type=int, default=0, help="player skin index for the previews")
+    parser.add_argument(
+        "--no-female", action="store_true", help="skip the female frame sheet and GIF"
+    )
+    parser.add_argument(
+        "--no-player", action="store_true", help="skip the 'armor over the player' variants"
+    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="only print errors")
+
+
+def _collect_sheets(args: argparse.Namespace) -> SheetSet:
+    """Read every sheet named on the command line into a :class:`SheetSet`."""
+    images: dict[str, object] = {}
+    paths: dict[str, Path] = {}
+    warnings: list[str] = []
+
+    def add(role: str, path: Path, image, *, explicit: bool) -> None:
+        if role in images and not explicit:
+            warnings.append(
+                f"more than one {role} sheet: keeping {paths[role].name}, ignoring {path.name}"
+            )
+            return
+        images[role] = image
+        paths[role] = path
+
+    queue: list[Path] = []
+    for raw in args.inputs:
+        path = Path(raw)
+        if path.is_dir():
+            roots = [path]
+            # A real Content/Images tree keeps the body sheets in Armor/.
+            if (path / "Armor").is_dir():
+                roots.append(path / "Armor")
+            found: dict[str, list[Path]] = {role: [] for role in SHEET_ROLES}
+            for root in roots:
+                for item in sorted(root.iterdir()):
+                    if not item.is_file() or item.suffix.lower() not in (".png", ".bmp"):
+                        continue
+                    role = detect_role(item)
+                    if role is not None:
+                        found[role].append(item)
+            ambiguous = [role for role, items in found.items() if len(items) > 1]
+            if ambiguous:
+                details = "; ".join(
+                    f"{role}: {', '.join(item.name for item in found[role][:4])}"
+                    + (" ..." if len(found[role]) > 4 else "")
+                    for role in ambiguous
+                )
+                raise ValueError(
+                    f"{path} contains several armor sets ({details}). "
+                    "Pass the three files explicitly (with --head/--body/--legs if needed)."
+                )
+            chosen = [items[0] for items in found.values() if items]
+            if not chosen:
+                raise ValueError(f"no armor sheet names found in {path}")
+            queue.extend(chosen)
+        else:
+            queue.append(path)
+
+    for path in queue:
+        role, image = load_sheet(path)
+        add(role, Path(path), image, explicit=False)
+
+    # Explicit --head/--body/--legs always win, even over a detected duplicate.
+    for role in SHEET_ROLES:
+        raw = getattr(args, role)
+        if not raw:
+            continue
+        _role, image = load_sheet(raw, role)
+        add(role, Path(raw), image, explicit=True)
+
+    return SheetSet(
+        head=images.get("head"),
+        body=images.get("body"),
+        legs=images.get("legs"),
+        head_id=detect_id(paths["head"]) if "head" in paths else None,
+        body_id=detect_id(paths["body"]) if "body" in paths else None,
+        legs_id=detect_id(paths["legs"]) if "legs" in paths else None,
+        paths=paths,
+        warnings=warnings,
+    )
+
+
+def _run_gif(args: argparse.Namespace) -> int:
+    if not args.inputs and not any(getattr(args, role) for role in SHEET_ROLES):
+        print(
+            "error: pass -i <sheets> (or --head/--body/--legs for files whose names say nothing)",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        sheets = _collect_sheets(args)
+    except (OSError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    for warning in sheets.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    for role in sheets.missing:
+        print(f"warning: no {role} sheet, that part will be missing", file=sys.stderr)
+
+    images_dir = None
+    if not args.no_player:
+        images_dir = Path(args.images) if args.images else find_images_dir()
+        if not player_available(images_dir, skin=args.skin) and args.images:
+            print(
+                f"warning: player textures not found in {images_dir}; "
+                "skipping the 'with player' variants",
+                file=sys.stderr,
+            )
+            images_dir = None
+
+    try:
+        written = export_sheet_previews(
+            sheets,
+            args.output,
+            stem=args.name or None,
+            female=not args.no_female,
+            player=not args.no_player,
+            images_dir=images_dir,
+            skin=args.skin,
+        )
+    except (OSError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    if not args.quiet:
+        for path in written:
+            print(f"wrote {path}")
+    return 0
 
 
 def _run_reverse(args: argparse.Namespace) -> int:
@@ -303,7 +487,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if not argv:
         argv = ["gui"]
-    elif argv[0] not in {"export", "reverse", "sets", "template", "targets", "gui", "-h", "--help", "--version"}:
+    elif argv[0] not in {
+        "export",
+        "reverse",
+        "sets",
+        "template",
+        "targets",
+        "gif",
+        "sheets",
+        "gui",
+        "-h",
+        "--help",
+        "--version",
+    }:
         # Allow ``armorhelper -i foo.png -o out`` without the sub command.
         argv.insert(0, "export")
 
@@ -328,6 +524,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_export(args)
     if command == "reverse":
         return _run_reverse(args)
+    if command in ("gif", "sheets"):
+        return _run_gif(args)
     if command == "sets":
         return _run_sets(args)
     if command == "template":

@@ -44,6 +44,7 @@ from .layout import (
 )
 from .preview import find_images_dir
 from .reverse import reverse_from_images, texture_paths
+from .sheets import export_sheet_previews, load_sheets
 from .vanilla import all_sets, find_set, sanitize_filename
 
 log = logging.getLogger("armorhelper")
@@ -364,6 +365,12 @@ class ArmorHelperFrame(wx.Frame):
         reverse.Add(self.reverse_all_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
         right.Add(reverse, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
 
+        preview = wx.StaticBoxSizer(wx.VERTICAL, panel, tr("group.preview"))
+        self.sheet_gifs_button = wx.Button(panel, label=tr("button.sheetGifs"))
+        self.sheet_gifs_button.Bind(wx.EVT_BUTTON, lambda _e: self._sheet_gifs())
+        preview.Add(self.sheet_gifs_button, 0, wx.EXPAND | wx.ALL, 4)
+        right.Add(preview, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
+
         columns.Add(left, 1, wx.EXPAND)
         columns.Add(right, 0, wx.EXPAND)
         root.Add(columns, 1, wx.EXPAND)
@@ -549,7 +556,7 @@ class ArmorHelperFrame(wx.Frame):
             bool(targets) and output_ok and bool(self.entries) and not self.working
         )
         self.export_button.SetLabel(tr("button.working") if self.working else tr("button.export"))
-        for button in (self.reverse_button, self.reverse_all_button):
+        for button in (self.reverse_button, self.reverse_all_button, self.sheet_gifs_button):
             button.Enable(not self.working)
 
         if self.working:
@@ -649,6 +656,82 @@ class ArmorHelperFrame(wx.Frame):
             wx.MessageBox("\n".join(errors), tr("dialog.error"), wx.OK | wx.ICON_ERROR, self)
         else:
             self._set_status(tr("status.done"), OK_COLOUR)
+
+    # ------------------------------------- sheets -> full body gifs --
+    def _ask_sheet_files(self) -> list[str] | None:
+        """Pick the three textures (split out so it can be stubbed in tests)."""
+        with wx.FileDialog(
+            self,
+            tr("dialog.chooseSheets"),
+            defaultDir=self._dialog_dir(),
+            wildcard=tr("dialog.imagesFilter"),
+            style=wx.FD_OPEN | wx.FD_MULTIPLE | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return None
+            return list(dialog.GetPaths())
+
+    def _sheet_gifs(self) -> None:
+        """Compose full-body frames/GIFs straight from three finished sheets."""
+        if self.working:
+            return
+
+        files = self._ask_sheet_files()
+        if not files:
+            return
+
+        try:
+            sheets = load_sheets(files)
+        except Exception as error:  # noqa: BLE001 - never kill the UI thread
+            log.exception("could not read the armor sheets")
+            wx.MessageBox(
+                tr("sheets.failed", error=error), tr("dialog.error"), wx.OK | wx.ICON_ERROR, self
+            )
+            return
+
+        if not sheets.roles:
+            wx.MessageBox(
+                tr("sheets.noSheets"), tr("dialog.error"), wx.OK | wx.ICON_WARNING, self
+            )
+            return
+
+        missing = sheets.missing
+        if missing:
+            roles = " / ".join(tr(f"role.{role}") for role in missing)
+            answer = wx.MessageBox(
+                tr("sheets.missing", roles=roles),
+                tr("sheets.missingTitle"),
+                wx.YES_NO | wx.ICON_WARNING,
+                self,
+            )
+            if answer != wx.YES:
+                return
+
+        output = self.ensure_output_dir()
+        if output is None:
+            return
+
+        images = self.images_ctrl.GetValue().strip() or None
+        try:
+            written = export_sheet_previews(
+                sheets, output, images_dir=images, skin=self.skin_spin.GetValue()
+            )
+        except Exception as error:  # noqa: BLE001 - never kill the UI thread
+            log.exception("could not make the full body previews")
+            message = tr("sheets.failed", error=error)
+            self._set_status(message, BAD_COLOUR)
+            wx.MessageBox(message, tr("dialog.error"), wx.OK | wx.ICON_ERROR, self)
+            return
+
+        self._set_status(tr("sheets.done", count=len(written), dir=output), OK_COLOUR)
+        answer = wx.MessageBox(
+            tr("sheets.doneOpen", count=len(written), dir=output),
+            tr("sheets.openTitle"),
+            wx.YES_NO | wx.ICON_INFORMATION,
+            self,
+        )
+        if answer == wx.YES:
+            wx.LaunchDefaultApplication(str(output))
 
     # ------------------------------------------------------------- reverse --
     def _ask_for_output_dir(self) -> str | None:
