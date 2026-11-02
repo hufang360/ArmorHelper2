@@ -42,7 +42,7 @@ import { loadTextures, reverseTemplate } from "./js/reverse.js";
 import { classifySheets, composeFrames, detectId as detectSheetId, validateSheet } from "./js/sheets.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
-import { zipBlob } from "./js/zip.js";
+import { zipBlob, zipBlobAsync } from "./js/zip.js";
 import {
   bitmapToDataURL,
   canUseFolders,
@@ -700,7 +700,9 @@ async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames 
     files,
     previews,
     warnings,
-    zip: { save: () => downloadBlob(zipBlob(blobs), `${sanitizeFilename(title)}.zip`) },
+    zip: {
+      save: async () => downloadBlob(await zipBlobAsync(blobs), `${sanitizeFilename(title)}.zip`),
+    },
     save: {
       save: async () => {
         const folder = await ensureOutputFolder();
@@ -902,20 +904,22 @@ function resultCard(result, host = $("#results")) {
 
   const actions = document.createElement("div");
   actions.className = "actions";
+  // NB: the locals must not be called `zip` / `save` — that would shadow
+  // `result.zip` / `result.save` and make the click handler call the <button>.
   if (result.zip) {
-    const zip = document.createElement("button");
-    zip.className = "ghost";
-    zip.textContent = t("web.zip");
-    zip.addEventListener("click", () => zip.save());
-    actions.append(zip);
+    const zipButton = document.createElement("button");
+    zipButton.className = "ghost";
+    zipButton.textContent = t("web.zip");
+    zipButton.addEventListener("click", () => result.zip.save());
+    actions.append(zipButton);
   }
   if (result.save) {
-    const save = document.createElement("button");
-    save.className = "ghost";
-    save.textContent = t("web.saveToOutput");
-    save.disabled = !state.folders.output && !canUseFolders;
-    save.addEventListener("click", () => save.save());
-    actions.append(save);
+    const saveButton = document.createElement("button");
+    saveButton.className = "ghost";
+    saveButton.textContent = t("web.saveToOutput");
+    saveButton.disabled = !state.folders.output && !canUseFolders;
+    saveButton.addEventListener("click", () => result.save.save());
+    actions.append(saveButton);
   }
   if (actions.childElementCount) card.append(actions);
 
@@ -1047,9 +1051,9 @@ async function packResult(title, entries, frames, warnings = [], template = null
     preview: previews[0]?.url ?? null,
     warnings,
     zip: {
-      save: () =>
+      save: async () =>
         downloadBlob(
-          zipBlob(blobs.filter((item) => !item.extra).map((item) => ({ name: item.name, data: item.blob }))),
+          await zipBlobAsync(blobs.filter((item) => !item.extra)),
           `${sanitizeFilename(title)}.zip`,
         ),
     },
@@ -1406,7 +1410,7 @@ async function doReverseAll() {
         url: URL.createObjectURL(blobs[index].blob),
       })),
       warnings: failed ? [`${failed} failed`] : [],
-      zip: { save: () => downloadBlob(zipBlob(blobs), "ArmorTemplate.zip") },
+      zip: { save: async () => downloadBlob(await zipBlobAsync(blobs), "ArmorTemplate.zip") },
       save: {
         save: async () => {
           const target = await ensureOutputFolder();

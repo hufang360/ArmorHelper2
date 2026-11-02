@@ -22,7 +22,7 @@ function toBytes(data) {
   if (data instanceof Uint8Array) return data;
   if (data instanceof ArrayBuffer) return new Uint8Array(data);
   if (typeof data === "string") return encoder.encode(data);
-  throw new Error("unsupported entry type");
+  throw new Error("unsupported entry type (use zipBlobAsync for Blob entries)");
 }
 
 function join(parts) {
@@ -118,4 +118,24 @@ export function createZip(entries) {
 
 export function zipBlob(entries) {
   return new Blob([createZip(entries)], { type: "application/zip" });
+}
+
+/** One entry's bytes: `data`, or the `blob` the UI keeps for a result file. */
+async function entryBytes(entry) {
+  const value = entry.data ?? entry.blob;
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return new Uint8Array(await value.arrayBuffer());
+  }
+  return value;
+}
+
+/**
+ * `zipBlob` for the UI: entries may be `{ name, data }` or `{ name, blob }`,
+ * so a PNG / GIF the page has already encoded can go straight in.
+ */
+export async function zipBlobAsync(entries) {
+  const resolved = await Promise.all(
+    entries.map(async (entry) => ({ name: entry.name, data: await entryBytes(entry) })),
+  );
+  return zipBlob(resolved);
 }

@@ -363,6 +363,7 @@ tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可
 | 导出历史 | 无头 Chrome 实测：导出后 `armorhelper.history` 有 1 条（含缩略图 data URL），列表显示名称与文件数；还原全部后再增 1 条 |
 | 模板 popover | 悬停后 popover 出现且图片 `naturalWidth = 516`（128×4 + 2px 边框），移开后隐藏 |
 | 结果卡片高度 | 无头 Chrome 实测：空结果卡与输入卡的差值 ≤ 2px（内联 `min-height`），出结果后内联高度被清空、由内容撑开；两个标签页都断言 |
+| 结果卡片的 zip / 写入按钮 | 无头 Chrome 真的点「打包下载 (zip)」：捕获到的 blob 以 `PK` 开头，解开后是 `MyArmor_Head/Legs/Body.png`，头部 PNG 与 `generate_head(template)` 逐像素一致；状态栏没有 `not a function` |
 | 生成材质包 | 无头 Chrome 点按钮后把 zip 回传给 Python：`zipfile` 校验 7 个条目、`pack.json`（`Name=星尘板甲`、`Version 1.0`）、三张 PNG 与 Python 生成结果逐像素一致 |
 | 叠加玩家（内置贴图） | 无头 Chrome 实测：不选目录、只勾复选框 → 4 张 PNG + 4 个 GIF、5 个预览，玩家提示消失 |
 | 离线缓存 | 静态断言：`CORE` 覆盖启动所需的每个文件与模块、内置贴图走按需缓存；Manifest 合法；`app.js` 注册 `sw.js` |
@@ -468,6 +469,7 @@ python3 tools/export_web.py
 | GIF 调色板把 bitmap 当数组遍历 | `web/js/gif.js` 要遍历 `frame.data`，不是 `frame` |
 | 还原时「文件名 → 槽位」映射写错 | `web/app.js` 曾把原版文件名当成字典键，导致只还原出躯干。映射逻辑已移进 `web/js/reverse.js` 的 `loadTextures()` 并由浏览器端到端测试覆盖 |
 | 静态服务器用 HTTP/1.0 | 见上表 |
+| 结果卡片的两个按钮其实一直没工作 | `resultCard()` 用 `const zip` / `const save` 命名按钮，遮蔽了 `result.zip` / `result.save`，点击抛 `save.save is not a function`；修完还发现 `zipBlob()` 接受的是 `{name, data}`，而 UI 一直传 `{name, blob}`，于是又抛 `unsupported entry type`。现在按钮调 `result.zip.save()`，并新增 `zipBlobAsync()`（接受 Blob 条目），浏览器用例会真的点这两个按钮、把 zip 解开比对 |
 | 浏览器测试把文件下到 `~/Downloads` | 测试是真的点「下载」按钮，Chrome 默认落到用户下载目录（曾堆积 30 个 `ArmorTemplate_v1 (n).png`）。现在 harness 吞掉带 `download` 属性的 `<a>` 点击，并给 Chrome 写 `download.default_directory` 指向临时目录 |
 
 ---

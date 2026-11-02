@@ -836,6 +836,61 @@ async function runResourcePack(doc) {
   };
 }
 
+/**
+ * Click the two buttons at the bottom of a result card.
+ *
+ * This is what caught `save.save is not a function`: the card built its buttons
+ * with locals named `zip` / `save`, which shadowed `result.zip` / `result.save`,
+ * so nothing was ever downloaded and the console filled with TypeErrors.
+ */
+async function clickResultButtons(doc, panelId) {
+  const win = frame.contentWindow;
+  const card = doc.querySelector(`${panelId} .job`);
+  if (!card) return { error: "no result card" };
+  const buttons = [...card.querySelectorAll(".actions button")];
+  const labels = buttons.map((button) => button.textContent.trim());
+  const disabled = buttons.map((button) => button.disabled);
+
+  const captured = [];
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    captured.push(blob);
+    return realCreate(blob);
+  };
+  // the "write to the output folder" button would open a real folder picker,
+  // so only press the ones that are enabled — and never wait for a picker
+  for (const [index, button] of buttons.entries()) {
+    if (disabled[index]) continue;
+    button.click();
+  }
+  for (let tick = 0; tick < 200 && !captured.length; tick += 1) {
+    await sleep(25);
+  }
+  win.URL.createObjectURL = realCreate;
+
+  let signature = null;
+  let bytes = 0;
+  let base64 = null;
+  if (captured.length) {
+    const buffer = new Uint8Array(await captured[0].arrayBuffer());
+    bytes = buffer.length;
+    signature = String.fromCharCode(...buffer.slice(0, 2));
+    if (signature === "PK") {
+      let binary = "";
+      for (const byte of buffer) binary += String.fromCharCode(byte);
+      base64 = btoa(binary);
+    }
+  }
+  return {
+    labels,
+    disabled,
+    bytes,
+    signature,
+    base64,
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
 /** Run a plain export and report what the results card plus history look like. */
 async function runExport(doc) {
   const sheets = await makeSheets();
@@ -853,10 +908,12 @@ async function runExport(doc) {
   }
   await sleep(120);
   const heightsAfter = cardHeights(doc, "#tab-export");
+  const buttons = await clickResultButtons(doc, "#tab-export");
   const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
   return {
     heightsBefore,
     heightsAfter,
+    buttons,
     files: [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent),
     previews: doc.querySelectorAll("#results .preview img").length,
     sizes: [...doc.querySelectorAll("#results .files li")][0]?.textContent.trim() ?? "",
@@ -1286,6 +1343,20 @@ def test_browser_renders_the_app(browser_server, tmp_path, template):
     after = exported["heightsAfter"]
     assert after["forced"] == "", after
     assert after["results"] > 0, after
+
+    # the result card's buttons really do something (this used to throw
+    # "save.save is not a function" because of a shadowed local)
+    buttons = exported["buttons"]
+    assert not buttons.get("error"), buttons.get("error")
+    assert buttons["labels"] == ["打包下载 (zip)", "写入输出目录"], buttons
+    assert "not a function" not in buttons["status"], buttons["status"]
+    assert buttons["signature"] == "PK", json.dumps(buttons, ensure_ascii=False)
+    assert buttons["bytes"] > 1000, buttons
+    # ... and it holds the exported sheets, named the way the game expects
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(buttons["base64"]))) as zipped:
+        assert zipped.namelist() == ["MyArmor_Head.png", "MyArmor_Legs.png", "MyArmor_Body.png"], zipped.namelist()
+        with Image.open(io.BytesIO(zipped.read("MyArmor_Head.png"))) as head_png:
+            assert list(head_png.convert("RGBA").getdata()) == list(generate_head(template).getdata())
 
     # the preview-sheets tab: three labelled slots, speed/size, and the GIFs
     gifs = payload["gifs"]
