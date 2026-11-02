@@ -113,6 +113,22 @@ Firefox / Safari 没有这个 API，此时请用**下载 / 打包下载**，或�
 这一步**不经过 128×80 模板**，而是像引擎那样直接采样成品贴图（腿 → 后肩 → 后臂 → 躯干 →
 前肩 → 前臂 → 头），所以比「反向还原 → 重新生成」更准确，任何材质包都能预览。
 
+### 生成材质包
+
+三张图放好后点「生成材质包」，会得到一个 **`<名称>-pack-pc.zip`**，结构就是游戏读的那套：
+
+```
+pack.json                                 Name / Author / Description / Version
+Content/Images/Armor_Head_<id>.png
+Content/Images/Armor_Legs_<id>.png
+Content/Images/Armor/Armor_<id>.png
+```
+
+`<id>` 取自身体贴图文件名（`Armor_190.png` → `190`），`pack.json` 的 `Name` 用套装中文名
+（例如「星尘板甲」），zip 自身仍用 ASCII 名 `Armor_<id>-pack-pc.zip`。
+把压缩包放进 `Terraria/ResourcePacks/`，游戏里勾选就能看到效果。
+结果可以单独下载、打包，或者在 Chromium 上直接写入你选的 `ResourcePacks` 目录。
+
 ### 离线与安装
 
 `sw.js` 会预缓存启动所需的全部文件（`CORE` 清单），748 张内置贴图改成首次使用时再缓存，

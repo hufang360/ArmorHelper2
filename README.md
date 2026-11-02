@@ -196,6 +196,8 @@ python3 -m http.server 8000 --directory web
 * **预览贴图** 标签页：头部 / 身体 / 腿部**各一个上传格子**，拖进去就得到男 / 女两张
   20 帧 PNG 与两个 GIF，可选叠加玩家；GIF 速率（快 100ms / 中 500ms / 慢 1000ms）
   与尺寸（1× / 2× / 4×）可调。不需要 128×80 模板。
+* 「生成材质包」把这三张贴图打包成游戏能直接读的 `<名称>-pack-pc.zip`
+  （`pack.json` + `Content/Images/…`），丢进 `Terraria/ResourcePacks/` 就生效。
 * **内置玩家贴图**（`data/player/`，约 4 KB）：勾「叠加玩家」就能看到「玩家 + 盔甲」，
   手机上也能用，不必先准备 `Content/Images`。
 * Service Worker 离线缓存 + Web App Manifest：打开一次后断网也能用，还能「安装」成独立窗口。

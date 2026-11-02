@@ -88,6 +88,9 @@
   GIF 速率（100 / 500 / 1000ms）与尺寸（1× / 2× / 4×）可选；批量任务带 `i/n` 进度与取消。
 - `web/sw.js` + `web/manifest.webmanifest` — 离线缓存与可安装 PWA（`CORE` 清单由测试守卫，
   748 张内置贴图改为首次使用时缓存）。
+- 「预览贴图 → 生成材质包」把三张贴图打成游戏可直接读的 `<名称>-pack-pc.zip`
+  （`pack.json` + `Content/Images/Armor_Head_<id>.png` / `Armor_Legs_<id>.png` /
+  `Armor/Armor_<id>.png`），zip 名用 ASCII 的 `Armor_<id>-pack-pc.zip`，`Name` 用套装中文名。
 - `web/i18n.web.json` — **仅 Web** 的文案（标签页改名、GIF 速率、历史、槽位提示…），
   `tools/export_web.py` 把它合并覆盖到 Python 的 `MESSAGES` 上，因此不用解冻 Python 就能改界面文字。
 - `web/data/` — 由 `tools/export_web.py` 从 Python 侧导出（layout / armor_sets / i18n / 模板 / 参考线）。
@@ -268,7 +271,20 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 坑：`event.waitUntil()` 只能在事件派发期间调用，放在 `respondWith` 的 `.then()` 里会抛
 `InvalidStateError` 并让这次 fetch 直接失败 —— 后台缓存必须用普通浮动 promise。
 
-### D-17 玩家贴图内置，而不是只靠 Content/Images
+### D-17 材质包直接按游戏的 ResourcePacks 结构打包
+
+参照 `/Terraria/ResourcePacks/01`（`01-pack-pc.zip`）实测的结构：根目录 `pack.json`
+（`Name` / `Author` / `Description` / `Version{major,minor}`）+ `Content/Images/Armor_Head_<id>.png`
++ `Content/Images/Armor_Legs_<id>.png` + `Content/Images/Armor/Armor_<id>.png`。
+浏览器侧用现成的 stored ZIP 写入器拼出来，目录条目（`Content/`、`Content/Images/`、
+`Content/Images/Armor/`）也照抄，方便用户直接对比。
+
+两个命名细节：zip 文件名用 ASCII 的 `Armor_<id>-pack-pc.zip`（游戏按
+`*-pack-pc.zip` 扫描 `ResourcePacks/`，ASCII 最稳），而 `pack.json` 的 `Name` 用套装中文名
+（资源包列表里显示的就是它，参考的 `2440024138` 包就是 `Name: 华文圆体`）。
+`<id>` 取自身体贴图文件名，取不到时回落到设置里的身体 ID，再退回 0 并提示。
+
+### D-18 玩家贴图内置，而不是只靠 Content/Images
 
 「叠加玩家」原来只从 Chromium 的目录句柄读 `Player_0_3 / 0_7 / 0_10.png`，于是手机上这个
 复选框永远拿不到贴图（除非用户手动挑 748 个文件——不可能）。现在把这三张（约 4 KB）
@@ -345,6 +361,7 @@ tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可
 | 进度与取消 | 取消「还原全部套装」后状态栏显示「已取消」、按钮复位；完整跑完显示 `i/151` 进度并产出 > 100 个模板 |
 | 导出历史 | 无头 Chrome 实测：导出后 `armorhelper.history` 有 1 条（含缩略图 data URL），列表显示名称与文件数；还原全部后再增 1 条 |
 | 模板 popover | 悬停后 popover 出现且图片 `naturalWidth = 516`（128×4 + 2px 边框），移开后隐藏 |
+| 生成材质包 | 无头 Chrome 点按钮后把 zip 回传给 Python：`zipfile` 校验 7 个条目、`pack.json`（`Name=星尘板甲`、`Version 1.0`）、三张 PNG 与 Python 生成结果逐像素一致 |
 | 叠加玩家（内置贴图） | 无头 Chrome 实测：不选目录、只勾复选框 → 4 张 PNG + 4 个 GIF、5 个预览，玩家提示消失 |
 | 离线缓存 | 静态断言：`CORE` 覆盖启动所需的每个文件与模块、内置贴图走按需缓存；Manifest 合法；`app.js` 注册 `sw.js` |
 

@@ -8,13 +8,16 @@ The test is skipped when Node is not installed.
 
 from __future__ import annotations
 
+import base64
 import functools
 import http.server
+import io
 import json
 import shutil
 import subprocess
 import sys
 import threading
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -779,6 +782,41 @@ async function runPlayerOverlay(doc) {
   return { error: "no player overlay result" };
 }
 
+/**
+ * Click "make resource pack" and hand the produced zip back to Python, which
+ * unzips it and checks the entry names, `pack.json` and every PNG.
+ */
+async function runResourcePack(doc) {
+  const button = doc.querySelector("#do-pack");
+  const enabled = !button.disabled;
+  button.click();
+
+  let link = null;
+  for (let tick = 0; tick < 400; tick += 1) {
+    // the preview run before this one left its own files in the same card
+    const anchor = [...doc.querySelectorAll("#gif-results .files a")].find(
+      (a) => a.textContent.trim().endsWith("-pack-pc.zip"),
+    );
+    if (anchor && (anchor.getAttribute("href") || "").startsWith("blob:")) {
+      link = anchor;
+      break;
+    }
+    await sleep(25);
+  }
+  if (!link) return { error: "no resource pack was produced", enabled };
+
+  const buffer = new Uint8Array(await (await fetch(link.href)).arrayBuffer());
+  let binary = "";
+  for (const byte of buffer) binary += String.fromCharCode(byte);
+  return {
+    enabled,
+    name: link.textContent.trim(),
+    bytes: buffer.length,
+    base64: btoa(binary),
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
 /** Run a plain export and report what the results card plus history look like. */
 async function runExport(doc) {
   const sheets = await makeSheets();
@@ -915,11 +953,24 @@ const timer = setInterval(async () => {
     const uploaded = await runReverse(doc);
     // 4. the preview-sheets tab, with three separate slots
     const gifs = await runSheetGifs(doc);
+    const pack = await runResourcePack(doc);
     const player = await runPlayerOverlay(doc);
     // 5. the long task: cancel works, and a full run reports progress
     const cancelled = await runReverseAllCancel(doc);
     const reverseAll = await runReverseAll(doc);
-    report({ ...app, download, popover, builtin, exported, uploaded, gifs, player, cancelled, reverseAll });
+    report({
+      ...app,
+      download,
+      popover,
+      builtin,
+      exported,
+      uploaded,
+      gifs,
+      pack,
+      player,
+      cancelled,
+      reverseAll,
+    });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
   }
@@ -1140,7 +1191,7 @@ def test_browser_download_applies_the_guide_overlay(clean_template_web, tmp_path
     assert download["identicalToRaw"] is False
 
 
-def test_browser_renders_the_app(browser_server, tmp_path):
+def test_browser_renders_the_app(browser_server, tmp_path, template):
     """The single page app must boot and fill itself in."""
     chrome = find_chrome()
     if chrome is None:
@@ -1240,6 +1291,42 @@ def test_browser_renders_the_app(browser_server, tmp_path):
     assert gifs["widths"][2] > 800, gifs["widths"]  # the 20 frame contact sheet
     assert gifs["settings"]["gifSpeed"] == "slow", gifs["settings"]
     assert gifs["settings"]["gifSize"] == 2, gifs["settings"]
+
+    # "make resource pack": the zip has to carry the game's folder layout
+    pack = payload["pack"]
+    assert not pack.get("error"), pack.get("error")
+    assert pack["enabled"] is True, pack
+    assert pack["name"] == "Armor_190-pack-pc.zip", pack
+    assert "已生成材质包" in pack["status"], pack["status"]
+
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(pack["base64"]))) as archive:
+        assert archive.namelist() == [
+            "pack.json",
+            "Content/",
+            "Content/Images/",
+            "Content/Images/Armor_Head_190.png",
+            "Content/Images/Armor_Legs_190.png",
+            "Content/Images/Armor/",
+            "Content/Images/Armor/Armor_190.png",
+        ], archive.namelist()
+        assert archive.testzip() is None
+
+        meta = json.loads(archive.read("pack.json"))
+        assert meta["Name"] == "星尘板甲", meta
+        assert meta["Author"], meta
+        assert meta["Description"], meta
+        assert meta["Version"] == {"major": 1, "minor": 0}, meta
+
+        # the three PNGs are exactly the sheets that were dropped in
+        expected = {
+            "Content/Images/Armor_Head_190.png": generate_head(template),
+            "Content/Images/Armor_Legs_190.png": generate_legs(template),
+            "Content/Images/Armor/Armor_190.png": generate_body_composite(template),
+        }
+        for name, want in expected.items():
+            with Image.open(io.BytesIO(archive.read(name))) as produced:
+                assert produced.size == want.size, name
+                assert list(produced.convert("RGBA").getdata()) == list(want.getdata()), name
 
     # "overlay player" works with no folder at all (bundled player textures)
     player = payload["player"]

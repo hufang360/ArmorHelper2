@@ -189,6 +189,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 | WFR-27 | 导出历史：记下时间、名称、文件数与缩略图，最多 20 条，可清空；写满配额时静默跳过，不影响导出 | 应该 | WC-28 |
 | WFR-28 | Service Worker 预缓存启动所需的全部文件（内置贴图按需缓存），Web App Manifest 提供名称/图标/独立窗口，注册失败时静默降级 | 应该 | WC-29 |
 | WFR-29 | 「下载绘制模板」按钮 hover / 聚焦时弹出 popover，显示**即将下载的那张图**（含参考线，随参考线开关变化） | 应该 | WC-30 |
+| WFR-30 | 「预览贴图」页提供「生成材质包」：把三个槽位的贴图按游戏的资源包结构打成 `<名称>-pack-pc.zip`（`pack.json` + `Content/Images/Armor_Head_<id>.png` + `Armor_Legs_<id>.png` + `Armor/Armor_<id>.png`），可直接放进 `ResourcePacks/`；缺槽位时按钮禁用 | 必须 | WC-32 |
 
 ---
 
@@ -329,6 +330,7 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-29 | 预缓存清单完整、Manifest 合法、SW 已注册 | `test_service_worker_precaches_the_whole_app`、`test_web_manifest_is_a_valid_pwa_manifest`、`test_the_service_worker_is_registered_and_scoped_to_the_site` |
 | WC-30 | 模板 popover 显示 4× 模板 | `test_browser_renders_the_app` |
 | WC-31 | 仅 Web 的文案单独存放并合并进导出数据 | `test_web_only_strings_are_merged_over_the_frozen_python_ones` |
+| WC-32 | 资源包 zip 的条目名、`pack.json` 与三张 PNG 与游戏一致 | `test_browser_renders_the_app`（浏览器点「生成材质包」→ Python 用 `zipfile` 解开，逐项比对文件名、`pack.json` 字段，并把三张 PNG 与 Python 生成结果逐像素比较） |
 
 ---
 

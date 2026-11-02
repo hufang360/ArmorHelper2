@@ -496,8 +496,10 @@ function renderSlots() {
     if (state.sheetIssues?.length) lines.push(...state.sheetIssues.map(warnText));
     status.textContent = lines.join("\n");
   }
-  const button = $("#do-gifs");
-  if (button) button.disabled = missing.length > 0;
+  for (const selector of ["#do-gifs", "#do-pack"]) {
+    const button = $(selector);
+    if (button) button.disabled = missing.length > 0;
+  }
 }
 
 /** Put one decoded file in a slot, validating it against that role. */
@@ -553,6 +555,94 @@ async function addSheetFiles(fileList, role = null) {
   }
   state.sheetIssues = issues;
   renderSlots();
+}
+
+/**
+ * A Terraria resource pack (`<name>-pack-pc.zip`), the layout the game reads:
+ *
+ *     pack.json
+ *     Content/Images/Armor_Head_<id>.png
+ *     Content/Images/Armor_Legs_<id>.png
+ *     Content/Images/Armor/Armor_<id>.png
+ *
+ * `pack.json` carries the display name; the zip's own name is what the game
+ * lists in `ResourcePacks/`, so it stays ASCII (`Armor_<id>`).
+ */
+async function doResourcePack() {
+  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
+  if (missing.length) {
+    say(t("web.gifsNeed"), "warn");
+    return;
+  }
+
+  $("#do-pack").disabled = true;
+  say(t("web.working"), "busy");
+  try {
+    const ids = effectiveIds();
+    const detected = detectSheetId(state.sheetSlots.body.name);
+    const id = detected ?? ids.body ?? 0;
+    const warnings = detected === null && ids.body === null ? [t("web.packNoId")] : [];
+
+    const item = findSet(id);
+    const friendly = (item && (displayName(item.zh) || item.name)) || `Armor_${id}`;
+    const slug = `Armor_${id}`;
+    const zipName = `${slug}-pack-pc.zip`;
+
+    const pack = {
+      Name: friendly,
+      Author: "ArmorHelper",
+      Description: t("web.packDescription"),
+      Version: { major: 1, minor: 0 },
+    };
+
+    const entries = [
+      { name: "pack.json", data: `${JSON.stringify(pack, null, 2)}\n` },
+      { name: "Content/", data: new Uint8Array(0) },
+      { name: "Content/Images/", data: new Uint8Array(0) },
+      {
+        name: `Content/Images/Armor_Head_${id}.png`,
+        data: await pngBlob(state.sheetSlots.head.bitmap).then((blob) => blob.arrayBuffer()),
+      },
+      {
+        name: `Content/Images/Armor_Legs_${id}.png`,
+        data: await pngBlob(state.sheetSlots.legs.bitmap).then((blob) => blob.arrayBuffer()),
+      },
+      { name: "Content/Images/Armor/", data: new Uint8Array(0) },
+      {
+        name: `Content/Images/Armor/Armor_${id}.png`,
+        data: await pngBlob(state.sheetSlots.body.bitmap).then((blob) => blob.arrayBuffer()),
+      },
+    ];
+
+    const blob = zipBlob(entries);
+    const url = URL.createObjectURL(blob);
+    const result = {
+      title: t("web.packTitle", { name: friendly }),
+      previews: [],
+      files: [{ name: zipName, size: blob.size, url }],
+      warnings,
+      zip: { save: () => downloadBlob(blob, zipName) },
+      save: {
+        save: async () => {
+          const folder = await ensureOutputFolder();
+          if (!folder) return;
+          await writeToFolder(folder, zipName, blob);
+          say(t("web.savedTo", { count: 1 }));
+        },
+      },
+    };
+
+    const host = $("#gif-results");
+    host.innerHTML = "";
+    host.append(resultCard(result, host));
+    addHistory(slug, [{ name: zipName }], keepUrl(slotPreview(state.sheetSlots.body.bitmap)));
+    say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
+  } catch (error) {
+    console.error(error);
+    say(String(error.message || error), "bad");
+  } finally {
+    $("#do-pack").disabled = SHEET_ROLES.some((role) => !state.sheetSlots[role]);
+  }
 }
 
 /** File name stem of the body sheet, used when it has no vanilla id. */
@@ -773,7 +863,8 @@ function resultCard(result, host = $("#results")) {
     link.textContent = file.name;
     const meta = document.createElement("span");
     meta.className = "muted";
-    meta.textContent = `${file.width}×${file.height} · ${Math.round(file.size / 1024)} KB`;
+    const size = `${Math.round(file.size / 1024)} KB`;
+    meta.textContent = file.width && file.height ? `${file.width}×${file.height} · ${size}` : size;
     li.append(link, meta);
     list.append(li);
   }
@@ -1447,6 +1538,7 @@ function wire() {
     renderSlots();
   });
   on("#do-gifs", "click", doGifs);
+  on("#do-pack", "click", doResourcePack);
   on("#gif-player", "change", (event) => {
     state.config.gifPlayer = event.target.checked;
     saveConfig();
@@ -1600,6 +1692,7 @@ async function main() {
       : "";
     $("#about").textContent = `ArmorHelper ${state.version} · 纯前端，无服务端${builtin}`;
     $("#download-template").title = t("web.downloadTemplateHint");
+    $("#do-pack").title = t("web.packHint");
 
     applyI18n();
     await loadSetsIndex("");
