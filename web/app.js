@@ -138,6 +138,7 @@ function applyI18n() {
   renderFolders();
   renderHistory();
   if (state.result) renderResult(state.result);
+  syncResultHeights();
 }
 
 /* ------------------------------------------------------------ settings -- */
@@ -636,6 +637,7 @@ async function doResourcePack() {
     host.innerHTML = "";
     host.append(resultCard(result, host));
     addHistory(slug, [{ name: zipName }], keepUrl(slotPreview(state.sheetSlots.body.bitmap)));
+    syncResultHeights();
     say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
   } catch (error) {
     console.error(error);
@@ -773,6 +775,7 @@ async function doGifs() {
     host.innerHTML = "";
     host.append(resultCard(result, host));
     addHistory(stem, result.files, keepUrl(frames[0]));
+    syncResultHeights();
     say(t("web.gifsDone", { count: gifs.length }));
   } catch (error) {
     console.error(error);
@@ -806,6 +809,33 @@ function renderFolders() {
 
   const needsPlayer = $("#opt-player")?.checked;
   $("#player-hint").hidden = !needsPlayer || !!images || !!state.playerParts;
+}
+
+/**
+ * Keep the results card as tall as the input card next to it while it is empty.
+ * Once there are results the inline min-height is dropped, so the card grows
+ * with its content instead of being pinned to whatever the inputs needed.
+ */
+function syncResultHeights() {
+  for (const card of $$(".results-card")) {
+    const panel = card.closest(".panel");
+    const left = panel?.querySelector(".stack > .card");
+    if (!left) continue;
+    const filled = !!card.querySelector(".job");
+    card.style.minHeight = filled ? "" : `${Math.round(left.getBoundingClientRect().height)}px`;
+  }
+}
+
+/** Re-measure on layout changes (file list grows, language switch, resize). */
+function watchResultHeights() {
+  syncResultHeights();
+  window.addEventListener("resize", syncResultHeights);
+  if (typeof ResizeObserver === "undefined") return;
+  const observer = new ResizeObserver(() => syncResultHeights());
+  for (const card of $$(".results-card")) {
+    const left = card.closest(".panel")?.querySelector(".stack > .card");
+    if (left) observer.observe(left);
+  }
 }
 
 function renderResult(result) {
@@ -1164,6 +1194,7 @@ async function doExport() {
       const result = await packResult(stem, entries, withPlayer, warnings, file.bitmap);
       host.append(resultCard(result));
       addHistory(stem, result.files, keepUrl(file.bitmap));
+      syncResultHeights();
     }
     const job = endJob();
     if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
@@ -1312,6 +1343,7 @@ async function doReverse() {
     host.innerHTML = "";
     host.append(resultCard(result, host));
     say(t("reverse.done", { path: result.files[0].name }));
+    syncResultHeights();
   } catch (error) {
     console.error(error);
     say(String(error.message || error), "bad");
@@ -1389,6 +1421,7 @@ async function doReverseAll() {
     host.innerHTML = "";
     host.append(resultCard(result, host));
     addHistory(`${t("reverse.allTitle")} ×${entries.length}`, entries, keepUrl(entries[0].bitmap));
+    syncResultHeights();
     if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
     else say(t("reverse.allDone", { count: entries.length, dir: REVERSE_SUBDIR }));
   } catch (error) {
@@ -1695,6 +1728,7 @@ async function main() {
     $("#do-pack").title = t("web.packHint");
 
     applyI18n();
+    watchResultHeights();
     await loadSetsIndex("");
 
     // An empty set list used to fail silently; say it out loud instead.

@@ -675,6 +675,21 @@ async function uploadTextures(doc, selector = "#texture-input") {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * The results card should be as tall as the input card while it is empty
+ * (inline min-height), and grow with its own content once a result is shown.
+ */
+function cardHeights(doc, panelId) {
+  const panel = doc.querySelector(panelId);
+  const left = panel.querySelector(".stack > .card");
+  const card = panel.querySelector(".results-card");
+  return {
+    left: Math.round(left.getBoundingClientRect().height),
+    results: Math.round(card.getBoundingClientRect().height),
+    forced: card.style.minHeight,
+  };
+}
+
+/**
  * The "preview sheets" tab: three labelled slots, speed/size selects and the
  * generated PNGs plus animated GIFs.  Also checks that a sheet dropped into the
  * wrong slot is rejected with a translated message instead of silently used.
@@ -718,6 +733,8 @@ async function runSheetGifs(doc) {
   size.value = "2";
   size.dispatchEvent(new Event("change", { bubbles: true }));
 
+  await sleep(150); // let the resize observer catch up with the filled slots
+  const heightsBefore = cardHeights(doc, "#tab-gifs");
   doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
@@ -733,6 +750,8 @@ async function runSheetGifs(doc) {
         wrongSlotStatus,
         wrongSlotFilled,
         filled,
+        heightsBefore,
+        heightsAfter: cardHeights(doc, "#tab-gifs"),
         titles,
         thumbs,
         previews: images.length,
@@ -826,14 +845,18 @@ async function runExport(doc) {
     if (doc.querySelectorAll("#file-list li").length) break;
     await sleep(25);
   }
+  const heightsBefore = cardHeights(doc, "#tab-export");
   doc.querySelector("#do-export").click();
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
     if (doc.querySelector("#results .files a")) break;
   }
   await sleep(120);
+  const heightsAfter = cardHeights(doc, "#tab-export");
   const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
   return {
+    heightsBefore,
+    heightsAfter,
     files: [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent),
     previews: doc.querySelectorAll("#results .preview img").length,
     sizes: [...doc.querySelectorAll("#results .files li")][0]?.textContent.trim() ?? "",
@@ -1255,6 +1278,15 @@ def test_browser_renders_the_app(browser_server, tmp_path, template):
     assert exported["stored"][0]["files"] == len(exported["files"]), exported["stored"]
     assert exported["stored"][0]["thumb"].startswith("data:image/png"), exported["stored"]
 
+    # the empty results card is as tall as the input card next to it ...
+    before = exported["heightsBefore"]
+    assert abs(before["results"] - before["left"]) <= 2, before
+    assert before["forced"].endswith("px"), before
+    # ... and once there is a result it is driven by the content instead
+    after = exported["heightsAfter"]
+    assert after["forced"] == "", after
+    assert after["results"] > 0, after
+
     # the preview-sheets tab: three labelled slots, speed/size, and the GIFs
     gifs = payload["gifs"]
     assert not gifs.get("error"), gifs.get("error")
@@ -1289,6 +1321,12 @@ def test_browser_renders_the_app(browser_server, tmp_path, template):
     # 2x was chosen, so the GIFs (and their preview) are twice as wide
     assert gifs["widths"][:2] == [80, 80], gifs["widths"]
     assert gifs["widths"][2] > 800, gifs["widths"]  # the 20 frame contact sheet
+    before = gifs["heightsBefore"]
+    assert abs(before["results"] - before["left"]) <= 2, before
+    assert before["forced"].endswith("px"), before
+    after = gifs["heightsAfter"]
+    assert after["forced"] == "", after
+
     assert gifs["settings"]["gifSpeed"] == "slow", gifs["settings"]
     assert gifs["settings"]["gifSize"] == 2, gifs["settings"]
 
