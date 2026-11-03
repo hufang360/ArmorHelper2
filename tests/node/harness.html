@@ -9,7 +9,12 @@ const frame = document.getElementById("frame");
 /** Is the service worker registered, and is its scope the folder we are in? */
 async function serviceWorkerInfo(win) {
   if (!("serviceWorker" in win.navigator)) return { supported: false, scope: null, controlled: false };
-  const registration = await win.navigator.serviceWorker.getRegistration();
+  // getRegistration() 可能在注册完成前就返回 undefined；ready 会等安装结束。
+  const registration =
+    (await Promise.race([
+      win.navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+    ])) ?? (await win.navigator.serviceWorker.getRegistration());
   return {
     supported: true,
     scope: registration?.scope ?? null,

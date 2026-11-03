@@ -20,8 +20,9 @@ const DOC = join(ROOT, "docs", "贴图裁切说明.md");
 const REQUIREMENTS = join(ROOT, "docs", "需求文档.md");
 const WEB_REQUIREMENTS = join(ROOT, "docs", "Web版需求文档.md");
 const README = join(ROOT, "README.md");
-const STATUS = join(ROOT, "PROJECT_STATUS.md");
+const DOCS_INDEX = join(ROOT, "docs", "README.md");
 const WEB_README = join(WEB, "README.md");
+const AGENTS = join(ROOT, "AGENTS.md");
 
 const read = (path) => readFileSync(path, "utf8");
 const CELL_W = LAYOUT.frame.w * 2; // 40
@@ -39,7 +40,7 @@ const rows = () =>
 const asCells = (table) => new Map(Object.entries(table).map(([key, cell]) => [Number(key), cell]));
 
 test("the crop table is linked from the other docs", () => {
-  assert.ok(read(README).includes("贴图裁切说明.md"));
+  assert.ok(read(DOCS_INDEX).includes("贴图裁切说明.md"));
   assert.ok(read(REQUIREMENTS).includes("贴图裁切说明.md"));
 });
 
@@ -120,7 +121,7 @@ test("every translation is used", () => {
 
 test("the UI and the docs say 盔甲, not the other spelling", () => {
   const banned = "护" + "甲"; // split so this file does not match itself
-  for (const path of [README, DOC, REQUIREMENTS, WEB_REQUIREMENTS, STATUS, WEB_README]) {
+  for (const path of [README, DOC, REQUIREMENTS, WEB_REQUIREMENTS, WEB_README, AGENTS]) {
     assert.ok(!read(path).includes(banned), relative(ROOT, path));
   }
 });
@@ -138,12 +139,52 @@ test("every markdown link resolves", () => {
   }
 });
 
-test("the README is Chinese", () => {
+test("the README keeps its shape", () => {
   const text = read(README);
   const han = [...text].filter((char) => char >= "\u4e00" && char <= "\u9fff").length;
-  assert.ok(han > 400, `README looks untranslated (${han} Chinese characters)`);
-  for (const heading of ["## 快速开始", "## 功能", "## 产物一览", "## 模板"]) {
-    assert.ok(text.includes(heading), heading);
+  assert.ok(han > 300, `README looks untranslated (${han} Chinese characters)`);
+  assert.ok(text.includes("hufang360.github.io/ArmorHelper2"), "missing the site link");
+
+  // 只允许固定章节，且顺序不变
+  const lines = text.split("\n");
+  const allowed = ["## ArmorHelper 原版", "## 快速开始", "## 部署", "## 致谢", "## 许可"];
+  const headings = lines.filter((line) => line.startsWith("## "));
+  assert.deepEqual(headings, allowed.filter((heading) => headings.includes(heading)));
+
+  // 代码块必须有语言（ASCII 图用 text）；标题级只在围栏外数
+  let fenced = false;
+  const outside = [];
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      if (!fenced) assert.match(line, /^```\w+/);
+      fenced = !fenced;
+      continue;
+    }
+    if (!fenced) outside.push(line);
+  }
+  assert.ok(!fenced, "unclosed code fence");
+  assert.equal(outside.filter((line) => line.startsWith("# ")).length, 1);
+
+  // 酸制格式：行尾、空行、卤符、列表符号
+  assert.ok(!/[ \t]+$/m.test(text), "trailing whitespace");
+  assert.ok(!/\n{3,}/.test(text), "consecutive blank lines");
+  assert.ok(!text.includes("\t"), "tab character");
+  assert.ok(!/^[-+] /m.test(text), "unordered list should use *");
+
+  // 不用裸 URL
+  const prose = text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]*`/g, "")
+    .replace(/<https?:\/\/[^>]*>/g, "")
+    .replace(/\]\([^)]*\)/g, "]");
+  assert.ok(!/https?:\/\//.test(prose), "bare URL in prose");
+});
+
+test("the docs index lists every document", () => {
+  const index = read(DOCS_INDEX);
+  for (const name of readdirSync(join(ROOT, "docs"))) {
+    if (!name.endsWith(".md") || name === "README.md") continue;
+    assert.ok(index.includes(`(${name})`), `docs/README.md does not list ${name}`);
   }
 });
 
@@ -158,7 +199,7 @@ test("nothing points at the old reference folder name", () => {
 test("the web requirements are linked and complete", () => {
   const text = read(WEB_REQUIREMENTS);
   assert.ok(read(REQUIREMENTS).includes("Web版需求文档.md"));
-  assert.ok(read(README).includes("Web版需求文档.md"));
+  assert.ok(read(DOCS_INDEX).includes("Web版需求文档.md"));
   // every requirement family has an id and a row in the acceptance table
   for (const prefix of ["WG-", "WFR-", "WUI-", "WNFR-", "WC-", "WL-"]) {
     assert.ok(text.includes(prefix), prefix);

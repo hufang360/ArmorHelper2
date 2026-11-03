@@ -36,8 +36,7 @@ npx serve web
 
 工作流会：
 
-* 跑 `npm test`（核心逐像素、浏览器端到端、站点与文档）
-  与 `tests/test_vanilla_bundle.py`（内置图集）；
+* 跑 `npm test`（核心逐像素、浏览器端到端、图集、站点与文档）；
 * 把 `web/` 整个目录发布为 Pages 站点。
 
 站点地址：`https://<用户名>.github.io/<仓库名>/`
@@ -116,7 +115,7 @@ Firefox / Safari 没有这个 API，此时请用**下载 / 打包下载**，或�
 
 三张图放好后点「生成材质包」，会得到一个 **`<名称>-pack-pc.zip`**，结构就是游戏读的那套：
 
-```
+```text
 pack.json                                 Name / Author / Description / Version
 Content/Images/Armor_Head_<id>.png
 Content/Images/Armor_Legs_<id>.png
@@ -161,7 +160,7 @@ Content/Images/Armor/Armor_<id>.png
 
 `web/data/vanilla/` 里**只放打包后的产物**，748 张源 PNG 不进仓库：
 
-```
+```text
 web/data/vanilla/
   version.txt      游戏版本、张数、页数、单页上限（max_page=2048）、总字节、内容 checksum
   index.json       每页文件名与尺寸、每张贴图在页里的矩形（1× 尺寸）、例外像素
@@ -187,7 +186,7 @@ npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
 `index.json` 的 `maxPage`，`js/atlas.js` 加载时再校验一次，测试同时盯住这三处。
 默认页边 1024，单套还原最多解 4 页。
 
-`tests/test_vanilla_bundle.py` 会核对页与索引是否自洽、页内矩形是否越界、
+`tests/node/bundle.test.mjs` 会核对页与索引是否自洽、页内矩形是否越界、
 重建像素是否等于 `version.txt` 里的 checksum，单页是否 ≤ 2048，
 并在设置了 `ARMORHELPER_VANILLA_SOURCE` 时验证脚本能从源目录**原样重建**
 （逐张贴图与源 PNG 逐字节比对）。
@@ -211,7 +210,7 @@ npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
 
 ## 目录结构
 
-```
+```text
 web/
   index.html            单页应用
   style.css             深色主题，无外部资源
