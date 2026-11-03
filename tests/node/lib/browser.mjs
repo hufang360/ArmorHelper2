@@ -11,7 +11,7 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, join, normalize } from "node:path";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",

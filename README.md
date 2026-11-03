@@ -20,10 +20,10 @@
 
 ## 快速开始
 
-浏览器不允许 `file://` 下加载 ES 模块，用一个静态服务器打开即可（Python 自带就够）：
+浏览器不允许 `file://` 下加载 ES 模块，用一个静态服务器打开即可：
 
 ```bash
-python3 -m http.server 8000 --directory web
+npm start        # 仓库自带的 node tools/serve.mjs
 # 然后打开 http://127.0.0.1:8000/
 ```
 
@@ -170,27 +170,29 @@ web/                  纯静态站点（发布的就是这个目录）
   data/               layout.json armor_sets.json i18n.json 模板 / 参考线 / 图标
                       vanilla/（748 张贴图的 WebP 图集）player/（玩家贴图）
   tests/              run.mjs（Node 自检）smoke.html（浏览器自检）golden/（冻结的参考图）
-tools/                仍然用 Python 写的开发/打包脚本
-tests/                pytest：core（金标准）· port（数据/界面/浏览器）· bundle · docs
+tools/                打包 / 开发脚本（.mjs，与站点同一套 Node 工具链）
+tests/node/          npm test：core（金标准）· harness · browser · bundle · docs · site
 ```
 
 | 工具 | 用途 |
 |---|---|
-| `tools/pack_vanilla_textures.py` | 把已解包的 `Content/Images` 打包成 `web/data/vanilla` 的 WebP 图集（1× 存储、按部位分页、每页 ≤ 2048px） |
-| `tools/build_armor_sets.mjs` | 由游戏源码（`ArmorSetBonuses.cs` 等）生成 `web/data/armor_sets.json` |
-| `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/` |
-| `tools/inspect_armor.mjs` | 按引擎算法渲染任意 1.4.4+ 身体贴图，方便与原版对照 |
+| `npm run pack` → `tools/pack_vanilla_textures.mjs` | 把已解包的 `Content/Images` 打包成 `web/data/vanilla` 的 WebP 图集（1× 存储、按部位分页、每页 ≤ 2048px） |
+| `npm run sets` → `tools/build_armor_sets.mjs` | 由游戏源码（`ArmorSetBonuses.cs` 等）生成 `web/data/armor_sets.json` |
+| `npm run players` → `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/` |
+| `npm run inspect` → `tools/inspect_armor.mjs` | 按引擎算法渲染任意 1.4.4+ 身体贴图，方便与原版对照 |
+| `npm start` → `tools/serve.mjs` | 静态服务器（`http://127.0.0.1:8000/`） |
 
 ```bash
-node tools/build_armor_sets.mjs "/path/to/tr-code-1458"
-node tools/import_player_textures.mjs "/path/to/Content/Images" --version 1.4.5.8
-node tools/inspect_armor.mjs "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
+npm ci                                              # 只装图集打包要用的 wasm 编解码器
+npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
+npm run sets -- "/path/to/tr-code-1458"
+npm run players -- "/path/to/Content/Images" --version 1.4.5.8
+npm run inspect -- "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
 ```
 
-> `tools/` 里只剩**图集打包**还是 Python（`pack_vanilla_textures.py`）：无损 WebP 编码需要
-> libwebp，换到 Node 就得引入 wasm 依赖，而改成 PNG 图集会让首屏从 297 KB 涨到 2.3 MB
-> （实测 8.6×）—— 所以暂时保留这一个脚本，它只在游戏更新时跑一次。其余工具与测试全部
-> 是 Node。
+> **整个仓库没有 Python 了。** 图集打包需要**无损** WebP 编码，Node 自带不了，所以用
+> `@jsquash/webp`（libwebp 的 wasm 版）——它只是 **devDependency**，发布出去的站点仍然零依赖、
+> 由浏览器原生解码 WebP。为什么不用 PNG 图集：实测首屏会从 297 KB 涨到 2.3 MB（8.6×）。
 
 ---
 
@@ -204,12 +206,9 @@ node tools/inspect_armor.mjs "Terraria/Content/Images/Armor/Armor_1.png" --frame
 ## 开发与测试
 
 ```bash
-npm test                    # 全部 143 项：文档 + 站点 + 核心逐像素 + 无头 Chrome 端到端
+npm ci                      # devDependency：wasm WebP 编解码器（只有打包工具与图集用例要用）
+npm test                    # 全部 162 项，约 16 秒
 npm start                   # 静态服务器：http://127.0.0.1:8000/
-
-# 只有图集打包（tools/pack_vanilla_textures.py）还是 Python，它的用例也是
-python3 -m pip install -r requirements-dev.txt
-python3 -m pytest tests -q  # 19 项
 ```
 
 | 文件 | 覆盖 |
@@ -217,9 +216,12 @@ python3 -m pytest tests -q  # 19 项
 | `tests/node/core.test.mjs` | 114 项：`web/js/` 核心 vs `web/tests/golden/` 的冻结参考图，逐像素 |
 | `tests/node/harness.test.mjs` | 5 项：贴图查找、部位识别、图集读取、zip 结构、拼版 PNG |
 | `tests/node/browser.test.mjs` | 3 项：真 Chrome 里跑完整交互（拖放、导出、预览贴图、材质包、取消、还原全部、切语言） |
+| `tests/node/bundle.test.mjs` | 19 项：WebP 图集自洽、内容 checksum、以及「从源目录重打一遍」的可复现性 |
 | `tests/node/docs.test.mjs` | 10 项：裁切表 ↔ `layout.json`、文档链接、用词、README 语言、文案无死条目 |
 | `tests/node/site.test.mjs` | 11 项：数据、HTML↔JS 接线、SW 的 `CORE` 清单、Manifest、图标、图集包、Pages 工作流 |
-| `tests/test_vanilla_bundle.py` | 19 项：WebP 图集的自洽性与可重建性（跟着打包器留在 Python） |
+
+`ARMORHELPER_VANILLA_SOURCE="<Content/Images>" npm test` 会额外校验「图集能从源目录原样重建」，
+并把 748 张贴图逐像素还原比对（约 30 秒）。
 
 ## 致谢
 

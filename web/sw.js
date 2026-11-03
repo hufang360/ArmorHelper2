@@ -11,7 +11,7 @@
  * activate.
  */
 
-const VERSION = "2.2.0";
+const VERSION = "2.2.2";
 const CACHE = `armorhelper-${VERSION}`;
 
 /** Everything needed to start the app; kept in sync by a test. */

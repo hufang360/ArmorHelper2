@@ -6,8 +6,13 @@
   "description": "Terraria armor sheet generator — static web app, with Node tooling and tests",
   "scripts": {
     "test": "node --test tests/node/",
-    "test:node": "node --test tests/node/",
-    "test:py": "python3 -m pytest tests -q",
-    "start": "python3 -m http.server 8000 --directory web"
+    "start": "node tools/serve.mjs",
+    "pack": "node tools/pack_vanilla_textures.mjs",
+    "sets": "node tools/build_armor_sets.mjs",
+    "players": "node tools/import_player_textures.mjs",
+    "inspect": "node tools/inspect_armor.mjs"
+  },
+  "devDependencies": {
+    "@jsquash/webp": "1.5.0"
   }
 }

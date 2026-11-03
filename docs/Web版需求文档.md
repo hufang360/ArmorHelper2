@@ -159,7 +159,7 @@ web/data/vanilla/
 重新打包（游戏更新后）：
 
 ```bash
-python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5.8
+npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
 ```
 
 脚本会自己校验「页面里重建出来的像素 = 源 PNG 的像素」（内容 checksum），不一致直接报错。
@@ -171,7 +171,7 @@ python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5
 ### 4.1 本地
 
 ```bash
-python3 -m http.server 8000 --directory web    # 或 npx serve web
+npm start        # 仓库自带的 node tools/serve.mjs（或任意静态服务器）
 ```
 
 浏览器不允许 `file://` 下加载 ES 模块，因此必须经静态服务器打开。
@@ -181,9 +181,9 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 `.github/workflows/pages.yml`：
 
 1. checkout；
-2. 装 Pillow 与 pytest（`pip install -r requirements-dev.txt`）；`web/data/` 本身就是数据，
+2. `npm ci`（只为图集打包的 wasm 编解码器）；`web/data/` 本身就是数据，
    确认提交的数据没有过期；
-3. 跑 `npm test`（核心逐像素 + 浏览器端到端 + 站点 + 文档）与 `pytest tests`（图集打包器）；
+3. 跑 `npm test`（核心逐像素 + 浏览器端到端 + 图集 + 站点 + 文档）；
 4. `actions/upload-pages-artifact` 上传 `web/`，`actions/deploy-pages` 发布。
 
 仓库设置里把 Pages 的 Source 选为 **GitHub Actions** 即可。
@@ -307,7 +307,7 @@ python3 -m http.server 8000 --directory web    # 或 npx serve web
 
 | 编号 | 类别 | 需求 |
 |---|---|---|
-| WNFR-01 | 零依赖 | 运行时不需要任何第三方库；Python 只用于测试与 `tools/` 里的打包脚本 |
+| WNFR-01 | 零依赖 | 运行时不需要任何第三方库；唯一的 devDependency 是图集打包用的 wasm WebP 编解码器 |
 | WNFR-02 | 一致性 | 输出逐像素等于 `web/tests/golden/` 的参考图，由 ``tests/node/core.test.mjs`` 断言 |
 | WNFR-03 | 静态性 | `web/` 目录内不得出现 `.py`；发布产物就是源码 |
 | WNFR-04 | 性能 | 单张模板全量导出（含预览与 GIF）< 2 秒（桌面 Chrome） |
@@ -379,7 +379,7 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-16 | 生成后自检 | 浏览器自检 `reverse round trip is lossless` |
 | WC-17 | 页面无外部请求 | `test_frontend_files_exist_and_are_wired` |
 | WC-18 | 数据与金标准没有漂移 | ``core.test.mjs``（sha256 清单）+ ``docs.test.mjs`` |
-| WC-19 | `web/` 里没有 Python | `test_no_python_left_in_the_web_app` |
+| WC-19 | `web/` 里没有 Python（也没有任何 `.py`） | `site.test.mjs`（`the web app holds no Python`） |
 | WC-20 | Pages 工作流正确发布 | `test_pages_workflow_publishes_the_web_folder` |
 | WC-21 | 参考线只画在预览与模板上，不影响生成结果 | ``browser.test.mjs``、``browser.test.mjs`` |
 | WC-22 | 内置贴图可用（含手机场景） | `test_bundle_has_a_version_file` 等 18 项 + ``browser.test.mjs``（仅靠内置贴图还原一次） |

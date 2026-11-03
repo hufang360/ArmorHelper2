@@ -16,7 +16,7 @@
 浏览器不允许 `file://` 下的 ES 模块，用一个静态服务器打开即可（Python 自带就够）：
 
 ```bash
-python3 -m http.server 8000 --directory web
+npm start
 # 然后访问 http://127.0.0.1:8000/
 ```
 
@@ -171,7 +171,7 @@ web/data/vanilla/
 生成方式（游戏更新后重跑即可）：
 
 ```bash
-python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5.8
+npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
 ```
 
 脚本做三件事，这也是 1.68 MB → 约 290 KB 的来源：
@@ -203,7 +203,7 @@ python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5
 | `data/i18n.json` | 中英文案（唯一来源，`tests/node/docs.test.mjs` 检查没有死条目） | 手改 |
 | `data/ArmorTemplate_v1.png` | 绘制模板（与 v1 逐字节相同） | 不要动 |
 | `data/ArmorTemplate_overlay.png` | 可选的参考线图层 | 手放 |
-| `data/vanilla/` | 748 张原版贴图的 WebP 图集 + `index.json` | `tools/pack_vanilla_textures.py` |
+| `data/vanilla/` | 748 张原版贴图的 WebP 图集 + `index.json` | `tools/pack_vanilla_textures.mjs` |
 | `data/player/` | 玩家贴图 `Player_0_3/0_7/0_10.png` | `tools/import_player_textures.mjs` |
 | `tests/golden/` | 冻结的参考输出 + `manifest.json`（sha256） | **不要手改**，改了就过不了测试 |
 
@@ -234,7 +234,7 @@ web/
   data/                 布局 / 套装表 / 文案 / 模板 / 参考线 / 图标（唯一来源）
   data/icon.png         站点图标（浏览器标签页与页头左上角）
   data/vanilla/         内置原版盔甲贴图的 WebP 图集 + index.json + version.txt
-                        （手机离线可用，仓库里不放 748 张散图）→ tools/pack_vanilla_textures.py
+                        （手机离线可用，仓库里不放 748 张散图）→ tools/pack_vanilla_textures.mjs
   data/player/          内置的玩家贴图（Player_0_3 / 0_7 / 0_10 + version.txt），
                         「叠加玩家」在手机上也能用 → tools/import_player_textures.mjs
   tests/
@@ -250,11 +250,11 @@ web/
 ## 测试
 
 ```bash
-npm test                            # 全部：核心逐像素 + 浏览器端到端 + 站点 + 文档（143 项）
-python3 -m pytest tests -q          # 只有图集打包器的 19 项（它仍是 Python）
+npm ci                              # devDependency：wasm WebP 编解码器（打包工具与图集用例用）
+npm test                            # 全部 162 项：核心逐像素 + 浏览器端到端 + 图集 + 站点 + 文档
 
 # 浏览器自检：起个静态服务器后打开 web/tests/smoke.html
-python3 -m http.server 8000 --directory web
+npm start
 ```
 
 `tests/node/core.test.mjs` 会用 Node 跑一遍 JS 核心，把头部 / 腿部 / 手臂 / 旧版身体 /

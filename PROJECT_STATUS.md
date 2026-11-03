@@ -6,10 +6,10 @@
 | 项 | 值 |
 |---|---|
 | 仓库路径 | `/Volumes/970/Games/tr/dev/ArmorHelper2` |
-| 版本号 | `armorhelper-web 2.1.0`（`pyproject.toml`）——**只剩一个实现：`web/`** |
-| 实测环境 | macOS · Python 3.12.16 · Pillow 13.0.0 · Node v26.10.0 · Google Chrome（headless） |
-| 规模 | 808 个受跟踪文件（内置贴图是 17 页 WebP 图集 + index.json，不是散图）；JS 4087 行 / 测试与工具 Python 3087 行 / Markdown 约 2700 行 |
-| 测试 | `npm test` → **143 passed**（核心逐像素 + 浏览器端到端 + 站点 + 文档，纯 JS）；`pytest tests -q` → **18 passed, 1 skipped**（只剩图集打包器） |
+| 版本号 | `armorhelper 2.1.0`（`package.json`）——**只剩一个实现：`web/`** |
+| 实测环境 | macOS · Node v26.13.0 · Google Chrome（headless）——**不需要 Python** |
+| 规模 | 约 810 个受跟踪文件（内置贴图是 17 页 WebP 图集 + index.json，不是散图）；JS 4087 行 / 工具与测试 约 2400 行 / Markdown 约 2700 行 |
+| 测试 | `npm test` → **162 passed**（核心逐像素 + 浏览器端到端 + 图集 + 站点 + 文档，约 16 秒） |
 
 ---
 
@@ -21,14 +21,15 @@
 **只有一个实现：`web/`。** 2.0 时代并行维护过一个 Python 包（命令行 + wxPython 桌面界面），
 2026-11 已连同它的代码一起移除；移除前把它的输出冻结成 `web/tests/golden/`
 （16 张参考图 + sha256 清单），`tests/node/core.test.mjs` 让网页版继续钉在同一批像素上。
-`tools/` 里的打包脚本仍然是 Python —— 它们只处理数据，不属于运行时。
+**现在整个仓库没有 Python**：工具与测试都是 `.mjs`，只有图集打包需要 libwebp，走 dev-only 的
+wasm（`@jsquash/webp`），发布出去的站点仍然零依赖。
 
 交付形态：
 
 | 形态 | 位置 | 状态 |
 |---|---|---|
 | 网页应用 | `web/` | 唯一实现：纯静态，无服务端、无构建、无依赖 |
-| 打包 / 开发工具 | `tools/` | 全是 Node（`.mjs`）：套装表、玩家贴图导入、贴图检查；只剩**图集打包**是 Python |
+| 打包 / 开发工具 | `tools/` | 全是 Node（`.mjs`）：图集打包（wasm WebP）、套装表、玩家贴图导入、贴图检查、静态服务器 |
 | 2.0 的命令行与桌面界面 | 已删除 | 行为留在 `web/tests/golden/` 与 git 历史里 |
 
 核心约束：**模板格式（128×80）与绘制流程必须与 v1 一致**，用户已有的模板继续可用 ——
@@ -46,7 +47,9 @@ Python 测试。它的输出在移除前被冻结成 `web/tests/golden/`（16 �
 算法与历史细节记在 `docs/需求文档.md`（含已退役的命令行与桌面界面章节）。
 
 删掉的东西：`armorhelper/` 整包、它的 7 个 Python 测试文件、`tools/export_web.py`（数据已是唯一来源）、
-`web/i18n.web.json`（合并进 `web/data/i18n.json`）。随后三组 Web 用例（浏览器、核心逐像素、文档）也迁到了 `tests/node/`，Python 只剩图集打包器（`tools/pack_vanilla_textures.py`）与它的 19 项用例。
+`web/i18n.web.json`（合并进 `web/data/i18n.json`）。随后三组 Web 用例（浏览器、核心逐像素、文档）
+迁到了 `tests/node/`；最后连图集打包器也迁到 `tools/pack_vanilla_textures.mjs`（wasm WebP 编码），
+`tests/test_vanilla_bundle.py` 变成 `tests/node/bundle.test.mjs` —— 仓库里不再有 `.py`。
 
 ### 2.2 Web 版（纯静态）
 
@@ -80,7 +83,7 @@ Python 测试。它的输出在移除前被冻结成 `web/tests/golden/`（16 �
 | `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/`（含 `version.txt`），让「叠加玩家」在手机 / Firefox / Safari 上也能用 |
 | `tools/pack_vanilla_textures.py` | 把已解包的 `Content/Images` 里的盔甲贴图**打包**进 `web/data/vanilla/`：按部位（head / legs / body）shelf 装箱成若干 WebP 页（1× 像素 + 例外像素表），写 `index.json` 与 `version.txt`（版本 / 张数 / 页数 / `max_page=2048` / 总字节 / 内容 checksum），并用内容 checksum 自校验 |
 | `tools/inspect_armor.py` | 按引擎算法渲染任意 1.4.4+ 身体贴图，用于与原版对照 |
-| `docs/需求文档.md` | Python 版 / 核心库规格（含 9×4 格子定义、帧偏移表、验收标准） |
+| `docs/需求文档.md` | 核心规格（9×4 格子、帧偏移表、命名、反向还原限制）；命令行/桌面界面章节为历史 |
 | `docs/Web版需求文档.md` | Web 版规格（架构、功能/界面/非功能需求、验收标准） |
 | `docs/贴图裁切说明.md` | 铜盔甲三张贴图的逐格裁切说明（36 格全部标注 + 实测包围盒） |
 | `docs/Web版UI线框图.md` | Web 版四个标签页的 ASCII 线框图（两栏比例、响应式断点、线框 ↔ DOM 对照） |
@@ -283,7 +286,31 @@ Python 移除后两份合一，`test_every_translation_is_used` 继续禁止出�
 `multiplyColor()`（玩家肤色着色）JS 用四舍五入、Python 用截断，差 1/255。
 现在 JS 也改成 `Math.trunc`，与金标准逐像素一致。
 
-### D-20 玩家贴图内置，而不是只靠 Content/Images
+### D-20 图集打包用 wasm 版 libwebp，而不是改回 PNG
+
+图集必须**无损** WebP（有损会改像素，内容 checksum 就失去意义），而 Node 没有内置编解码。
+实测过的三条路：
+
+| 方案 | 首屏体积 | 结论 |
+|---|---|---|
+| 无损 WebP（现状，`@jsquash/webp` = libwebp 的 wasm） | **297 KB** | 采用。用 wasm 二进制直接 `init({ wasmBinary })`（包内默认 `fetch()` 读不了 `file:`） |
+| 同样页面换 PNG | 2,298 KB（**8.6×**） | 否决。用 PIL 把现有 17 页重新编码实测；zlib 的 32 KB 窗口吃不到跨贴图的相似性 |
+| 不打包，直接发 748 张散图 | 1,150 KB（748 个请求） | 备选。比 PNG 图集小，但比 WebP 图集大 3.9 倍 |
+
+结论：`@jsquash/webp` 只作为 **devDependency**，站点本身仍是零依赖。换成 Node 打包器后
+重新打的 17 页与 Pillow 版**逐像素相同**，内容 checksum 不变（`total_bytes` 少 150 字节，
+因为 libwebp 这版编码略好）。
+
+### D-21 测试全部搬到 Node
+
+`node --test` 内置、零依赖；浏览器用例用 `node:http` 起静态服务器 + `child_process` 拉 Chrome，
+靠页面 `POST /__done` 回报结果。为此写了两个小工具：`tools/lib/png.mjs`（PNG 解码，
+`node:zlib` 解压 + 五种滤波）与 `tests/node/lib/gif.mjs`（GIF89a + LZW 解码）。
+PNG 解码器让「与冻结参考图逐像素比对」不再需要 Pillow，也让 `tools/inspect_armor.mjs` 能直接
+读 PNG。踩过的坑：harness 页本来是 Python 三引号字符串，搬出来时 `/\\d+\\/\\d+/` 里的双反斜杠
+会让 `\\/` 提前结束正则字面量，整个模块语法错误、页面永远不上报。
+
+### D-22 玩家贴图内置，而不是只靠 Content/Images
 
 「叠加玩家」原来只从 Chromium 的目录句柄读 `Player_0_3 / 0_7 / 0_10.png`，于是手机上这个
 复选框永远拿不到贴图（除非用户手动挑 748 个文件——不可能）。现在把这三张（约 4 KB）
@@ -337,7 +364,7 @@ Python 移除后两份合一，`test_every_translation_is_used` 继续禁止出�
 | `web/style.css` | 布局（两列 / 三列断点、粘性侧栏） | 低 |
 | `web/data/i18n.json` | 中英文案（唯一来源） | 低：`test_every_translation_is_used` 禁止死条目 |
 | `web/sw.js` + `web/manifest.webmanifest` | 离线缓存 / PWA | 中：`CORE` 清单与 `VERSION` 必须同步 |
-| `web/data/vanilla/` | 内置贴图图集 | 低：由 `tools/pack_vanilla_textures.py` 生成（仍为 Python），不要手改 |
+| `web/data/vanilla/` | 内置贴图图集 | 低：由 `tools/pack_vanilla_textures.mjs` 生成，不要手改 |
 | `web/data/player/` | 内置玩家贴图 | 低：由 `tools/import_player_textures.mjs` 生成 |
 | `web/tests/golden/` | 冻结的参考输出 + sha256 清单 | **不要改**：`test_golden_manifest_matches_the_files` 会报 |
 | `tools/pack_vanilla_textures.py` | 图集打包 | 中：改格式要同步 `web/js/atlas.js` 与 `tests/test_vanilla_bundle.py` |
@@ -350,23 +377,19 @@ Python 移除后两份合一，`test_every_translation_is_used` 继续禁止出�
 
 ### 5.1 规模
 
-Node 侧（`npm test`，143 项，纯 JS，不需要 Python）：
+`npm test` → 162 项，约 16 秒（含无头 Chrome）：
 
 ```
 tests/node/core.test.mjs     114  web/js/ 核心 vs web/tests/golden/ 冻结参考图，逐像素
 tests/node/harness.test.mjs    5  贴图查找、部位识别、图集读取、zip 结构、拼版 PNG
 tests/node/browser.test.mjs    3  真 Chrome：拖放/导出/预览贴图/材质包/取消/还原全部/切语言
+tests/node/bundle.test.mjs    19  WebP 图集自洽、内容 checksum、从源目录重打的可复现性
 tests/node/docs.test.mjs      10  裁切表 ↔ layout.json、链接、用词、README 语言、文案无死条目
 tests/node/site.test.mjs      11  数据、HTML↔JS 接线、SW 的 CORE 清单、Manifest、图标、图集包、Pages
 ```
 
-Python 侧（`pytest tests -q`，19 项，只剩图集打包器的用例）：
-
-```
-tests/test_vanilla_bundle.py 19   内置 WebP 图集：页与索引自洽、2048 上限、内容 checksum、从源目录重建
-                        ---
-                        19（其中 1 项需要 ARMORHELPER_VANILLA_SOURCE 才跑 —— 它要真的重跑打包器）
-```
+设置 `ARMORHELPER_VANILLA_SOURCE` 时，`bundle.test.mjs` 会额外把整包从源目录重打一遍，并
+逐像素还原比对 748 张贴图（约 30 秒）。
 
 ### 5.2 关键验证结论（均已实跑）
 
@@ -405,34 +428,24 @@ tests/test_vanilla_bundle.py 19   内置 WebP 图集：页与索引自洽、2048
 
 ```bash
 cd /Volumes/970/Games/tr/dev/ArmorHelper2
-
-# 全部 Node 用例：金标准逐像素 + 浏览器端到端 + 站点 + 文档（143 项，约 20 秒）
-npm test
+npm ci                                     # devDependency：wasm WebP 编解码器
+npm test                                   # 全部 162 项
 
 # 只跑其中一组
-node --test tests/node/core.test.mjs        # 核心 vs 冻结参考图
-node --test tests/node/browser.test.mjs     # 无头 Chrome 端到端
-node --test tests/node/harness.test.mjs     # 贴图查找 / 部位识别 / 图集读取 / zip
-
-# 图集打包器的用例（仍需要 pytest + Pillow）
-python3 -m pip install -r requirements-dev.txt
-python3 -m pytest tests -q
-
-# 静态检查
-python3 -m pyflakes tests tools
-for f in web/js/*.js web/app.js web/tests/run.mjs; do node --check "$f"; done
+node --test tests/node/core.test.mjs       # 核心 vs 冻结参考图
+node --test tests/node/browser.test.mjs    # 无头 Chrome 端到端
+node --test tests/node/bundle.test.mjs     # 图集
+ARMORHELPER_VANILLA_SOURCE="<Content/Images>" node --test tests/node/bundle.test.mjs
 
 # 本地看网页版
-python3 -m http.server 8000 --directory web      # http://127.0.0.1:8000/
+npm start                                  # http://127.0.0.1:8000/
 
-# 数据侧脚本（都在 tools/）
-python3 tools/pack_vanilla_textures.py "<Content/Images>" --version 1.4.5.8
-node tools/build_armor_sets.mjs "<Terraria source>"
-node tools/import_player_textures.mjs "<Content/Images>"
-node tools/inspect_armor.mjs "Content/Images/Armor/Armor_1.png" --frames 0,5
+# 数据侧脚本
+npm run pack -- "<Content/Images>" --version 1.4.5.8
+npm run sets -- "<Terraria source>"
+npm run players -- "<Content/Images>" --version 1.4.5.8
+npm run inspect -- "Content/Images/Armor/Armor_1.png" --frames 0,5
 ```
-
----
 
 ## 6. 已知问题
 
@@ -571,9 +584,9 @@ node tools/inspect_armor.mjs "Content/Images/Armor/Armor_1.png" --frames 0,5
 5. 用词统一为「**盔甲**」，文档正文里不得出现另一种写法（`test_the_ui_never_says_hujia` 会拦；
    界面上的替换由 `web/js/data.js` 的 `displayName()` 负责）。
 6. 提交前跑 `node --check`（`web/app.js`、`web/js/*.js`、`web/sw.js`、`web/tests/run.mjs`、`tools/*.mjs`、
-   `tests/node/**/*.mjs`）；Python 侧只剩打包器，改它才需要 `python3 -m pyflakes tools tests`。
+   `tests/node/**/*.mjs`）；仓库里没有 Python，也就没有 pyflakes 这一步了。
 7. 游戏更新后重打内置贴图：
-   `python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version <新版本>`，
-   然后跑 `pytest tests/test_vanilla_bundle.py`。**不要**把散图提交进仓库；
+   `npm run pack -- "/path/to/Content/Images" --version <新版本>`，然后跑
+   `node --test tests/node/bundle.test.mjs`。**不要**把散图提交进仓库；
    页边不得超过 2048（`MAX_PAGE`，脚本会拒绝），改这个常量要连带改 `web/js/atlas.js` 与测试。
 8. 玩家贴图更新：`node tools/import_player_textures.mjs "<Content/Images>"`。

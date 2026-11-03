@@ -15,7 +15,6 @@ import { join } from "node:path";
 
 import {
   GOLDEN,
-  WEB,
   assertSamePixels,
   frame,
   goldenImage,

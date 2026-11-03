@@ -166,7 +166,7 @@ test("the web requirements are linked and complete", () => {
   // pure static, deployed to Pages, no server API
   assert.ok(text.includes("GitHub Pages"));
   assert.ok(text.includes("pages.yml") || text.includes("GitHub Actions"));
-  assert.ok(text.includes("http.server"));
+  assert.ok(text.includes("npm start") || text.includes("http.server"));
   assert.ok(text.includes("File System Access"));
   assert.ok(!text.includes("/api/"));
   assert.ok(!text.includes("armorhelper web"));

@@ -180,7 +180,7 @@ test("the Pages workflow publishes the web folder", () => {
   const workflow = read(join(ROOT, ".github", "workflows", "pages.yml"));
   assert.ok(workflow.includes("path: web"));
   // the tests must run before the site is published
-  assert.ok(workflow.includes("pytest tests") || workflow.includes("npm test"));
+  assert.ok(workflow.includes("npm test"));
   assert.ok(existsSync(join(WEB, ".nojekyll")));
 });
 

@@ -25,26 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Check the docs and the site (no Python needed)
-        run: npm test
-
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install the wasm WebP codec (only the atlas packer needs it)
+        run: npm ci
 
       # The web app is the only implementation: web/data is the source of truth,
       # and its pixels are pinned by the frozen images in web/tests/golden.
-      - name: Check the web core, the bundled textures and the docs
-        run: python3 -m pytest tests -q
+      - name: Check the core, the browser, the bundle and the docs
+        run: npm test
 
       - uses: actions/configure-pages@v5
 
