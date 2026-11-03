@@ -809,8 +809,11 @@ function renderFolders() {
   $("#images-status").textContent = imagesText;
   $("#images-status-2").textContent = imagesText;
 
-  const needsPlayer = $("#opt-player")?.checked;
-  $("#player-hint").hidden = !needsPlayer || !!images || !!state.playerParts;
+  // The player textures are bundled now, so this is an explanation rather than
+  // a warning: show it whenever the box is ticked.  (This line used to read
+  // `!!images`, a leftover identifier that threw as soon as it was evaluated.)
+  const playerHint = $("#player-hint");
+  if (playerHint) playerHint.hidden = !$("#opt-player")?.checked;
 }
 
 /**

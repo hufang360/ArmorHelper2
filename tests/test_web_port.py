@@ -782,7 +782,9 @@ async function runPlayerOverlay(doc) {
   const optPlayer = doc.querySelector("#opt-player");
   optPlayer.checked = true;
   optPlayer.dispatchEvent(new Event("change", { bubbles: true }));
-  const exportHintHidden = doc.querySelector("#player-hint").hidden;
+  const hint = doc.querySelector("#player-hint");
+  const hintVisible = !hint.hidden;
+  const hintText = hint.textContent.trim();
 
   doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
@@ -790,7 +792,8 @@ async function runPlayerOverlay(doc) {
     const links = doc.querySelectorAll("#gif-results .files a");
     if (links.length > 4) {
       return {
-        exportHintHidden,
+        hintVisible,
+        hintText,
         files: [...links].map((a) => a.textContent),
         previews: doc.querySelectorAll("#gif-results .preview img").length,
         warnings: [...doc.querySelectorAll("#gif-results .warn")].map((el) => el.textContent),
@@ -985,6 +988,21 @@ async function runReverseAll(doc) {
  * swallowed: the tests capture the blob through `URL.createObjectURL`, and the
  * user's Downloads folder stays empty.
  */
+/**
+ * Remember anything the page throws.  A leftover identifier (`!!images` in
+ * renderFolders) only fired on one path and vanished into the status bar
+ * without failing any assertion.
+ */
+function collectErrors(win) {
+  if (win.__errors) return;
+  win.__errors = [];
+  win.addEventListener("error", (event) => win.__errors.push(String(event.message)));
+  win.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    win.__errors.push(String((reason && reason.message) || reason));
+  });
+}
+
 function blockDownloads(win) {
   if (win.__downloadsBlocked) return;
   win.__downloadsBlocked = true;
@@ -1002,7 +1020,10 @@ const timer = setInterval(async () => {
   let doc;
   try {
     doc = frame.contentDocument;
-    if (frame.contentWindow) blockDownloads(frame.contentWindow);
+    if (frame.contentWindow) {
+      blockDownloads(frame.contentWindow);
+      collectErrors(frame.contentWindow);
+    }
     const status = doc.querySelector("#status");
     const text = status ? status.textContent.trim() : "";
     if (!text || text === "…") {
@@ -1050,6 +1071,7 @@ const timer = setInterval(async () => {
       player,
       cancelled,
       reverseAll,
+      errors: frame.contentWindow.__errors ?? [],
     });
   } catch (error) {
     report({ error: String((error && error.stack) || error) });
@@ -1440,7 +1462,9 @@ def test_browser_renders_the_app(browser_server, tmp_path, template):
     # "overlay player" works with no folder at all (bundled player textures)
     player = payload["player"]
     assert not player.get("error"), player.get("error")
-    assert player["exportHintHidden"] is True, player
+    # ticking the box explains where the player art comes from
+    assert player["hintVisible"] is True, player
+    assert "内置" in player["hintText"], player
     assert player["files"] == [
         "Armor_190_FullArmor.png",
         "Armor_190_FullArmorFemale.png",
@@ -1453,6 +1477,10 @@ def test_browser_renders_the_app(browser_server, tmp_path, template):
     ], player["files"]
     assert player["previews"] == 5, player
     assert not player["warnings"], player
+
+    # nothing the page did may have thrown on the way (this is what caught the
+    # leftover `!!images` in renderFolders)
+    assert payload["errors"] == [], payload["errors"]
 
     # cancelling the long "rebuild every set" task
     cancelled = payload["cancelled"]
