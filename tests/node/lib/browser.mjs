@@ -33,13 +33,16 @@ const MIME = {
  * textures, and the HTTP/1.0 default makes Chrome reopen the socket each time
  * (that alone used to make one run in four hang for 40 seconds).
  */
-export function serve(root, { harness = null } = {}) {
+export function serve(root, { harness = null, prefix = "/" } = {}) {
   const state = { paths: [], done: null, payload: null, waiters: [] };
+  const base = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  const harnessUrl = `${base}__harness.html`;
+  const doneUrl = `${base}__done`;
 
   const server = createServer((request, response) => {
     state.paths.push(request.url);
 
-    if (request.method === "POST" && request.url.startsWith("/__done")) {
+    if (request.method === "POST" && request.url.startsWith(doneUrl)) {
       const chunks = [];
       request.on("data", (chunk) => chunks.push(chunk));
       request.on("end", () => {
@@ -53,14 +56,23 @@ export function serve(root, { harness = null } = {}) {
     }
 
     const url = new URL(request.url, "http://localhost");
-    if (harness && url.pathname === "/__harness.html") {
+    if (harness && url.pathname === harnessUrl) {
       const body = readFileSync(harness);
       response.writeHead(200, { "content-type": MIME[".html"], "content-length": body.length });
       response.end(body);
       return;
     }
 
-    const relative = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "") || "index.html";
+    // Files live under `base`, so the same folder can be mounted anywhere —
+    // this is how GitHub Pages serves it (/<repo>/…).
+    if (!url.pathname.startsWith(base)) {
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end("not found");
+      return;
+    }
+    let relative = normalize(decodeURIComponent(url.pathname.slice(base.length))).replace(/^([/\\])+/, "");
+    // `normalize("")` is "." — that is the folder itself, i.e. its index.html
+    if (relative === "" || relative === "." || relative === "./") relative = "index.html";
     const path = join(root, relative);
     if (!path.startsWith(root)) {
       response.writeHead(403).end();

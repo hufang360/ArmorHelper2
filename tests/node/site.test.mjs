@@ -77,6 +77,38 @@ test("the front end files exist and are wired", () => {
   }
 });
 
+test("the site has no absolute paths", () => {
+  // GitHub Pages serves a project site from /<repo>/, and people also drop this
+  // folder into a subdirectory of their own server: everything must be relative.
+  const shipped = [
+    "index.html",
+    "app.js",
+    "style.css",
+    "sw.js",
+    ...readdirSync(join(WEB, "js")).map((name) => `js/${name}`),
+  ];
+  for (const name of shipped) {
+    const text = read(join(WEB, name));
+    const absolute = [
+      ...text.matchAll(/(?:src|href)="(\/[^/"][^"]*)"/g),
+      ...text.matchAll(/(?:fetch|import)\(\s*"(\/[^/"][^"]*)"/g),
+      ...text.matchAll(/"(\/(?:js|data|tests)\/[^"]*)"/g),
+    ].map((match) => match[1]);
+    assert.deepEqual(absolute, [], `${name} uses absolute paths: ${absolute}`);
+  }
+
+  const manifest = readJson(join(WEB, "manifest.webmanifest"));
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  for (const icon of manifest.icons) assert.ok(!icon.src.startsWith("/"), icon.src);
+
+  // the precache list is relative to the worker (which sits in the site folder)
+  const core = /const CORE = \[([\s\S]*?)\];/.exec(read(join(WEB, "sw.js")))[1];
+  for (const [, entry] of core.matchAll(/"([^"]+)"/g)) {
+    assert.ok(!entry.startsWith("/"), `sw.js CORE has an absolute entry: ${entry}`);
+  }
+});
+
 test("every translation the app uses exists", () => {
   const messages = readJson(join(WEB, "data", "i18n.json")).messages;
   const used = new Set([...APP.matchAll(/(?<![\w.$])t\("([\w.]+)"/g)].map((m) => m[1]));

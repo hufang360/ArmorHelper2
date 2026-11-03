@@ -9,7 +9,7 @@
 | 版本号 | `armorhelper 2.1.0`（`package.json`）——**只剩一个实现：`web/`** |
 | 实测环境 | macOS · Node v26.13.0 · Google Chrome（headless）——**不需要 Python** |
 | 规模 | 约 810 个受跟踪文件（内置贴图是 17 页 WebP 图集 + index.json，不是散图）；JS 4087 行 / 工具与测试 约 2400 行 / Markdown 约 2700 行 |
-| 测试 | `npm test` → **162 passed**（核心逐像素 + 浏览器端到端 + 图集 + 站点 + 文档，约 16 秒） |
+| 测试 | `npm test` → **164 passed**（核心逐像素 + 浏览器端到端 + 子目录 + 图集 + 站点 + 文档，约 16 秒） |
 
 ---
 
@@ -377,7 +377,7 @@ PNG 解码器让「与冻结参考图逐像素比对」不再需要 Pillow，也
 
 ### 5.1 规模
 
-`npm test` → 162 项，约 16 秒（含无头 Chrome）：
+`npm test` → 164 项，约 16 秒（含无头 Chrome）：
 
 ```
 tests/node/core.test.mjs     114  web/js/ 核心 vs web/tests/golden/ 冻结参考图，逐像素
@@ -385,7 +385,8 @@ tests/node/harness.test.mjs    5  贴图查找、部位识别、图集读取、z
 tests/node/browser.test.mjs    3  真 Chrome：拖放/导出/预览贴图/材质包/取消/还原全部/切语言
 tests/node/bundle.test.mjs    19  WebP 图集自洽、内容 checksum、从源目录重打的可复现性
 tests/node/docs.test.mjs      10  裁切表 ↔ layout.json、链接、用词、README 语言、文案无死条目
-tests/node/site.test.mjs      11  数据、HTML↔JS 接线、SW 的 CORE 清单、Manifest、图标、图集包、Pages
+tests/node/site.test.mjs      12  数据、HTML↔JS 接线、SW 的 CORE 清单、Manifest、图标、图集包、Pages、无绝对路径
+tests/node/subpath.test.mjs    1  挂到 /some/deep/directory/ 下：启动 + 图集 + 反推 + SW 作用域
 ```
 
 设置 `ARMORHELPER_VANILLA_SOURCE` 时，`bundle.test.mjs` 会额外把整包从源目录重打一遍，并
@@ -417,6 +418,7 @@ tests/node/site.test.mjs      11  数据、HTML↔JS 接线、SW 的 CORE 清单
 | 切语言重绘结果卡片 | 无头 Chrome 实测：导出后语言切英文，三张卡片的 `figcaption` 变成英文、文件列表不丢；切回中文与切换前逐字一致 |
 | 语言切换 | 无头 Chrome 实测：导出后切到 English，卡片标题/说明变成 `Drawing template (128x80)`，切回中文完全复原；表单、槽位、历史同步刷新 |
 | Python 侧清理 | `vulture` + 「只被声明一次」扫描后删了 `DEFAULT_WINDOW`（改为 gui 使用）、`BODY_COMPOSITE_SIZE`、`TARGET_LABELS`；中文文案 186 → 164 条，`test_every_translation_is_used` 断言无死条目；生成/还原/合成代码与模板零改动，全部逐像素测试仍通过 |
+| 子目录部署 | 把 `web/` 挂在 `/some/deep/directory/` 下（GitHub Pages 就是这样服务项目站的），真 Chrome 跑通启动、内置图集读 748 张、反推一套模板、SW 作用域落在该目录；服务器侧断言**没有任何请求跑到前缀之外**；另有静态检查禁止 `src="/`、`fetch("/`、`import("/` 与绝对 SW 缓存项 |
 | 静态残留扫描 | 用脚本扫过：没有只被声明一次的 JS 函数、没有 `app.js` 不引用的 HTML id、没有没用到的 CSS 类；`web/data/i18n.json` 的每个键都有 `test_every_translation_is_used` 守着 |
 | 页面不抛异常 | 无头 Chrome 全程收集 `error` / `unhandledrejection`（拖放、导出、预览贴图、材质包、取消、还原全部、勾选叠加玩家），断言列表为空 —— 故意注入 `notDeclaredAnywhere` 验证过这条断言确实会红 |
 | 结果卡片的 zip / 写入按钮 | 无头 Chrome 真的点「打包下载 (zip)」：捕获到的 blob 以 `PK` 开头，解开后是 `MyArmor_Head/Legs/Body.png`，头部 PNG 与 `generate_head(template)` 逐像素一致；状态栏没有 `not a function` |

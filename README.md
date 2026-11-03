@@ -30,6 +30,10 @@ npm start        # 仓库自带的 node tools/serve.mjs
 部署到 **GitHub Pages**：Settings → Pages → Source 选 **GitHub Actions**，推一次 `main`；
 `.github/workflows/pages.yml` 会跑测试并发布 `web/`。
 
+**放在哪个目录都能跑**：所有资源、Service Worker 的注册与缓存都是相对路径，所以
+`https://example.com/任何/子目录/`、`https://user.github.io/<仓库名>/` 都可以直接访问，
+不需要改配置（`tests/node/subpath.test.mjs` 会把它挂到 `/some/deep/directory/` 下跑一遍）。
+
 ---
 
 ## 功能
@@ -207,7 +211,7 @@ npm run inspect -- "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
 
 ```bash
 npm ci                      # devDependency：wasm WebP 编解码器（只有打包工具与图集用例要用）
-npm test                    # 全部 162 项，约 16 秒
+npm test                    # 全部 164 项，约 16 秒
 npm start                   # 静态服务器：http://127.0.0.1:8000/
 ```
 
@@ -218,7 +222,8 @@ npm start                   # 静态服务器：http://127.0.0.1:8000/
 | `tests/node/browser.test.mjs` | 3 项：真 Chrome 里跑完整交互（拖放、导出、预览贴图、材质包、取消、还原全部、切语言） |
 | `tests/node/bundle.test.mjs` | 19 项：WebP 图集自洽、内容 checksum、以及「从源目录重打一遍」的可复现性 |
 | `tests/node/docs.test.mjs` | 10 项：裁切表 ↔ `layout.json`、文档链接、用词、README 语言、文案无死条目 |
-| `tests/node/site.test.mjs` | 11 项：数据、HTML↔JS 接线、SW 的 `CORE` 清单、Manifest、图标、图集包、Pages 工作流 |
+| `tests/node/site.test.mjs` | 12 项：数据、HTML↔JS 接线、SW 的 `CORE` 清单、Manifest、图标、图集包、Pages 工作流、无绝对路径 |
+| `tests/node/subpath.test.mjs` | 1 项：把站点挂到 `/some/deep/directory/` 下，真 Chrome 跑启动 + 图集 + 反推 + SW 作用域 |
 
 `ARMORHELPER_VANILLA_SOURCE="<Content/Images>" npm test` 会额外校验「图集能从源目录原样重建」，
 并把 748 张贴图逐像素还原比对（约 30 秒）。

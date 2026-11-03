@@ -1,10 +1,21 @@
 <!doctype html>
 <meta charset="utf-8"><title>harness</title>
-<iframe id="frame" src="/" style="width:1100px;height:820px"></iframe>
+<iframe id="frame" src="./" style="width:1100px;height:820px"></iframe>
 <script type="module">
 const report = (payload) =>
-  fetch("/__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+  fetch("__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
 const frame = document.getElementById("frame");
+
+/** Is the service worker registered, and is its scope the folder we are in? */
+async function serviceWorkerInfo(win) {
+  if (!("serviceWorker" in win.navigator)) return { supported: false, scope: null, controlled: false };
+  const registration = await win.navigator.serviceWorker.getRegistration();
+  return {
+    supported: true,
+    scope: registration?.scope ?? null,
+    controlled: !!win.navigator.serviceWorker.controller,
+  };
+}
 
 const appInfo = (doc) => ({
   status: doc.querySelector("#status").textContent.trim(),
@@ -34,7 +45,7 @@ function equalBytes(a, b) {
 }
 
 async function checkTemplateDownload(doc, win) {
-  const { decodeBitmap } = await import("/js/fs.js");
+  const { decodeBitmap } = await import("./js/fs.js");
   const captured = [];
   const realCreate = win.URL.createObjectURL.bind(win.URL);
   win.URL.createObjectURL = (blob) => {
@@ -42,7 +53,7 @@ async function checkTemplateDownload(doc, win) {
     return realCreate(blob);
   };
 
-  const rawResponse = await win.fetch("/data/ArmorTemplate_v1.png");
+  const rawResponse = await win.fetch("./data/ArmorTemplate_v1.png");
   const raw = await decodeBitmap(await rawResponse.blob());
 
   doc.querySelector("#download-template").click();
@@ -98,12 +109,12 @@ async function runReverse(doc) {
 async function makeSheets() {
   const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }] =
     await Promise.all([
-      import("/js/data.js"),
-      import("/js/fs.js"),
-      import("/js/generate.js"),
+      import("./js/data.js"),
+      import("./js/fs.js"),
+      import("./js/generate.js"),
     ]);
-  await loadLayout("/data/layout.json");
-  const template = await decodeBitmap(await (await fetch("/data/ArmorTemplate_v1.png")).blob());
+  await loadLayout("./data/layout.json");
+  const template = await decodeBitmap(await (await fetch("./data/ArmorTemplate_v1.png")).blob());
   return {
     template,
     head: ["Armor_Head_189.png", generateHead(template)],
@@ -114,7 +125,7 @@ async function makeSheets() {
 
 /** Put a list of `[name, bitmap]` into one file input, like a real pick would. */
 async function putFiles(doc, selector, pairs) {
-  const { pngBlob } = await import("/js/png.js");
+  const { pngBlob } = await import("./js/png.js");
   const transfer = new DataTransfer();
   for (const [name, bitmap] of pairs) {
     transfer.items.add(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
@@ -544,6 +555,7 @@ const timer = setInterval(async () => {
 
   try {
     const app = appInfo(doc);
+    const serviceWorker = await serviceWorkerInfo(frame.contentWindow);
     // 1. no folder, no uploads — this is the phone case: the textures shipped
     //    with the site have to be found on their own.
     const download = await checkTemplateDownload(doc, frame.contentWindow);
@@ -564,6 +576,7 @@ const timer = setInterval(async () => {
     const reverseAll = await runReverseAll(doc);
     report({
       ...app,
+      serviceWorker,
       download,
       popover,
       builtin,

@@ -31,7 +31,9 @@ const port = Number(portArg) || 8000;
 
 const server = createServer((request, response) => {
   const url = new URL(request.url, "http://localhost");
-  const relative = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "") || "index.html";
+  let relative = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "");
+  // `normalize("")` is "." — that is the folder itself, i.e. its index.html
+  if (relative === "" || relative === "." || relative === "./") relative = "index.html";
   const path = join(root, relative);
 
   if (!path.startsWith(root)) {

@@ -251,7 +251,7 @@ web/
 
 ```bash
 npm ci                              # devDependency：wasm WebP 编解码器（打包工具与图集用例用）
-npm test                            # 全部 162 项：核心逐像素 + 浏览器端到端 + 图集 + 站点 + 文档
+npm test                            # 全部 164 项：核心逐像素 + 浏览器端到端 + 子目录 + 图集 + 站点 + 文档
 
 # 浏览器自检：起个静态服务器后打开 web/tests/smoke.html
 npm start
