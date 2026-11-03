@@ -3,15 +3,15 @@
  *
  * The site is pure static files, so a service worker is all it takes to make it
  * open with no network at all (the "offline / PWA" item in the requirements).
- * Everything the app needs to boot is precached; the 748 bundled vanilla
- * textures (~1.6 MB) are cached on first use instead, so installing the worker
- * stays cheap on a phone.
+ * Everything the app needs to boot is precached; the bundled vanilla textures
+ * (17 WebP atlas pages, ~290 KB) are cached on first use instead, so installing
+ * the worker stays cheap on a phone.
  *
  * Bump `VERSION` whenever the files below change; the old cache is dropped on
  * activate.
  */
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const CACHE = `armorhelper-${VERSION}`;
 
 /** Everything needed to start the app; kept in sync by a test. */
@@ -31,6 +31,7 @@ const CORE = [
   "data/player/Player_0_3.png",
   "data/player/Player_0_7.png",
   "data/player/Player_0_10.png",
+  "js/atlas.js",
   "js/bitmap.js",
   "js/compose.js",
   "js/data.js",

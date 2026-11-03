@@ -1,11 +1,18 @@
 # ArmorHelper bundled vanilla armor textures
-# copied from an extracted Content/Images folder by tools/import_vanilla_textures.py
+# packed from an extracted Content/Images folder by tools/pack_vanilla_textures.py
+# total_bytes counts the pages and index.json, not this file
 game=Terraria 1.4.5.7
 version=1.4.5.7
 source=Images
+format=webp-atlas
+scale=2
+page_size=1024
+max_page=2048
 count=748
-total_bytes=1679996
-checksum=0247565af4070bef
 head=292
 legs=253
 body=203
+pages=17
+strays=120
+total_bytes=297088
+checksum=35a42eb7aab67aaa

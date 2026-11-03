@@ -40,6 +40,7 @@ import {
 } from "./js/compose.js";
 import { loadTextures, reverseTemplate } from "./js/reverse.js";
 import { classifySheets, composeFrames, detectId as detectSheetId, validateSheet } from "./js/sheets.js";
+import { createAtlasReader } from "./js/atlas.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
 import { zipBlob, zipBlobAsync } from "./js/zip.js";
@@ -65,6 +66,8 @@ const PLAYER_DIR = "data/player";
 const REVERSE_SUBDIR = "ArmorTemplate";
 /** Armor textures shipped with the site, so phones work without a game folder. */
 const BUILTIN_DIR = "data/vanilla";
+/** Page rects for `BUILTIN_DIR`; the pages themselves are WebP (see js/atlas.js). */
+const BUILTIN_INDEX = "index.json";
 /** Per-frame delay of the three GIF speeds offered in the UI. */
 const GIF_SPEEDS = { fast: 100, medium: 500, slow: 1000 };
 /** The three sheet slots of the preview tab, in display order. */
@@ -99,6 +102,7 @@ const state = {
   sheetSlots: { head: null, body: null, legs: null }, // {name, bitmap} per slot
   sheetIssues: [], // warnings from the last upload, as {key, vars}
   builtin: null, // {version, count, ...} when data/vanilla is bundled
+  atlas: null, // texture reader over data/vanilla's packed pages
   overlay: null, // the guide layer drawn on top of templates in the preview
   templateBitmap: null, // the raw 128x80 template, for the hover popover
   playerParts: null,
@@ -1279,19 +1283,19 @@ function textureReader() {
     }
     const file = state.textures.get(path.split("/").pop());
     if (file) return decodeBitmap(file);
-    if (state.builtin) {
+    if (state.atlas) {
       try {
-        const response = await fetch(`${BUILTIN_DIR}/${path}`);
-        if (response.ok) return await decodeBitmap(await response.blob());
-      } catch {
-        /* not bundled */
+        const bitmap = await state.atlas(path);
+        if (bitmap) return bitmap;
+      } catch (error) {
+        console.error(error);
       }
     }
     return null;
   };
 }
 
-/** Read `data/vanilla/version.txt`; absent means nothing is bundled. */
+/** Read `data/vanilla/version.txt` and the atlas index; absent means nothing is bundled. */
 async function loadBuiltinInfo() {
   try {
     const response = await fetch(`${BUILTIN_DIR}/version.txt`);
@@ -1304,8 +1308,23 @@ async function loadBuiltinInfo() {
       info[key.trim()] = value.trim();
     }
     info.count = Number(info.count) || 0;
-    return info.count ? info : null;
-  } catch {
+    if (!info.count) return null;
+
+    // The textures live in a few WebP pages; `index.json` says which rect of
+    // which page holds each game path.
+    const indexResponse = await fetch(`${BUILTIN_DIR}/${BUILTIN_INDEX}`);
+    if (!indexResponse.ok) return null;
+    state.atlas = createAtlasReader({
+      index: await indexResponse.json(),
+      loadPage: async (file) => {
+        const page = await fetch(`${BUILTIN_DIR}/${file}`);
+        if (!page.ok) return null;
+        return decodeBitmap(await page.blob());
+      },
+    });
+    return info;
+  } catch (error) {
+    console.error(error);
     return null;
   }
 }

@@ -18,7 +18,8 @@
  *   js_arms.rgba, js_body_legacy.rgba, js_frame0.rgba .. js_frame19.rgba,
  *   js_reversed.rgba, js_preview.gif, js_head.png,
  *   js_sheet_frame0..19.rgba, js_sheet_female0..19.rgba, js_sheet_stacked.rgba,
- *   js_sheet_short19.rgba, js_sheet_classify.json
+ *   js_sheet_short19.rgba, js_sheet_classify.json,
+ *   js_atlas_head.rgba, js_atlas_legs.rgba, js_atlas.json
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -38,6 +39,7 @@ import {
 } from "../js/generate.js";
 import { composeOverlay, contactSheet, fullArmorFrames, gifFrameOrder, magnify } from "../js/compose.js";
 import { loadTextures, reverseTemplate, textureCandidates } from "../js/reverse.js";
+import { ATLAS_MAX_PAGE, createAtlasReader, sheetKey, validateIndex } from "../js/atlas.js";
 import { encodeGIF } from "../js/gif.js";
 import { encodePNG } from "../js/png.js";
 import { createZip } from "../js/zip.js";
@@ -132,6 +134,98 @@ writeFileSync(
       missing: bodyOnly.missing,
     },
     candidates: textureCandidates(190, 189, 130),
+  }),
+);
+
+/* ---- packed texture atlas -------------------------------------------- */
+// The vanilla bundle ships as a few WebP pages plus `index.json`.  This checks
+// the reader end to end: a fake page holding the two test sheets at 1x has to
+// come back as the original 2x bitmaps, with the recorded exception pixels put
+// back and every page decoded exactly once.
+const downscaleEven = (bitmap) => {
+  const out = createBitmap(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2));
+  for (let y = 0; y < out.height; y += 1) {
+    for (let x = 0; x < out.width; x += 1) {
+      const si = (y * 2 * bitmap.width + x * 2) * 4;
+      const di = (y * out.width + x) * 4;
+      for (let k = 0; k < 4; k += 1) out.data[di + k] = bitmap.data[si + k];
+    }
+  }
+  return out;
+};
+
+const headCell = downscaleEven(textures.head);
+const legsCell = downscaleEven(textures.legs);
+const atlasPage = createBitmap(headCell.width + legsCell.width + 8, Math.max(headCell.height, legsCell.height) + 10);
+const blit = (bitmap, ox, oy) => {
+  for (let y = 0; y < bitmap.height; y += 1) {
+    for (let x = 0; x < bitmap.width; x += 1) {
+      const si = (y * bitmap.width + x) * 4;
+      const di = ((oy + y) * atlasPage.width + ox + x) * 4;
+      for (let k = 0; k < 4; k += 1) atlasPage.data[di + k] = bitmap.data[si + k];
+    }
+  }
+};
+blit(headCell, 3, 5);
+blit(legsCell, headCell.width + 6, 5);
+
+// one deliberately broken pixel, restored from the index
+const STRAY = [1, 2, 9, 8, 7, 255];
+const index = {
+  version: "test",
+  format: "webp-atlas",
+  scale: 2,
+  pageSize: ATLAS_MAX_PAGE,
+  maxPage: ATLAS_MAX_PAGE,
+  pages: [{ file: "page-0.webp", w: atlasPage.width, h: atlasPage.height }],
+  sheets: {
+    Armor_Head_1: [0, 3, 5, headCell.width, headCell.height],
+    Armor_Legs_1: [0, headCell.width + 6, 5, legsCell.width, legsCell.height],
+  },
+  strays: { Armor_Legs_1: [STRAY] },
+};
+
+const pageLoads = [];
+const atlas = createAtlasReader({
+  index,
+  loadPage: async (file) => {
+    pageLoads.push(file);
+    return file === "page-0.webp" ? atlasPage : null;
+  },
+});
+
+const atlasHead = await atlas("Armor_Head_1.png");
+const atlasLegs = await atlas("Armor_Legs_1.png");
+const atlasUnknown = await atlas("Armor_Head_9999.png");
+writeBitmap("js_atlas_head.rgba", atlasHead);
+writeBitmap("js_atlas_legs.rgba", atlasLegs);
+
+// a bundle that ignores the browser cap must be refused, not half decoded
+const rejects = (candidate) => {
+  try {
+    validateIndex(candidate);
+    return false;
+  } catch {
+    return true;
+  }
+};
+writeFileSync(
+  join(workdir, "js_atlas.json"),
+  JSON.stringify({
+    maxPage: ATLAS_MAX_PAGE,
+    keys: [sheetKey("Armor_Head_1.png"), sheetKey("Armor/Armor_190.png")],
+    pageLoads,
+    cachedPages: atlas.cachedPages(),
+    unknown: atlasUnknown,
+    stray: STRAY,
+    headSize: [atlasHead.width, atlasHead.height],
+    legsSize: [atlasLegs.width, atlasLegs.height],
+    rejectsBigCap: rejects({ ...index, maxPage: ATLAS_MAX_PAGE * 2 }),
+    rejectsBigPage: rejects({
+      ...index,
+      pages: [{ file: "page-0.webp", w: ATLAS_MAX_PAGE + 1, h: 10 }],
+    }),
+    acceptsSharedPage: rejects(index) === false,
   }),
 );
 
