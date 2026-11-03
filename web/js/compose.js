@@ -1,6 +1,6 @@
 /**
- * Frame composition and previews — the JavaScript twin of
- * `armorhelper/compose.py`.
+ * Frame composition and previews: 20 frames, GIF frame order, contact sheets.
+ * The output is pinned by the frozen images in `web/tests/golden/`.
  */
 
 import { L } from "./data.js";
@@ -15,8 +15,6 @@ import { compositeBodyFrames, generateHead, generateLegs } from "./generate.js";
 
 /** The tint ArmorHelper v1 used for the player skin in "Full Armor + Player". */
 export const SKIN_TINT = [255 / 255, 150 / 255, 89 / 255];
-
-const PLAYER_SKIN = 0;
 
 /** 20 frames of the armor set, no player drawn. */
 export function fullArmorFrames(template, female = false, scale = 2) {
@@ -204,9 +202,3 @@ export function magnify(bitmap, scale = 4, pad = 2) {
   return out;
 }
 
-/** Extract frame `index` of a vertically stacked sheet. */
-export function frameAt(sheet, index, width, height) {
-  return cropCell(sheet, 0, index * height, width, height);
-}
-
-export { PLAYER_SKIN };

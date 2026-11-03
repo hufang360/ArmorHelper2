@@ -60,7 +60,23 @@ const HISTORY_KEY = "armorhelper.history";
 const HISTORY_LIMIT = 20;
 const HANDLE_OUTPUT = "output";
 const HANDLE_IMAGES = "images";
-const PLAYER_PARTS = { torso: "Player_0_3.png", arm: "Player_0_7.png", legs: "Player_0_10.png" };
+/** Part numbers of ``TextureAssets.Players[skin, n]``, like the Python version. */
+const PLAYER_PART_NUMBERS = { torso: 3, arm: 7, legs: 10 };
+
+/** The three texture names for one skin (`Player_<skin>_<part>.png`). */
+function playerPartNames(skin) {
+  const names = {};
+  for (const [part, number] of Object.entries(PLAYER_PART_NUMBERS)) {
+    names[part] = `Player_${skin}_${number}.png`;
+  }
+  return names;
+}
+
+/** The skin chosen in the settings; the bundled art only ships skin 0. */
+function currentSkin() {
+  const skin = Math.floor(Number(state.config.skin) || 0);
+  return skin >= 0 && skin <= 9 ? skin : 0;
+}
 /** The same three textures ship with the site: phones have no game folder. */
 const PLAYER_DIR = "data/player";
 const REVERSE_SUBDIR = "ArmorTemplate";
@@ -106,6 +122,7 @@ const state = {
   overlay: null, // the guide layer drawn on top of templates in the preview
   templateBitmap: null, // the raw 128x80 template, for the hover popover
   playerParts: null,
+  results: { export: null, gif: null, reverse: null }, // last result per panel
   job: null, // {cancelled, done, total} while a long task runs
   version: "",
 };
@@ -141,7 +158,10 @@ function applyI18n() {
   renderSlots();
   renderFolders();
   renderHistory();
-  if (state.result) renderResult(state.result);
+  // redraw the result cards: their captions and buttons are translated too
+  for (const [panel, result] of Object.entries(state.results)) {
+    if (result) showResult(panel, result);
+  }
   syncResultHeights();
 }
 
@@ -622,7 +642,9 @@ async function doResourcePack() {
     const blob = zipBlob(entries);
     const url = URL.createObjectURL(blob);
     const result = {
-      title: t("web.packTitle", { name: friendly }),
+      title: friendly,
+      titleKey: "web.packTitle",
+      titleVars: { name: friendly },
       previews: [],
       files: [{ name: zipName, size: blob.size, url }],
       warnings,
@@ -637,11 +659,8 @@ async function doResourcePack() {
       },
     };
 
-    const host = $("#gif-results");
-    host.innerHTML = "";
-    host.append(resultCard(result, host));
+    showResult("gif", result);
     addHistory(slug, [{ name: zipName }], keepUrl(slotPreview(state.sheetSlots.body.bitmap)));
-    syncResultHeights();
     say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
   } catch (error) {
     console.error(error);
@@ -689,13 +708,12 @@ async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames 
       size: blob.size,
       url: URL.createObjectURL(blob),
     });
-    previews.push({ url: URL.createObjectURL(blob), caption: item.caption, alt: item.caption });
+    previews.push({ url: URL.createObjectURL(blob), captionKey: item.captionKey });
   }
   if (previewFrames.length) {
     previews.push({
       url: keepUrl(contactSheet(previewFrames)),
-      caption: t("web.previewFrames"),
-      alt: t("web.previewSheet"),
+      captionKey: "web.previewFrames",
     });
   }
 
@@ -744,8 +762,8 @@ async function doGifs() {
       { name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) },
     ];
     const gifs = [
-      { name: `${stem}_FullArmor.gif`, frames, caption: t("web.gifMale") },
-      { name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames, caption: t("web.gifFemale") },
+      { name: `${stem}_FullArmor.gif`, frames, captionKey: "web.gifMale" },
+      { name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames, captionKey: "web.gifFemale" },
     ];
 
     if ($("#gif-player").checked) {
@@ -766,22 +784,19 @@ async function doGifs() {
           { name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) },
         );
         gifs.push(
-          { name: `${stem}_FullArmorPlayer.gif`, frames: playerMale, caption: t("web.gifMalePlayer") },
+          { name: `${stem}_FullArmorPlayer.gif`, frames: playerMale, captionKey: "web.gifMalePlayer" },
           {
             name: `${stem}_FullArmorPlayerFemale.gif`,
             frames: playerFemale,
-            caption: t("web.gifFemalePlayer"),
+            captionKey: "web.gifFemalePlayer",
           },
         );
       }
     }
 
     const result = await packSheetGifs(stem, entries, gifs, warnings, frames);
-    const host = $("#gif-results");
-    host.innerHTML = "";
-    host.append(resultCard(result, host));
+    showResult("gif", result);
     addHistory(stem, result.files, keepUrl(frames[0]));
-    syncResultHeights();
     say(t("web.gifsDone", { count: gifs.length }));
   } catch (error) {
     console.error(error);
@@ -847,20 +862,26 @@ function watchResultHeights() {
   }
 }
 
-function renderResult(result) {
-  const host = $("#results");
+/** Where each panel shows its result. */
+const RESULT_HOSTS = { export: "#results", gif: "#gif-results", reverse: "#reverse-result" };
+
+/** Show `result` in one panel's result area and remember it for redraws. */
+function showResult(panel, result) {
+  const host = $(RESULT_HOSTS[panel]);
+  if (!host) return;
+  state.results[panel] = result;
   host.innerHTML = "";
-  if (!result) {
-    const p = document.createElement("p");
-    p.className = "muted";
-    p.textContent = t("web.empty");
-    host.append(p);
-    return;
-  }
-  host.append(resultCard(result));
+  host.append(resultCard(result, host));
+  syncResultHeights();
 }
 
 /** One captioned preview: a checkerboard tile with the label underneath. */
+/** The caption of a preview: `captionKey` is translated now, `caption` is literal. */
+function previewCaption(item) {
+  if (!item) return "";
+  return item.captionKey ? t(item.captionKey, item.captionVars) : (item.caption ?? "");
+}
+
 function previewFigure(url, caption, alt) {
   const figure = document.createElement("figure");
   figure.className = "preview";
@@ -882,13 +903,15 @@ function resultCard(result, host = $("#results")) {
   card.className = "job";
 
   const heading = document.createElement("h3");
-  heading.textContent = result.title;
+  heading.textContent = result.titleKey
+    ? `${t(result.titleKey, result.titleVars)}${result.titleSuffix ?? ""}`
+    : result.title;
   card.append(heading);
 
   const previews = document.createElement("div");
   previews.className = "previews";
   for (const item of result.previews ?? []) {
-    previews.append(previewFigure(item.url, item.caption, item.alt));
+    previews.append(previewFigure(item.url, previewCaption(item), item.alt));
   }
   if (previews.childElementCount) card.append(previews);
 
@@ -1017,7 +1040,7 @@ async function downloadTemplate() {
 }
 
 /** Build a result object from a list of `{ name, bitmap }` plus previews. */
-async function packResult(title, entries, frames, warnings = [], template = null) {
+async function packResult(title, entries, frames, warnings = [], template = null, gifEntries = []) {
   const files = [];
   const blobs = [];
   for (const entry of entries) {
@@ -1036,19 +1059,33 @@ async function packResult(title, entries, frames, warnings = [], template = null
   if (template) {
     previews.push({
       url: keepUrl(magnify(withGuide(template), 4)),
-      caption: t("web.previewTemplate"),
+      captionKey: "web.previewTemplate",
       alt: "ArmorTemplate",
     });
   }
   if (frames?.length) {
     previews.push({
       url: keepUrl(contactSheet(frames)),
-      caption: t("web.previewFrames"),
-      alt: t("web.previewSheet"),
+      captionKey: "web.previewFrames",
     });
     const gif = makeGif(frames);
+    // the preview animation is not an output: it is neither zipped nor written
     blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
-    previews.push({ url: URL.createObjectURL(gif), caption: t("web.previewGif"), alt: "GIF" });
+    previews.push({ url: URL.createObjectURL(gif), captionKey: "web.previewGif", alt: "GIF" });
+  }
+
+  // the `gif-full*` targets are real files, exactly like the Python CLI writes
+  for (const item of gifEntries) {
+    const shown = gifFrames(item.frames);
+    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay() });
+    blobs.push({ name: item.name, blob });
+    files.push({
+      name: item.name,
+      width: shown[0].width,
+      height: shown[0].height,
+      size: blob.size,
+      url: URL.createObjectURL(blob),
+    });
   }
 
   const result = {
@@ -1070,6 +1107,7 @@ async function packResult(title, entries, frames, warnings = [], template = null
         if (!folder) return;
         let written = 0;
         for (const item of blobs) {
+          if (item.extra) continue; // the preview animation stays in the page
           await writeToFolder(folder, item.name, item.blob);
           written += 1;
         }
@@ -1101,18 +1139,22 @@ async function ensureOutputFolder() {
 
 /** The player textures bundled with the site (works on any browser, offline too). */
 async function loadBundledPlayerParts() {
-  try {
-    const [torso, arm, legs] = await Promise.all(
-      Object.values(PLAYER_PARTS).map(async (name) => {
-        const response = await fetch(`${PLAYER_DIR}/${name}`);
-        if (!response.ok) throw new Error(name);
-        return decodeBitmap(await response.blob());
-      }),
-    );
-    return { torso, arm, legs };
-  } catch {
-    return null;
+  // only skin 0 is bundled; another skin falls back to it
+  for (const skin of [currentSkin(), 0]) {
+    try {
+      const [torso, arm, legs] = await Promise.all(
+        Object.values(playerPartNames(skin)).map(async (name) => {
+          const response = await fetch(`${PLAYER_DIR}/${name}`);
+          if (!response.ok) throw new Error(name);
+          return decodeBitmap(await response.blob());
+        }),
+      );
+      return { torso, arm, legs, skin };
+    } catch {
+      /* try the next skin */
+    }
   }
+  return null;
 }
 
 /**
@@ -1122,12 +1164,15 @@ async function loadBundledPlayerParts() {
  */
 async function loadPlayerParts() {
   const images = state.folders.images;
+  const skin = currentSkin();
   if (images && (await ensurePermission(images, "read"))) {
     try {
       const [torso, arm, legs] = await Promise.all(
-        Object.values(PLAYER_PARTS).map(async (name) => decodeBitmap(await readFromFolder(images, name))),
+        Object.values(playerPartNames(skin)).map(async (name) =>
+          decodeBitmap(await readFromFolder(images, name)),
+        ),
       );
-      return { torso, arm, legs };
+      return { torso, arm, legs, skin };
     } catch {
       /* fall through to the bundled copies */
     }
@@ -1154,10 +1199,14 @@ async function doExport() {
   try {
     const female = $("#opt-female").checked;
     const wantsPlayer = $("#opt-player").checked;
-    if (wantsPlayer && !state.playerParts) state.playerParts = await loadPlayerParts();
+    // reload when the skin changed too: the parts are per skin
+    if (wantsPlayer && (!state.playerParts || state.playerParts.skin !== currentSkin())) {
+      state.playerParts = await loadPlayerParts();
+    }
 
     const host = $("#results");
     host.innerHTML = "";
+    state.results.export = null; // a cancelled run must not resurrect the old card
 
     for (const [step, file] of templates.entries()) {
       if (jobCancelled()) break;
@@ -1181,31 +1230,46 @@ async function doExport() {
         entries.push({ name: names.arms, bitmap: generateArms(file.bitmap) });
       }
 
-      const frames = fullArmorFrames(file.bitmap, female);
-      const withPlayer = wantsPlayer && state.playerParts
-        ? overlay(tintFrames(playerFrames(state.playerParts, female), SKIN_TINT), frames)
-        : frames;
+      const maleFrames = fullArmorFrames(file.bitmap, false);
+      const femaleFrames = fullArmorFrames(file.bitmap, true);
+      const withPlayerFor = (list, isFemale) =>
+        wantsPlayer && state.playerParts
+          ? overlay(tintFrames(playerFrames(state.playerParts, isFemale), SKIN_TINT), list)
+          : list;
+      const playerMale = withPlayerFor(maleFrames, false);
+      const playerFemale = withPlayerFor(femaleFrames, true);
+      const previewFrames = female ? femaleFrames : maleFrames;
+      const withPlayer = female ? playerFemale : playerMale;
 
-      if (isTargetOn("full")) entries.push({ name: `${stem}_FullArmor.png`, bitmap: stackFrames(frames) });
+      if (isTargetOn("full")) entries.push({ name: `${stem}_FullArmor.png`, bitmap: stackFrames(maleFrames) });
       if (isTargetOn("full-female")) {
-        entries.push({ name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(fullArmorFrames(file.bitmap, true)) });
+        entries.push({ name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) });
       }
-      if (isTargetOn("full-player")) entries.push({ name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(withPlayer) });
+      if (isTargetOn("full-player")) {
+        entries.push({ name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(playerMale) });
+      }
       if (isTargetOn("full-player-female")) {
-        const femaleFrames = fullArmorFrames(file.bitmap, true);
-        const framesWithPlayer = state.playerParts
-          ? overlay(tintFrames(playerFrames(state.playerParts, true), SKIN_TINT), femaleFrames)
-          : femaleFrames;
-        entries.push({ name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(framesWithPlayer) });
+        entries.push({ name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) });
+      }
+
+      const gifEntries = [];
+      if (isTargetOn("gif-full")) gifEntries.push({ name: `${stem}_FullArmor.gif`, frames: maleFrames });
+      if (isTargetOn("gif-full-female")) {
+        gifEntries.push({ name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames });
+      }
+      if (isTargetOn("gif-full-player")) {
+        gifEntries.push({ name: `${stem}_FullArmorPlayer.gif`, frames: playerMale });
+      }
+      if (isTargetOn("gif-full-player-female")) {
+        gifEntries.push({ name: `${stem}_FullArmorPlayerFemale.gif`, frames: playerFemale });
       }
 
       const warnings = [];
       if (state.config.verify) warnings.push(...verifyRoundTrip(file.bitmap, entries));
 
-      const result = await packResult(stem, entries, withPlayer, warnings, file.bitmap);
-      host.append(resultCard(result));
+      const result = await packResult(stem, entries, previewFrames, warnings, file.bitmap, gifEntries);
+      showResult("export", result);
       addHistory(stem, result.files, keepUrl(file.bitmap));
-      syncResultHeights();
     }
     const job = endJob();
     if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
@@ -1249,10 +1313,12 @@ function verifyRoundTrip(template, entries) {
       const difference = countDifferences(again[name], produced);
       if (difference > 0) problems.push(`${name}: ${difference} px`);
     }
-    if (problems.length) return [`self check mismatch (${problems.join(", ")})`];
+    if (problems.length) {
+      return [t("web.verifyMismatch", { detail: problems.join(", ") })];
+    }
     return [];
   } catch (error) {
-    return [`self check failed: ${error.message}`];
+    return [t("web.verifyFailed", { error: error.message })];
   }
 }
 
@@ -1365,11 +1431,8 @@ async function doReverse() {
       template,
     );
 
-    const host = $("#reverse-result");
-    host.innerHTML = "";
-    host.append(resultCard(result, host));
+    showResult("reverse", result);
     say(t("reverse.done", { path: result.files[0].name }));
-    syncResultHeights();
   } catch (error) {
     console.error(error);
     say(String(error.message || error), "bad");
@@ -1423,7 +1486,9 @@ async function doReverseAll() {
     for (const entry of entries) blobs.push({ name: entry.name, blob: await pngBlob(entry.bitmap) });
 
     const result = {
-      title: t("web.rebuilt", { count: entries.length }),
+      title: `${entries.length}`,
+      titleKey: "web.rebuilt",
+      titleVars: { count: entries.length },
       files: entries.slice(0, 400).map((entry, index) => ({
         name: entry.name,
         width: entry.bitmap.width,
@@ -1431,7 +1496,7 @@ async function doReverseAll() {
         size: blobs[index].blob.size,
         url: URL.createObjectURL(blobs[index].blob),
       })),
-      warnings: failed ? [`${failed} failed`] : [],
+      warnings: failed ? [t("reverse.allFailed", { count: failed })] : [],
       zip: { save: async () => downloadBlob(await zipBlobAsync(blobs), "ArmorTemplate.zip") },
       save: {
         save: async () => {
@@ -1443,11 +1508,8 @@ async function doReverseAll() {
       },
     };
 
-    const host = $("#reverse-result");
-    host.innerHTML = "";
-    host.append(resultCard(result, host));
+    showResult("reverse", result);
     addHistory(`${t("reverse.allTitle")} ×${entries.length}`, entries, keepUrl(entries[0].bitmap));
-    syncResultHeights();
     if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
     else say(t("reverse.allDone", { count: entries.length, dir: REVERSE_SUBDIR }));
   } catch (error) {
@@ -1625,7 +1687,7 @@ function wire() {
     state.config.guide = event.target.checked;
     saveConfig();
     $("#template-popover-img")?.removeAttribute("src");
-    if (state.result) renderResult(state.result);
+    if (state.results.export) showResult("export", state.results.export);
   });
   on("#opt-female", "change", (event) => {
     state.config.female = event.target.checked;

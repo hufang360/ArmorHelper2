@@ -1,5 +1,6 @@
 /**
- * Reverse conversion — the JavaScript twin of `armorhelper/reverse.py`.
+ * Reverse conversion: rebuild the 128x80 template from three Terraria sheets.
+ * The result is pinned by `web/tests/golden/template-rebuilt.png`.
  *
  * Rebuilds a 128x80 drawing template from the three Terraria armor textures.
  * Every step is the generator's tables walked backwards, which is why the

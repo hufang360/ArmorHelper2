@@ -1,9 +1,10 @@
 /**
- * Sheet generation — the JavaScript twin of `armorhelper/generate.py`.
+ * Sheet generation; every sheet is pinned by `web/tests/golden/`.
  *
  * Every function works at 1x (one template pixel = one output pixel) and scales
- * up at the very end, exactly like the Python version, so the results are
- * identical.  `scale` is 1 for the intermediate data and 2 for the real sheets.
+ * up at the very end, exactly like the original tool, so the results are
+ * byte-identical to the 2018 release.  `scale` is 1 for the intermediate data
+ * and 2 for the real sheets.
  */
 
 import { L } from "./data.js";

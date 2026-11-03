@@ -1,0 +1,149 @@
+{
+ "template": "data/ArmorTemplate_v1.png",
+ "images": {
+  "head": {
+   "file": "head.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 804,
+   "sha256": "bb99f21f69cc0a57dcf64cd88323a0eca6bad6035c74d583fef1b9edcf7a379f"
+  },
+  "legs": {
+   "file": "legs.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 1455,
+   "sha256": "8634201c9393a55494dd97bf0a8eed726a22ed440396a4826dff36a26d76219c"
+  },
+  "body": {
+   "file": "body.png",
+   "size": [
+    360,
+    224
+   ],
+   "bytes": 2178,
+   "sha256": "e511f9e91d6a2208a251dfca54d572427db123a9bd3d52ef0f827ea2d415f64d"
+  },
+  "body-glow": {
+   "file": "body-glow.png",
+   "size": [
+    360,
+    448
+   ],
+   "bytes": 4200,
+   "sha256": "4f8e8f04f28db5eedfd508b206d13d6387b6c719cdc04cd66162bdce1795545f"
+  },
+  "body-legacy": {
+   "file": "body-legacy.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 1909,
+   "sha256": "416797961280f853e929058571a194b4cfab1eec5168423eb026a2b8f15ff764"
+  },
+  "body-legacy-female": {
+   "file": "body-legacy-female.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 1845,
+   "sha256": "7f96a4afc711d2402769ec629873392a2337ecad512c8aa94ead39acb887408b"
+  },
+  "arms": {
+   "file": "arms.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 1213,
+   "sha256": "e1857a0e392c4352e5c253355b644c2a4ab9697825e73ea37e5bb0ac90aa44c2"
+  },
+  "frames-male": {
+   "file": "frames-male.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3118,
+   "sha256": "b5d1c6f0ef2bd5291c36c7ebe98169f1094f9ee11fdfe6982ad2bf2199e4c9ed"
+  },
+  "frames-female": {
+   "file": "frames-female.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3034,
+   "sha256": "77b708fc5d2cc891af63a3413735dfb02a7204902e308e9847716f5fd5de0c0c"
+  },
+  "player-frames-male": {
+   "file": "player-frames-male.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 2771,
+   "sha256": "4157450451e5ba3b53cf388b25982b4717a5e7f9cb2ec4114af1b63737341533"
+  },
+  "player-frames-female": {
+   "file": "player-frames-female.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 2342,
+   "sha256": "c3b04def06860e6a850095a585358435168e44e432a1dea3c3beba281854bf91"
+  },
+  "frames-player-male": {
+   "file": "frames-player-male.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3284,
+   "sha256": "17811ec734f79be56294669ddd583ea1c8ff515f44268a82d94dc3039bba2c7d"
+  },
+  "frames-player-female": {
+   "file": "frames-player-female.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3167,
+   "sha256": "40c69cb9b4a2c931915f992a87f269c55852bedf3f678957f1354a2ac4a348a1"
+  },
+  "template-rebuilt": {
+   "file": "template-rebuilt.png",
+   "size": [
+    128,
+    80
+   ],
+   "bytes": 1798,
+   "sha256": "5e13592627a65844aaf1a1aaa85a1bf7b11c3fc95155747278a168c38a756bdc"
+  },
+  "sheets-frames-male": {
+   "file": "sheets-frames-male.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3097,
+   "sha256": "c5d106af2cc33e8577e584d8fb46096e994b0c19f08cae04575b65d522cd8048"
+  },
+  "sheets-frames-female": {
+   "file": "sheets-frames-female.png",
+   "size": [
+    40,
+    1120
+   ],
+   "bytes": 3020,
+   "sha256": "a78685d69d5d683d32534f84965bbdfb5f012beef49af9afd5999f4211bcf43e"
+  }
+ }
+}

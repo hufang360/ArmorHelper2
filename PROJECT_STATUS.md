@@ -6,77 +6,49 @@
 | 项 | 值 |
 |---|---|
 | 仓库路径 | `/Volumes/970/Games/tr/dev/ArmorHelper2` |
-| 分支 / HEAD | `main` / 本页所述提交（`git log -1`），工作区干净 |
-| 版本号 | `armorhelper 2.0.0`（`pyproject.toml`）——**Python 侧已冻结**，Web 版仍在演进 |
-| 基准游戏版本 | 泰拉瑞亚 1.4.5（新贴图格式自 1.4.4 起生效） |
-| 实测环境 | macOS · Python 3.14.8 · Pillow 12.0.0 · wxPython 4.2.4 · Node v26.10.0 · Google Chrome（headless） |
-| 规模 | 818 个文件（含内置贴图 748 张）；Python 8300 行 / JS 3678 行 / Markdown 2500 行 |
-| 测试 | `pytest tests -q` → **176 passed, 1 skipped**（共 177 项；未装 wxPython 时为 154 passed / 2 skipped），约 21 秒，含无头 Chrome |
+| 版本号 | `armorhelper-web 2.1.0`（`pyproject.toml`）——**只剩一个实现：`web/`** |
+| 实测环境 | macOS · Python 3.12.16 · Pillow 13.0.0 · Node v26.10.0 · Google Chrome（headless） |
+| 规模 | 808 个受跟踪文件（内置贴图是 17 页 WebP 图集 + index.json，不是散图）；JS 4087 行 / 测试与工具 Python 3087 行 / Markdown 约 2700 行 |
+| 测试 | `npm test` → **143 passed**（核心逐像素 + 浏览器端到端 + 站点 + 文档，纯 JS）；`pytest tests -q` → **18 passed, 1 skipped**（只剩图集打包器） |
 
 ---
 
 ## 1. 当前目标
 
-> **Python 工具已冻结（2.0.0）**。命令彉与桌面界面保留为**参考实现**与 Web 版的
-> **等价性基准**（`tests/test_web_port.py` 逐像素比对），不再新增功能、不再做平台适配。
-> **从现在起，包括正在做的改动，全部只落 Web 版（`web/`）**；新需求只写进
-> `docs/Web版需求文档.md`。Python 侧除「修正正确性缺陷」外不动，若必须动，
-> 必须同时改 `web/js/` 并让两侧测试一起通过。
+把 2018 年的 .NET 工具 ArmorHelper v1 重写成**纯静态网页**，并适配泰拉瑞亚 1.4.4+ 的新贴图
+格式。可部署到 GitHub Pages，手机 / 任意静态托管都能跑。
 
-把 2018 年的 .NET 工具 ArmorHelper v1 重写为 Python 版，并适配泰拉瑞亚 1.4.4+ 的新贴图格式；
-另外提供一个**纯静态**的 Web 版，可部署到 GitHub Pages。**后者是当前唯一的开发目标。**
+**只有一个实现：`web/`。** 2.0 时代并行维护过一个 Python 包（命令行 + wxPython 桌面界面），
+2026-11 已连同它的代码一起移除；移除前把它的输出冻结成 `web/tests/golden/`
+（16 张参考图 + sha256 清单），`tests/node/core.test.mjs` 让网页版继续钉在同一批像素上。
+`tools/` 里的打包脚本仍然是 Python —— 它们只处理数据，不属于运行时。
 
-三个交付形态，彼此独立：
+交付形态：
 
 | 形态 | 位置 | 状态 |
 |---|---|---|
-| 网页界面 | `web/` | **活跃开发**。纯前端静态站点，与 Python 版运行时不共享代码 |
-| 命令行 | `armorhelper/`（`python -m armorhelper`） | 已冻结，可作为基准与脚本工具继续使用 |
-| 桌面界面 | `armorhelper/gui.py`（wxPython） | 已冻结，不再投入跨平台适配 |
+| 网页应用 | `web/` | 唯一实现：纯静态，无服务端、无构建、无依赖 |
+| 打包 / 开发工具 | `tools/` | 全是 Node（`.mjs`）：套装表、玩家贴图导入、贴图检查；只剩**图集打包**是 Python |
+| 2.0 的命令行与桌面界面 | 已删除 | 行为留在 `web/tests/golden/` 与 git 历史里 |
 
-核心约束：**模板格式（128×80）与绘制流程必须与 v1 一致**，用户已有的模板继续可用。
-这条约束现在由 Web 版继承（且有用例守着：`test_exported_data_is_up_to_date` 等）。
+核心约束：**模板格式（128×80）与绘制流程必须与 v1 一致**，用户已有的模板继续可用 ——
+这条约束现在由冻结的参考图守着。
 
 ---
 
 ## 2. 已完成内容
 
-### 2.1 核心库（Python）
+### 2.1 2.0 的 Python 实现（已移除）
 
-- `armorhelper/layout.py` — 模板 128×80 的区域定义、v1 的帧偏移表（`FRONT_ARM_OFFSETS` /
-  `BACK_ARM_OFFSETS` / `BODY_HEAD_OFFSETS` / `LEG_MAPPING`）、新格式 9×4 格子映射表
-  （`FRONT_ARM_CELL` / `BACK_ARM_CELL` / 躯干/肩部格子常量）。
-- `armorhelper/imaging.py` — 复刻 v1 的像素语义：`Copy`（跳过 alpha ≤ 1，直接替换不混合）、
-  `Fill`（含 alpha 覆盖）、2× 最近邻放大。
-- `armorhelper/generate.py` — 头部 / 腿部 / 手臂 / 旧版身体 / **新版复合身体**（360×224，
-  `--glow` 时 360×448）/ 20 帧合成。
-- `armorhelper/compose.py` — 全身盔甲 20 帧、GIF 帧序列（与 v1 一致）、GIF 导出。
-- `armorhelper/preview.py` — 从游戏 `Content/Images` 读取玩家贴图做预览。
-- `armorhelper/reverse.py` — **反向还原**：由三张原版贴图重建 128×80 模板。
-- `armorhelper/sheets.py` — **成品贴图 → 全身帧/GIF**：直接按引擎顺序采样三张成品贴图
-  （腿 → 后肩 → 后臂 → 躯干 → 前肩 → 前臂 → 头），不经过模板；含文件名部位识别、
-  1×/2× 归一化、饱和的部位缺失容错，以及 PNG/GIF 落盘（`export_sheet_previews`）。
-- `armorhelper/data/ArmorTemplate_overlay.png` — 可选的 **128×80 参考线图层**
-  （区域底色 + 分区线 + 边框）。只用于显示与绘制底稿，**生成与还原都不参与**。
-- `web/data/vanilla/` — **内置的 748 张原版盔甲贴图**（Terraria 1.4.5.7，约 1.6 MB）
-  加 `version.txt`。手机没有文件系统权限，靠它才能用反向还原。
-- `web/data/icon.png` — 站点图标（浏览器标签页 / iOS 主屏幕 / 页头标志）。
-  手工放置，`tools/export_web.py` 不碰它。
-- `armorhelper/vanilla.py` + `data/armor_sets.json` — 204 条原版套装表（body/head/legs）。
-- `armorhelper/export.py` — 产物落盘、原版 ID 命名规则。
-- `armorhelper/config.py` — 界面状态持久化（`config.json`，兼容 v1 的键）。
-- `armorhelper/i18n.py` — 中英文案，桌面版与 Web 版**共用同一份**。
-- `armorhelper/cli.py` — 子命令：`export` / `template` / `targets` / `reverse` / `sets` /
-  `gif`（别名 `sheets`，由三张成品贴图直接生成全身帧与 GIF）/ `gui`。
+一度并行的参考实现：`layout` / `imaging` / `generate` / `compose` / `preview` / `reverse` /
+`sheets` / `export` / `config` / `i18n` / `vanilla` / `cli` / `gui` 共 4.4k 行，外加 1.5k 行
+Python 测试。它的输出在移除前被冻结成 `web/tests/golden/`（16 张参考图 + sha256 清单），
+算法与历史细节记在 `docs/需求文档.md`（含已退役的命令行与桌面界面章节）。
 
-### 2.2 桌面界面
+删掉的东西：`armorhelper/` 整包、它的 7 个 Python 测试文件、`tools/export_web.py`（数据已是唯一来源）、
+`web/i18n.web.json`（合并进 `web/data/i18n.json`）。随后三组 Web 用例（浏览器、核心逐像素、文档）也迁到了 `tests/node/`，Python 只剩图集打包器（`tools/pack_vanilla_textures.py`）与它的 19 项用例。
 
-中文（可切英文），四组布局对齐原版：输入文件（含拖放、上次导出时间着色）、输出目录、
-导出按钮、12 项导出选项，另加「详情」（发光遮罩 / 玩家肤色 / 三个盔甲 ID / 泰拉贴图目录）
-与「反向还原」（单套 + 还原全部套装）、「全身预览」（从三张成品贴图生成 GIF）。设置存 `config.json`，含窗口位置尺寸、列宽、
-输入列表、上次导出时间、最近目录、界面语言。
-
-### 2.3 Web 版（纯静态）
+### 2.2 Web 版（纯静态）
 
 - `web/js/` — 核心移植：`bitmap` / `data` / `generate` / `compose` / `reverse` /
   `sheets` / `png` / `gif` / `zip` / `fs` / `idb`，全部原生 ES 模块，无框架、无构建、无 CDN。
@@ -88,25 +60,25 @@
   「预览贴图」页是**三个部位槽位**（头部 / 身体 / 腿部各一个拖放区，放错尺寸会被拒绝），
   GIF 速率（100 / 500 / 1000ms）与尺寸（1× / 2× / 4×）可选；批量任务带 `i/n` 进度与取消。
 - `web/sw.js` + `web/manifest.webmanifest` — 离线缓存与可安装 PWA（`CORE` 清单由测试守卫，
-  748 张内置贴图改为首次使用时缓存）。
+  内置贴图（17 页 / 约 290 KB）改为首次使用时缓存）。
 - 「预览贴图 → 生成材质包」把三张贴图打成游戏可直接读的 `<名称>-pack-pc.zip`
   （`pack.json` + `Content/Images/Armor_Head_<id>.png` / `Armor_Legs_<id>.png` /
   `Armor/Armor_<id>.png`），zip 名用 ASCII 的 `Armor_<id>-pack-pc.zip`，`Name` 用套装中文名。
-- `web/i18n.web.json` — **仅 Web** 的文案（标签页改名、GIF 速率、历史、槽位提示…），
-  `tools/export_web.py` 把它合并覆盖到 Python 的 `MESSAGES` 上，因此不用解冻 Python 就能改界面文字。
-- `web/data/` — 由 `tools/export_web.py` 从 Python 侧导出（layout / armor_sets / i18n / 模板 / 参考线）。
-- `web/data/vanilla/` — 内置原版盔甲贴图（748 张 + `version.txt`），由
-  `tools/import_vanilla_textures.py` 从一个已解包的 `Content/Images` 导入。
-- `.github/workflows/pages.yml` — 重新导出数据并检查未过期 → 跑等价性测试 → 发布 `web/` 到 Pages。
+- `web/data/i18n.json` — **唯一**的中英文案（138 个键，中英一一对应）；
+  `tests/node/docs.test.mjs` 不允许出现没有出口的死条目。
+- `web/data/` — 数据本身（layout / armor_sets / i18n / 模板 / 参考线 / 图标），没有生成器。
+- `web/data/vanilla/` — 内置原版盔甲贴图的**打包图集**（`index.json` + 若干 WebP 页 +
+  `version.txt`），由 `tools/pack_vanilla_textures.py` 从一个已解包的 `Content/Images` 生成；
+  读取走 `web/js/atlas.js`（查索引 → 页内裁切 → 1× 放大回 2× → 补例外像素）。
+- `.github/workflows/pages.yml` — 跑全部测试（金标准 + 浏览器 + 图集包）→ 发布 `web/` 到 Pages。
 
-### 2.4 工具与文档
+### 2.3 工具与文档
 
 | 文件 | 用途 |
 |---|---|
-| `tools/build_armor_sets.py` | 由游戏源码生成套装表（`ArmorSetBonuses.cs` + `ArmorIDs.cs` + `Item.cs` + 简中本地化） |
-| `tools/export_web.py` | 把 Python 侧的常量导出成 `web/data/*` |
-| `tools/import_player_textures.py` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/`（含 `version.txt`），让「叠加玩家」在手机 / Firefox / Safari 上也能用 |
-| `tools/import_vanilla_textures.py` | 把已解包的 `Content/Images` 里的盔甲贴图导入 `web/data/vanilla/`（只取 `Armor_*`，身体贴图保留 `Armor/` 子目录），并写 `version.txt`（版本 / 张数 / 分类张数 / 总字节 / checksum） |
+| `tools/build_armor_sets.mjs` | 由游戏源码生成套装表（`ArmorSetBonuses.cs` + `ArmorIDs.cs` + `Item.cs` + 简中本地化） |
+| `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/`（含 `version.txt`），让「叠加玩家」在手机 / Firefox / Safari 上也能用 |
+| `tools/pack_vanilla_textures.py` | 把已解包的 `Content/Images` 里的盔甲贴图**打包**进 `web/data/vanilla/`：按部位（head / legs / body）shelf 装箱成若干 WebP 页（1× 像素 + 例外像素表），写 `index.json` 与 `version.txt`（版本 / 张数 / 页数 / `max_page=2048` / 总字节 / 内容 checksum），并用内容 checksum 自校验 |
 | `tools/inspect_armor.py` | 按引擎算法渲染任意 1.4.4+ 身体贴图，用于与原版对照 |
 | `docs/需求文档.md` | Python 版 / 核心库规格（含 9×4 格子定义、帧偏移表、验收标准） |
 | `docs/Web版需求文档.md` | Web 版规格（架构、功能/界面/非功能需求、验收标准） |
@@ -133,7 +105,7 @@
 `Content/Images/Armor/Armor_<id>.png` 是 **9 列 × 4 行** 的 40×56 格子（发光盔甲 9×8，
 第 4~7 行是发光遮罩，引擎以 `sourceRect.Y += 224` 采样）。格子含义与
 「身体帧 → 手臂格」映射取自 `PlayerDrawSet.CreateCompositeData`，全部集中在
-`armorhelper/layout.py`，并由 `tools/export_web.py` 导出给 Web 版。
+`web/data/layout.json`（早先由 Python 版的 `layout.py` 导出）。
 
 引擎侧要点（已从 1.4.5 源码核实）：
 - 手臂的 `position` 与 `origin` 同步偏移（前臂 −5、后臂 +6/+2），**净位移为 0**，
@@ -155,11 +127,12 @@
 行走手臂取 offset 为 0 的格子，后臂取 (2,2)，脚部用「第 0 帧 + 第 19 帧」互补恢复
 （生成器在第 19 帧交换了两只脚的左右位置）。
 
-### D-5 Python 版与 Web 版运行时完全分开，只共享「导出的数据」
+### D-5 常量只有一份（2.0 时期：由 Python 导出）
 
-Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套装表、文案、模板导出成
-`web/data/*`；CI 会重新导出并 `git diff --exit-code`，数据过期即构建失败。
-`web/` 目录内不允许出现 `.py`（有测试守着）。
+现状：所有常量都在 `web/data/*.json` 里，JS 直接读，没有第二份实现。
+2.0 时期是 `tools/export_web.py` 从 Python 包导出，CI 重新导出后 `git diff --exit-code`
+比对；Python 包移除后这条链也一起退场，只剩「`web/` 里不许出现 `.py`」这条仍然有效
+（有测试守着）。
 
 ### D-6 Web 版核心不碰 DOM
 
@@ -192,14 +165,13 @@ Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套�
 ### D-9 原版贴图内置到 Web 版
 
 手机浏览器没有 File System Access API，也不可能手动挑 748 个文件，所以把
-**748 张原版盔甲贴图（Terraria 1.4.5.7，约 1.6 MB）** 直接放进 `web/data/vanilla/`。
+**748 张原版盔甲贴图（Terraria 1.4.5.8）** 打包进 `web/data/vanilla/`。
 
-- 目录结构照抄游戏：`Armor_Head_N.png` / `Armor_Legs_N.png` 在根，
-  `Armor/Armor_N.png` 在 `Armor/` 子目录——这样读取逻辑可以直接
-  `fetch("data/vanilla/" + <游戏里的相对路径>)`，不需要额外的映射表。
-- `version.txt` 记录游戏版本、总张数、分类张数与**全部文件的 checksum**，
-  `tests/test_vanilla_bundle.py` 会核对；设置了 `ARMORHELPER_VANILLA_SOURCE`
-  时还会验证导入脚本能**原样复现**这个目录。
+- 目录结构与读取：游戏路径仍然能直接定位——`Armor_Head_N.png` → 索引键 `Armor_Head_N`，
+  `Armor/Armor_N.png` → `Armor/Armor_N`（去扩展名、保留子目录），不需要额外的映射表。
+- 打包方式见 **D-18**（按部位图集 + 1× 存储 + WebP）；`version.txt` 记录游戏版本、总张数、
+  分类张数、页数、单页上限与**内容 checksum**，`tests/test_vanilla_bundle.py` 会核对；
+  设置了 `ARMORHELPER_VANILLA_SOURCE` 时还会验证打包脚本能从源目录**逐字节重建**所有贴图。
 - 读取优先级：用户选的文件夹 → 手动上传 → **内置**。界面会显示当前用的是哪一个。
 - 内置只含 `Armor_*`，不含玩家皮肤，所以「叠加玩家」预览在手机上仍需自备
   `Player_0_3/0_7/0_10.png`。
@@ -212,7 +184,7 @@ Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套�
   启动结束时如果套装表为空、或缺少脚本引用的元素，状态栏会给出明确原因
   （后者提示强制刷新）。目的是让「浏览器缓存了旧 index.html + 新 app.js」这类
   版本错配表现为可见的告警，而不是静默的空列表。
-- `tools/export_web.py` 改为**先写临时文件再 rename**，避免浏览器在导出过程中读到
+- （历史）`tools/export_web.py` 改为**先写临时文件再 rename**，避免浏览器在导出过程中读到
   写了一半的 JSON。
 
 ### D-11 全身预览直接从成品贴图采样，不经过模板
@@ -227,8 +199,8 @@ Web 版不重新实现常量，而是由 `tools/export_web.py` 把布局、套�
 * 1× 素材统一放大到 2×，保证 GIF 可读（模板流程也是输出 2×）；
 * 身体贴图共用的行走手臂格（帧 7~10 等）按同一格采样 —— 引擎本来就是这样画的。
 
-Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输出；
-`tests/test_sheets.py` 用生成器产出的三张贴图做交叉验证，并确认帧 0~6 与
+2.0 时期 Python 与 JS 各一份实现、逐帧比对；现在只剩 JS，比对对象是冻结的参考图。
+当时 `tests/test_sheets.py` 用生成器产出的三张贴图做交叉验证，并确认帧 0~6 与
 `compose.full_armor_frames` 逐像素一致（这几帧的手臂格是独占的）。
 
 ### D-12 输出命名
@@ -237,14 +209,15 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 `Armor_Head_<id>.png` / `Armor_Legs_<id>.png` / `Armor/Armor_<id>.png`。
 身体贴图带 `Armor/` 子目录，Web 版的 zip 也保留该结构。
 
----
+### D-13 文案只有一份，且卡片存 key 而不是译好的字符串
 
-### D-13 Web 专属文案单独成文件，不动冻结的 Python
+现状：`web/data/i18n.json` 是唯一来源（138 个键，中英一一对应）。
+2.0 时期为了不改动冻结的 Python，Web 专属文案放在 `web/i18n.web.json`、导出时合并 ——
+Python 移除后两份合一，`test_every_translation_is_used` 继续禁止出现没有出口的死条目。
 
-界面改名（「全身 GIF」→「预览贴图」）、速率/尺寸、导出历史、槽位提示这些只有浏览器需要的
-文字，写在 `web/i18n.web.json`；`tools/export_web.py` 把它按语言合并覆盖到 Python 的
-`MESSAGES` 上再导出 `data/i18n.json`。这样就不必为了改动「一行 UI 文案」去解冻 Python，`test_web_only_strings_are_merged_over_the_frozen_python_ones` 会检查合并结果，
-`test_exported_data_is_up_to_date` 仍然守着「数据没过期」。
+真正有价值的经验留了下来：**结果卡片不能在生成时就把文案嵌死**，而要带
+`titleKey` / `captionKey`，切语言时由 `applyI18n()` 用 `state.results` 重绘 ——
+否则已经画出来的卡片会停在旧语言（这个 bug 真的存在过）。
 
 ### D-14 部位改用三个槽位，而不是相信文件名
 
@@ -267,8 +240,8 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 ### D-16 离线用 Service Worker，缓存分两层
 
 `CORE`（启动必需：HTML/CSS/JS/JSON/模板/图标，约 60 KB）在 install 时预缓存；
-748 张内置贴图（约 1.6 MB）走 `data/vanilla/` 前缀，命中后用后台 fetch 刷新（stale-while-revalidate），
-没命中就按需缓存。这样手机首次打开不会一次性下载 1.6 MB。
+内置贴图（17 页 WebP 图集 + `index.json`，约 292 KB）走 `data/vanilla/` 前缀，命中后用后台 fetch 刷新（stale-while-revalidate），
+没命中就按需缓存。这样手机首次打开不会一次性下载图集。
 坑：`event.waitUntil()` 只能在事件派发期间调用，放在 `respondWith` 的 `.then()` 里会抛
 `InvalidStateError` 并让这次 fetch 直接失败 —— 后台缓存必须用普通浮动 promise。
 
@@ -285,7 +258,32 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 （资源包列表里显示的就是它，参考的 `2440024138` 包就是 `Name: 华文圆体`）。
 `<id>` 取自身体贴图文件名，取不到时回落到设置里的身体 ID，再退回 0 并提示。
 
-### D-18 玩家贴图内置，而不是只靠 Content/Images
+### D-18 结果卡片记在 state 里，文案一律存 key
+
+一张清理时才发现的老问题：`state.result` 从没被赋值过，`renderResult()` 实际是死代码，
+于是**切换语言时已有的结果卡片不会跟着翻译**（WUI-02 要求「立即切换全部文案」）。
+现在每个面板记一份 `state.results[panel]`，`showResult()` 统一渲染；卡片的标题、
+预览图说明都改存 i18n **key**（`titleKey` / `captionKey`），在渲染时才翻译 ——
+否则字符串在生成卡片那一刻就被冻住了，重绘也没用。
+
+同一次清理还删掉了 `frameAt` / `bitmapToCanvas` / `existsInFolder` / `loadJSON` /
+`saveJSON` / `PLAYER_SKIN` 这些再没人调用的移植残留，并把三处写死的英文提示
+（`self check mismatch`、`self check failed`、`N failed`）改成 i18n。
+
+### D-19 移除 Python 版之前，先把它冻结成金标准
+
+顺序是：先在 Python 侧做一遍「删死代码、删失效文案」的清理（3 处死代码 +
+22 条中英各一份的失效文案），确认输出没变；然后把参考输出冻结成
+`web/tests/golden/`（`head` / `legs` / `body` / `body-glow` / 旧格式三张 /
+男、女 20 帧 / 玩家帧 / 叠加玩家帧 / 反推模板 / 成品贴图合成帧，共 16 张 + sha256 清单）；
+最后才删掉 `armorhelper/` 与它的 Python 测试。
+
+`tests/node/core.test.mjs` 现在拿这些图当基准：114 项逐像素断言。这样做的好处是
+「只剩一个实现」并没有失去安全网 —— 而且第一次跑就暴露出一个从未被测过的差异：
+`multiplyColor()`（玩家肤色着色）JS 用四舍五入、Python 用截断，差 1/255。
+现在 JS 也改成 `Math.trunc`，与金标准逐像素一致。
+
+### D-20 玩家贴图内置，而不是只靠 Content/Images
 
 「叠加玩家」原来只从 Chromium 的目录句柄读 `Player_0_3 / 0_7 / 0_10.png`，于是手机上这个
 复选框永远拿不到贴图（除非用户手动挑 748 个文件——不可能）。现在把这三张（约 4 KB）
@@ -293,32 +291,58 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 （可能是材质包），失败再回落到内置版。顺带把这一块补上了端到端断言：勾上之后应有
 8 个文件 / 5 个预览（4 张 PNG + 4 个 GIF，其中两个是「玩家 + 盔甲」）。
 
+### D-21 内置贴图按「部位 + id」打包成 WebP 图集（不按套装）
+
+748 张散图变成 **17 页 WebP + `index.json`**：1.68 MB → 约 292 KB，全量还原的请求数从 453 降到 ≤ 17。
+三条判断都是实测出来的（脚本见 `tools/pack_vanilla_textures.py`）：
+
+| 做法 | 实测 | 结论 |
+|---|---|---|
+| 只裁掉空白（2× PNG） | 1.680 MB → 1.061 MB（−37%） | 有用但不是大头；WebP 下只有 −3%（空白本来就几乎免费） |
+| **换 WebP lossless** | 2× 散图 1.680 → 0.329 MB | 单这一项就 −80% |
+| **存 1× 再运行时放大** | 1× 散图 WebP 0.329 → 0.270 MB；像素 41.7M → 10.4M | 原版贴图是 1× 的精确 2× 放大（D-1），22 个文件、120 个像素的例外写进 `index.strays` 补回 |
+| **按套装打包** | 2× PNG 下 203 页共 **2.075 MB**（比散图 1.255 MB 还大）；1× WebP 下 106 页 0.279 MB | 不但覆盖不全（204 套只引用 530 张，**218 张不属于任何套装**：头 128 + 腿 90），拼页还把只填了 34% 的 440×1120 格子撑大；且 106 请求 vs 17 |
+| **按部位打包** | 1× WebP 17 页 267 KB + 索引 30 KB | 同部位尺寸一致、拼页无空隙；查找键本来就是（部位, id），套装表只是 UI 列表 |
+
+> **单页 ≤ 2048×2048 是硬约束**（浏览器解码上限，iOS Safari 还限 canvas 总面积）：
+> 打包脚本的 `MAX_PAGE` 拒绝超限的 `--page-size`，写进 `version.txt` 的 `max_page`
+> 与 `index.json` 的 `maxPage`，`web/js/atlas.js` 的 `validateIndex` 加载时再校验，
+> `tests/test_vanilla_bundle.py` 同时盯住这三处。默认页边 1024（≈4 MB/页解码开销），
+> 单套还原最多解 4 页就能拿到头 / 腿 / 身体；全量还原时页面走 LRU（默认 24 MB）。
+
+其他实现细节：
+
+- 仓库里**只放打包后的产物**，748 张源 PNG 不进仓库；游戏更新后重跑脚本即可。
+- checksum 算的是**内容**（把 748 张图重建出来再哈希），所以换 WebP 版本不会让校验漂；
+  脚本结束时自己校验一遍，页面里还原不出的像素会让它直接报错退出。
+- 读取端只改了 `textureReader()`：核心（`reverse.js` / `sheets.js` / `downscale2`）拿到的
+  仍是原尺寸的 2× 贴图，像素等价性测试不用改。
+- WebP lossless 与 PNG 走同一条 `createImageBitmap(premultiplyAlpha:"none") → canvas`
+  路径解码**逐字节相同**（无头 Chrome 实测 178 880 字节 diff = 0），不引入新误差。
+
 ## 4. 修改过的核心文件
 
 按后续开发最可能触碰的顺序：
 
 | 文件 | 作用 | 改动风险 |
 |---|---|---|
-| `armorhelper/layout.py` | 全部坐标与映射表常量 | **高**：改动会同时影响生成与还原，且必须重新导出 Web 数据 |
-| `armorhelper/generate.py` | 各贴图生成 | 高：`tests/reference.py` 会逐像素校验旧格式输出 |
-| `armorhelper/reverse.py` | 反向还原 | 中：往返无损有测试覆盖 |
-| `armorhelper/sheets.py` | 成品贴图 → 全身帧/GIF | 中：与 `web/js/sheets.js` 必须保持一致 |
-| `armorhelper/imaging.py` | 像素原语 | 高：语义与 v1 对齐，改动会影响全部输出 |
-| `armorhelper/export.py` | 落盘与命名 | 中 |
-| `armorhelper/config.py` | `config.json` | 低：对未知字段容错 |
-| `armorhelper/i18n.py` | 中英文案 | 低：但改完要跑 `tools/export_web.py` |
-| `armorhelper/data/ArmorTemplate_overlay.png` | 参考线图层 | 低：改了要跑 `tools/export_web.py` |
-| `armorhelper/gui.py` | wxPython 界面 | 中：弹窗拆成了可替换的钩子便于测试 |
-| `armorhelper/vanilla.py` + `data/armor_sets.json` | 套装表 | 低 |
-| `web/js/*.js` | Web 核心（含 `sheets.js`） | 中：改完必须跑等价性测试 |
-| `web/app.js` | Web 界面（含进度/取消、历史、popover、槽位） | 中 |
-| `web/i18n.web.json` | 仅 Web 的文案（覆盖 Python 的键） | 低：改完必须跑 `tools/export_web.py` |
-| `web/sw.js` + `manifest.webmanifest` | 离线缓存 / PWA | 中：`CORE` 清单与 `VERSION` 必须同步 |
-| `web/data/player/` | 内置玩家贴图（3 张 + version.txt，约 4 KB） | 低：由 `tools/import_player_textures.py` 生成，不要手改 |
-| `web/data/*` | **生成产物，不要手改**（含 `ArmorTemplate_overlay.png`） | 改完会被 CI 判定过期 |
-| `tools/export_web.py` | 导出 Web 数据 | 改常量结构时必须同步改这里与 `web/js/data.js` |
-| `tools/build_armor_sets.py` | 生成套装表 | 低 |
-| `tests/reference.py` | v1 C# `GenerateSheets` 的独立直译 | **不要改**，它是旧格式的回归基准 |
+| `web/data/layout.json` | 全部坐标与映射表常量（模板区域、帧偏移、9×4 格子表） | **高**：改动同时影响生成与还原，还要同步 `docs/贴图裁切说明.md`（测试会对账） |
+| `web/js/generate.js` | 各贴图生成 | 高：旧格式输出由金标准逐像素守着 |
+| `web/js/compose.js` | 20 帧合成、玩家帧、GIF 帧序、拼版 | 高：同上 |
+| `web/js/reverse.js` | 反向还原 | 中：往返无损有测试覆盖 |
+| `web/js/sheets.js` | 成品贴图 → 全身帧/GIF | 中：金标准覆盖 20 帧与分类警告 |
+| `web/js/atlas.js` | 内置图集读取（裁切 + 1×→2× + 例外像素） | 中：改坏了所有「手机上还原」的路径 |
+| `web/js/bitmap.js` | 像素原语（含 `multiplyColor` 的**截断**语义） | 高：语义与 v1 对齐，改动影响全部输出 |
+| `web/app.js` | 界面（四个标签页、进度/取消、历史、popover、槽位、材质包） | 中 |
+| `web/style.css` | 布局（两列 / 三列断点、粘性侧栏） | 低 |
+| `web/data/i18n.json` | 中英文案（唯一来源） | 低：`test_every_translation_is_used` 禁止死条目 |
+| `web/sw.js` + `web/manifest.webmanifest` | 离线缓存 / PWA | 中：`CORE` 清单与 `VERSION` 必须同步 |
+| `web/data/vanilla/` | 内置贴图图集 | 低：由 `tools/pack_vanilla_textures.py` 生成（仍为 Python），不要手改 |
+| `web/data/player/` | 内置玩家贴图 | 低：由 `tools/import_player_textures.mjs` 生成 |
+| `web/tests/golden/` | 冻结的参考输出 + sha256 清单 | **不要改**：`test_golden_manifest_matches_the_files` 会报 |
+| `tools/pack_vanilla_textures.py` | 图集打包 | 中：改格式要同步 `web/js/atlas.js` 与 `tests/test_vanilla_bundle.py` |
+| `tools/build_armor_sets.mjs` | 生成 `web/data/armor_sets.json` | 低 |
+| `tools/inspect_armor.mjs` | 按引擎规则渲染身体贴图（读 `layout.json`） | 低 |
 
 ---
 
@@ -326,43 +350,51 @@ Python 与 JS 各一份实现，`tests/test_web_port.py` 逐帧比对两者输�
 
 ### 5.1 规模
 
+Node 侧（`npm test`，143 项，纯 JS，不需要 Python）：
+
 ```
-tests/test_generate.py   22   旧格式与 v1 逐像素一致、新格式尺寸/格子占用/发光行、导出命名、参考线叠加
-tests/test_reverse.py    26   反向还原往返、套装表、中文名、文件名清洗
-tests/test_gui.py        22   wxPython 冒烟、设置读写、还原流程（含输出目录回填）、三张贴图 → GIF
-tests/test_config.py      9   config.json 往返、v1 兼容、垃圾输入容错
-tests/test_cli.py         9   各子命令冒烟与错误码、template 的参考线开关
-tests/test_docs.py        9   文档裁切表与 layout 常量一致、用词、markdown 链接、README 为中文
-tests/test_sheets.py     35   部位识别/ID 解析、混合尺度归一化、短末帧容错、帧合成、gif 子命令落盘
-tests/test_web_port.py   34   JS 核心与 Python 逐像素对比 + 无头 Chrome 端到端（导出/还原/预览贴图/
-                          取消/进度/历史/popover）+ 参考线 + 站点图标 + SW/Manifest + 文案合并
-tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可复现性
+tests/node/core.test.mjs     114  web/js/ 核心 vs web/tests/golden/ 冻结参考图，逐像素
+tests/node/harness.test.mjs    5  贴图查找、部位识别、图集读取、zip 结构、拼版 PNG
+tests/node/browser.test.mjs    3  真 Chrome：拖放/导出/预览贴图/材质包/取消/还原全部/切语言
+tests/node/docs.test.mjs      10  裁切表 ↔ layout.json、链接、用词、README 语言、文案无死条目
+tests/node/site.test.mjs      11  数据、HTML↔JS 接线、SW 的 CORE 清单、Manifest、图标、图集包、Pages
+```
+
+Python 侧（`pytest tests -q`，19 项，只剩图集打包器的用例）：
+
+```
+tests/test_vanilla_bundle.py 19   内置 WebP 图集：页与索引自洽、2048 上限、内容 checksum、从源目录重建
                         ---
-                        177（其中 1 项在未设置 ARMORHELPER_VANILLA_SOURCE 时跳过）
+                        19（其中 1 项需要 ARMORHELPER_VANILLA_SOURCE 才跑 —— 它要真的重跑打包器）
 ```
 
 ### 5.2 关键验证结论（均已实跑）
 
 | 验证项 | 结果 |
 |---|---|
-| 旧格式（头/腿/手臂/身体/女性身体）与 v1 参考实现 | **逐像素一致** |
+| 旧格式（头/腿/手臂/身体/女性身体）与 v1 参考实现 | **逐像素一致**（金标准 `web/tests/golden/`） |
 | 新格式各贴图尺寸 | 头 40×1120、腿 40×1120、身体 360×224、发光 360×448 |
-| 生成 → 反向还原 → 再生成 | **头 / 腿 / 身体 全部 0 像素差异** |
-| JS 核心 vs Python（6 种贴图 + 发光版 + 20 帧组合 + 反推模板） | **逐像素一致** |
-| JS 生成的 PNG | PIL 解码后与 Python 输出一致（40×1120 RGBA） |
+| 生成 → 反向还原 → 再生成 | **头 / 腿 / 身体 全部 0 像素差异**（金标准 `template-rebuilt`） |
+| JS 核心 vs 冻结的参考图（6 种贴图 + 发光版 + 20 帧 + 玩家/叠加玩家 + 反推模板 + 成品贴图合成） | **逐像素一致** |
+| JS 生成的 PNG | PIL 解码后与参考图一致（40×1120 RGBA） |
 | JS 生成的 GIF | PIL 解码 **52 帧逐帧一致**，调色板 8 色，约 16.2 KB |
 | JS 生成的 ZIP | `zipfile.testzip()` 通过，保留 `Armor/` 子目录与 UTF-8 文件名 |
 | 无头 Chrome 跑 `web/tests/smoke.html` | **22 项全 PASS**（模块加载、贴图生成、往返无损、原版文件名取贴图、模板放大、PNG/GIF/ZIP、套装搜索） |
 | 无头 Chrome 端到端驱动「还原这一套」 | **两种来源各跑一次**（仅内置 / 上传文件），产物名正确、3 个带标题的预览、模板预览 `naturalWidth = 128×4+4`、无「找不到贴图」告警 |
-| 内置贴图包 | 748 张、分类张数与 `version.txt` 一致、checksum 匹配、`Armor/` 子目录保留、覆盖 140+ 套可还原套装、脚本可原样复现 |
-| 参考线叠加（Python vs JS） | 新增像素数一致；叠加幂等；**不改变任何生成结果** |
-| `web/data` 与 `tools/export_web.py` 输出 | 一致（未过期） |
+| 内置贴图包 | 748 张（按部位打包成 17 页 WebP 图集）、张数/分类数与 `version.txt` 一致、内容 checksum 匹配、覆盖 140+ 套可还原套装、单页 ≤ 2048×2048、脚本可原样重建 |
+| 参考线叠加 | 只画在模板预览与下载的模板上；**不改变任何生成结果**（浏览器用例断言新增 4395 像素） |
+| 金标准清单 | 16 张参考图的 sha256 与 `manifest.json` 一致；改图会立刻失败 |
 | 套装表 | 204 条；151 条同时有头与腿；202 条有中文名；23 条来自套装加成（权威） |
 | 「预览贴图」三个槽位 | 无头 Chrome 实测：错槽位被拒绝并给出中文原因；三格填满后生成 4 个文件、3 个预览；选「慢 + 2×」后 GIF 宽度 80、设置写进 localStorage |
 | 进度与取消 | 取消「还原全部套装」后状态栏显示「已取消」、按钮复位；完整跑完显示 `i/151` 进度并产出 > 100 个模板 |
 | 导出历史 | 无头 Chrome 实测：导出后 `armorhelper.history` 有 1 条（含缩略图 data URL），列表显示名称与文件数；还原全部后再增 1 条 |
 | 模板 popover | 悬停后 popover 出现且图片 `naturalWidth = 516`（128×4 + 2px 边框），移开后隐藏 |
 | 结果卡片高度 | 无头 Chrome 实测：空结果卡与输入卡的差值 ≤ 2px（内联 `min-height`），出结果后内联高度被清空、由内容撑开；两个标签页都断言 |
+| 启动提示 | 状态栏不再说「已连接」（那是 v1 本地服务的说法），改为「就绪 · 纯前端，全部在本机处理」；用例同时断言旧词不出现 |
+| 切语言重绘结果卡片 | 无头 Chrome 实测：导出后语言切英文，三张卡片的 `figcaption` 变成英文、文件列表不丢；切回中文与切换前逐字一致 |
+| 语言切换 | 无头 Chrome 实测：导出后切到 English，卡片标题/说明变成 `Drawing template (128x80)`，切回中文完全复原；表单、槽位、历史同步刷新 |
+| Python 侧清理 | `vulture` + 「只被声明一次」扫描后删了 `DEFAULT_WINDOW`（改为 gui 使用）、`BODY_COMPOSITE_SIZE`、`TARGET_LABELS`；中文文案 186 → 164 条，`test_every_translation_is_used` 断言无死条目；生成/还原/合成代码与模板零改动，全部逐像素测试仍通过 |
+| 静态残留扫描 | 用脚本扫过：没有只被声明一次的 JS 函数、没有 `app.js` 不引用的 HTML id、没有没用到的 CSS 类；`web/data/i18n.json` 的每个键都有 `test_every_translation_is_used` 守着 |
 | 页面不抛异常 | 无头 Chrome 全程收集 `error` / `unhandledrejection`（拖放、导出、预览贴图、材质包、取消、还原全部、勾选叠加玩家），断言列表为空 —— 故意注入 `notDeclaredAnywhere` 验证过这条断言确实会红 |
 | 结果卡片的 zip / 写入按钮 | 无头 Chrome 真的点「打包下载 (zip)」：捕获到的 blob 以 `PK` 开头，解开后是 `MyArmor_Head/Legs/Body.png`，头部 PNG 与 `generate_head(template)` 逐像素一致；状态栏没有 `not a function` |
 | 生成材质包 | 无头 Chrome 点按钮后把 zip 回传给 Python：`zipfile` 校验 7 个条目、`pack.json`（`Name=星尘板甲`、`Version 1.0`）、三张 PNG 与 Python 生成结果逐像素一致 |
@@ -374,24 +406,30 @@ tests/test_vanilla_bundle.py 11  内置贴图的张数/checksum/目录结构/可
 ```bash
 cd /Volumes/970/Games/tr/dev/ArmorHelper2
 
-# 全部测试（含无头浏览器；缺 Node/Chrome 会自动 skip 对应用例）
+# 全部 Node 用例：金标准逐像素 + 浏览器端到端 + 站点 + 文档（143 项，约 20 秒）
+npm test
+
+# 只跑其中一组
+node --test tests/node/core.test.mjs        # 核心 vs 冻结参考图
+node --test tests/node/browser.test.mjs     # 无头 Chrome 端到端
+node --test tests/node/harness.test.mjs     # 贴图查找 / 部位识别 / 图集读取 / zip
+
+# 图集打包器的用例（仍需要 pytest + Pillow）
+python3 -m pip install -r requirements-dev.txt
 python3 -m pytest tests -q
 
-# 只跑 JS ↔ Python 等价性 + 浏览器端到端
-python3 -m pytest tests/test_web_port.py -q
-
 # 静态检查
-python3 -m pyflakes armorhelper tests tools
+python3 -m pyflakes tests tools
 for f in web/js/*.js web/app.js web/tests/run.mjs; do node --check "$f"; done
 
-# 本地看 Web 版
+# 本地看网页版
 python3 -m http.server 8000 --directory web      # http://127.0.0.1:8000/
 
-# 桌面界面
-python3 -m armorhelper gui
-
-# 改了 Python 侧常量之后，务必重新导出 Web 数据
-python3 tools/export_web.py
+# 数据侧脚本（都在 tools/）
+python3 tools/pack_vanilla_textures.py "<Content/Images>" --version 1.4.5.8
+node tools/build_armor_sets.mjs "<Terraria source>"
+node tools/import_player_textures.mjs "<Content/Images>"
+node tools/inspect_armor.mjs "Content/Images/Armor/Armor_1.png" --frames 0,5
 ```
 
 ---
@@ -438,9 +476,7 @@ python3 tools/export_web.py
 
 ### 6.5 未验证 / 待确认
 
-- **GitHub Pages 实际部署未跑过**：`.github/workflows/pages.yml` 已写好但从未推送运行。
-- **桌面 GUI 只在 macOS 实测**（wxPython 4.2.4 / cocoa），Windows / Linux 未验证。
-  Python 侧已冻结，因此这一项只在需要修 bug 时才补。
+- **GitHub Pages 实际部署未跑过**：`.github/workflows/pages.yml` 已改好在等一次推送。
 - **非 Chromium 浏览器**（Firefox / Safari）的降级路径与 Service Worker 未实测。
 - **离线只做了静态断言**，没有真的断网重载过。
 - 套装表的中文名来自游戏源码里的 `zh-Hans` 本地化；游戏版本升级后需要重新生成。
@@ -472,21 +508,19 @@ python3 tools/export_web.py
 | 静态服务器用 HTTP/1.0 | 见上表 |
 | `renderFolders()` 里残留 `!!images` | 一行 `$("#player-hint").hidden = !needsPlayer || !!images \|\| ...` 遮蔽改名前留下的变量（`images` 从未声明）。因为 `!needsPlayer` 会短路，**只有勾上「叠加玩家」才抛 `images is not defined`**，平时看不出来。现在提示行只跟复选框走，并且浏览器用例会收集页面里所有 `error` / `unhandledrejection` 并断言为空 |
 | 结果卡片的两个按钮其实一直没工作 | `resultCard()` 用 `const zip` / `const save` 命名按钮，遮蔽了 `result.zip` / `result.save`，点击抛 `save.save is not a function`；修完还发现 `zipBlob()` 接受的是 `{name, data}`，而 UI 一直传 `{name, blob}`，于是又抛 `unsupported entry type`。现在按钮调 `result.zip.save()`，并新增 `zipBlobAsync()`（接受 Blob 条目），浏览器用例会真的点这两个按钮、把 zip 解开比对 |
+| 结果卡片的文案在生成时就译好了 | 切语言时卡片停在旧语言。现在结果对象只带 `titleKey` / `captionKey`，`applyI18n()` 用 `state.results` 重绘三个面板 |
 | 浏览器测试把文件下到 `~/Downloads` | 测试是真的点「下载」按钮，Chrome 默认落到用户下载目录（曾堆积 30 个 `ArmorTemplate_v1 (n).png`）。现在 harness 吞掉带 `download` 属性的 `<a>` 点击，并给 Chrome 写 `download.default_directory` 指向临时目录 |
 
 ---
 
 ## 8. 下一步开发顺序
 
-**前提：Python 已冻结。下列事项除标注「仅维护」者外，全部在 `web/` 里做。**
-
-### P0 — 把 Web 版真正发出去
+### P0 — 把站点真正发出去
 
 1. **推送仓库并启用 GitHub Pages**：Settings → Pages → Source 选 GitHub Actions，
-   推一次 `main`，确认工作流三步都过（重新导出数据 → `git diff --exit-code -- web/data`
-   不报差异 → 等价性测试通过 → 发布成功）。
+   推一次 `main`，确认工作流两步都过（跑全部测试 → 发布 `web/`）。
 
-### P1 — 补齐 Web 版测试覆盖面（只改 `tests/test_web_port.py` 与 `web/tests/`）
+### P1 — 补齐测试覆盖面
 
 2. Firefox / Safari 的降级路径实测（文件夹 API 不可用时的下载 / zip / 手动上传，
    以及 Service Worker 在这两个浏览器上的注册）。
@@ -494,54 +528,52 @@ python3 tools/export_web.py
    断言页面仍能启动。目前只有静态断言（`CORE` 清单 + Manifest + 注册代码）。
 
 > 已完成（原先列在这里）：还原全部的端到端、预览贴图的端到端、取消与进度、导出历史、
-> 模板 popover、SW/Manifest 静态校验、**叠加玩家的端到端**（顺带把玩家贴图内置）。
+> 模板 popover、SW/Manifest 静态校验、叠加玩家的端到端，以及把 Python 侧的像素金标准
+> 迁移成 `web/tests/golden/`。
 
-### P2 — Web 版质量增强
+### P2 — 质量增强
 
-5. 「预览贴图」支持一键换成内置原版贴图（套装列表 → 直接看动画），目前只能自己上传。
-6. **套装表补全**（数据侧，`tools/build_armor_sets.py` → `web/data/armor_sets.json`）：
+4. 「预览贴图」支持一键换成内置原版贴图（套装列表 → 直接看动画），目前只能自己上传。
+5. **套装表补全**（`tools/build_armor_sets.mjs` → `web/data/armor_sets.json`）：
    53 条缺头或缺腿的条目，做一张人工覆盖表（例如 `data/armor_set_overrides.json`），
-   避免每次重新生成又被覆盖。此改动**不影响 Python 运行时行为**，不违反冻结。
-7. 导出历史可点击回填（现在只是记录时间 / 名称 / 文件数 / 缩略图，不能重新下载）。
-8. GIF 速率/尺寸目前只有「预览贴图」页有控件（设置全局生效）；若用户反馈，可在导出页也放一份。
+   避免每次重新生成又被覆盖。
+6. 导出历史可点击回填（现在只是记录时间 / 名称 / 文件数 / 缩略图，不能重新下载）。
+7. GIF 速率/尺寸目前只有「预览贴图」页有控件（设置全局生效）；若用户反馈，可在导出页也放一份。
 
-### P3 — 可选（需先解冻 Python，暂缓）
+### P3 — 可选
 
-10. **模板扩展**：为「4 个行走手臂姿态」和「肩部」各加区域，可显著提升反向还原保真度。
-    **注意**：已实测当前 128×80 模板**没有任何完全空闲的像素**（区域外 4395 个不透明像素
-    全是参考线），所以扩展必须重画模板，会破坏「与 v1 同一张模板」的兼容目标；
-    且要同时改 Python 生成器与 `web/js/generate.js` 两侧，**冻结期间不做**。
-11. **参考线归属**：现在 `ArmorTemplate_v1.png` 本身含参考线，叠加层是空操作。
-    若要「模板只有美术、参考线单独一层」，需重画模板，同样需要解冻，暂缓。
-12. `.xnb` 解码（可直接吃游戏原始资源，但需要引入 xnb 解析，工作量不小）。
-13. 自定义 GL 贴图/发光层的图形化编辑。
-14. **仅维护**：Windows / Linux 上的桌面 GUI 实测（只在需要修 bug 时做）。
+8. **模板扩展**：为「4 个行走手臂姿态」和「肩部」各加区域，可显著提升反向还原保真度。
+   **注意**：已实测当前 128×80 模板**没有任何完全空闲的像素**（区域外 4395 个不透明像素
+   全是参考线），所以扩展必须重画模板，会破坏「与 v1 同一张模板」的兼容目标；
+   而且 `web/tests/golden/` 全部要重做。
+9. **参考线归属**：现在 `ArmorTemplate_v1.png` 本身含参考线，叠加层是空操作。
+   若要「模板只有美术、参考线单独一层」，需重画模板，同上。
+10. `.xnb` 解码（可直接吃游戏原始资源，但需要引入 xnb 解析，工作量不小）。
+11. 自定义 GL 贴图/发光层的图形化编辑。
 
 ---
 
-## 9. 快速上手
+## 9. 改动前自查清单
 
-```bash
-cd /Volumes/970/Games/tr/dev/ArmorHelper2
-python3 -m pytest tests -q                     # 177 项，约 21 秒（含无头 Chrome；未装 wxPython 会跳过桌面用例）
-python3 -m armorhelper gui                     # 桌面界面（已冻结，仅供对照）
-python3 -m http.server 8000 --directory web    # Web 版 → http://127.0.0.1:8000/
-python3 -m armorhelper sets --search 星尘       # 查套装
-python3 -m armorhelper reverse --images "<Content/Images>" --body 190 -o out.png
-```
+命令都在 §5.3，这里只列「改哪里 → 必跑什么」。
 
-改动前的自查清单：
-
-0. **默认只改 `web/`**。动 `armorhelper/*.py` 前先确认是「修正确性缺陷」；改完必须
-   同时改 `web/js/` 对应实现，否则两边会立刻不一致。
-1. 改了 `web/i18n.web.json`、或万一改了 `armorhelper/layout.py` / `generate.py` / `i18n.py`
-   → 必须跑 `python3 tools/export_web.py`，否则
-   `tests/test_web_port.py::test_exported_data_is_up_to_date` 会失败。
-   界面新文案优先写 `web/i18n.web.json`（Python 已冻结）。
-1.5 改了 `web/` 的文件名或新增模块 → 同步 `web/sw.js` 的 `CORE` 与 `VERSION`，
+1. 改了 `web/js/*.js` → 跑 `node --test tests/node/core.test.mjs`（与 `web/tests/golden/` 逐像素比对）。
+   如果**故意**改变了输出（例如修 bug），要显式重设金标准：跑一遍核心、人工看图确认、更新
+   `web/tests/golden/manifest.json` 的 sha256，并在提交信息里说明为什么像素变了 ——
+   默认情况下金标准不该动。
+2. 改了 `web/data/layout.json` 的坐标/格子表 → 同步 `docs/贴图裁切说明.md`，
+   `tests/node/docs.test.mjs` 会逐格对账。
+3. 改了 `web/` 的文件名或新增模块 → 同步 `web/sw.js` 的 `CORE` 与 `VERSION`，
    `test_service_worker_precaches_the_whole_app` 会逐项检查。
-2. 改了 `web/js/` → 必须跑 `pytest tests/test_web_port.py`（会跑 Node 对比 + 无头 Chrome）。
-3. 界面新增文案 → 中英文都要加，`test_frontend_files_exist_and_are_wired` 会检查。
-   注意 `#opt-guide` 让复选框总数变为 17，`test_browser_renders_the_app` 里有断言。
-4. 用词统一为「**盔甲**」，不要出现「盔甲」（`test_the_ui_never_says_hujia` 会拦）。
-5. 提交前跑 `python3 -m pyflakes armorhelper tests tools` 与 `node --check`。
+4. 界面新增文案 → 中英文都要加进 `web/data/i18n.json`；
+   `test_every_translation_the_app_uses_exists`（缺）与 `test_every_translation_is_used`（多）都会拦。
+   注意 `test_browser_renders_the_app` 里断言了复选框数量（18）。
+5. 用词统一为「**盔甲**」，文档正文里不得出现另一种写法（`test_the_ui_never_says_hujia` 会拦；
+   界面上的替换由 `web/js/data.js` 的 `displayName()` 负责）。
+6. 提交前跑 `node --check`（`web/app.js`、`web/js/*.js`、`web/sw.js`、`web/tests/run.mjs`、`tools/*.mjs`、
+   `tests/node/**/*.mjs`）；Python 侧只剩打包器，改它才需要 `python3 -m pyflakes tools tests`。
+7. 游戏更新后重打内置贴图：
+   `python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version <新版本>`，
+   然后跑 `pytest tests/test_vanilla_bundle.py`。**不要**把散图提交进仓库；
+   页边不得超过 2048（`MAX_PAGE`，脚本会拒绝），改这个常量要连带改 `web/js/atlas.js` 与测试。
+8. 玩家贴图更新：`node tools/import_player_textures.mjs "<Content/Images>"`。

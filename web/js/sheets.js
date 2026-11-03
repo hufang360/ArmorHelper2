@@ -1,6 +1,6 @@
 /**
- * Full-body previews straight from the finished armor sheets — the JavaScript
- * twin of `armorhelper/sheets.py`.
+ * Full-body previews straight from the finished armor sheets.
+ * Pinned by `web/tests/golden/sheets-frames-*.png`.
  *
  * Instead of expanding a drawing template, this samples the three textures the
  * game ships (head, composite body, legs) the way

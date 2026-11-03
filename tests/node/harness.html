@@ -1,0 +1,584 @@
+<!doctype html>
+<meta charset="utf-8"><title>harness</title>
+<iframe id="frame" src="/" style="width:1100px;height:820px"></iframe>
+<script type="module">
+const report = (payload) =>
+  fetch("/__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+const frame = document.getElementById("frame");
+
+const appInfo = (doc) => ({
+  status: doc.querySelector("#status").textContent.trim(),
+  sets: doc.querySelectorAll("#set-select option").length,
+  checkboxes: doc.querySelectorAll("input[type=checkbox]").length,
+  targets: doc.querySelectorAll("#targets input").length,
+  tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
+  subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
+  guide: !!doc.querySelector("#opt-guide")?.checked,
+  source: doc.querySelector("#images-status").textContent.trim(),
+  guideLabel: (doc.querySelector('[data-i18n="web.guideOverlay"]') || {}).textContent || "",
+  downloadButton: doc.querySelector("#download-template")?.tagName || null,
+  favicon: doc.querySelector('link[rel="icon"]')?.getAttribute("href") || null,
+  logo: doc.querySelector(".brand img")?.getAttribute("src") || null,
+});
+
+/**
+ * Click "download the drawing template" and inspect what it actually produces.
+ *
+ * Downloads are intercepted by hooking `URL.createObjectURL`, so the blob can be
+ * decoded and compared with the raw template instead of landing on disk.
+ */
+function equalBytes(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+async function checkTemplateDownload(doc, win) {
+  const { decodeBitmap } = await import("/js/fs.js");
+  const captured = [];
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    captured.push(blob);
+    return realCreate(blob);
+  };
+
+  const rawResponse = await win.fetch("/data/ArmorTemplate_v1.png");
+  const raw = await decodeBitmap(await rawResponse.blob());
+
+  doc.querySelector("#download-template").click();
+  for (let tick = 0; tick < 200 && !captured.length; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  win.URL.createObjectURL = realCreate;
+  if (!captured.length) return { error: "the download button produced nothing" };
+
+  const produced = await decodeBitmap(captured[0]);
+  const opaque = (bitmap) => {
+    let count = 0;
+    for (let i = 3; i < bitmap.data.length; i += 4) if (bitmap.data[i] > 1) count += 1;
+    return count;
+  };
+  return {
+    size: `${produced.width}x${produced.height}`,
+    rawOpaque: opaque(raw),
+    producedOpaque: opaque(produced),
+    identicalToRaw: equalBytes(produced.data, raw.data),
+  };
+}
+
+/** Click "rebuild this set" and wait for the result card. */
+async function runReverse(doc) {
+  doc.querySelector("#rev-head").value = "189";
+  doc.querySelector("#rev-body").value = "190";
+  doc.querySelector("#rev-legs").value = "130";
+  doc.querySelector("#do-reverse").click();
+
+  for (let tick = 0; tick < 400; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const images = doc.querySelectorAll("#reverse-result .preview img");
+    if (images.length) {
+      return {
+        previews: images.length,
+        captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
+        widths: [...images].map((img) => img.naturalWidth),
+        files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+        warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+    const warnings = doc.querySelectorAll("#reverse-result .warn");
+    if (warnings.length && doc.querySelector("#status").className !== "busy") {
+      return { error: [...warnings].map((el) => el.textContent).join(" | ") };
+    }
+  }
+  return { error: "reverse produced no preview" };
+}
+
+/** Build the three generated sheets (and the template) once per call. */
+async function makeSheets() {
+  const [{ loadLayout }, { decodeBitmap }, { generateHead, generateLegs, generateBodyComposite }] =
+    await Promise.all([
+      import("/js/data.js"),
+      import("/js/fs.js"),
+      import("/js/generate.js"),
+    ]);
+  await loadLayout("/data/layout.json");
+  const template = await decodeBitmap(await (await fetch("/data/ArmorTemplate_v1.png")).blob());
+  return {
+    template,
+    head: ["Armor_Head_189.png", generateHead(template)],
+    body: ["Armor_190.png", generateBodyComposite(template)],
+    legs: ["Armor_Legs_130.png", generateLegs(template)],
+  };
+}
+
+/** Put a list of `[name, bitmap]` into one file input, like a real pick would. */
+async function putFiles(doc, selector, pairs) {
+  const { pngBlob } = await import("/js/png.js");
+  const transfer = new DataTransfer();
+  for (const [name, bitmap] of pairs) {
+    transfer.items.add(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
+  }
+  const input = doc.querySelector(selector);
+  input.files = transfer.files;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/** Upload three vanilla-named textures through one of the page's inputs. */
+async function uploadTextures(doc, selector = "#texture-input") {
+  const sheets = await makeSheets();
+  await putFiles(doc, selector, [sheets.head, sheets.body, sheets.legs]);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The results card should be as tall as the input card while it is empty
+ * (inline min-height), and grow with its own content once a result is shown.
+ */
+function cardHeights(doc, panelId) {
+  const panel = doc.querySelector(panelId);
+  const left = panel.querySelector(".stack > .card");
+  const card = panel.querySelector(".results-card");
+  return {
+    left: Math.round(left.getBoundingClientRect().height),
+    results: Math.round(card.getBoundingClientRect().height),
+    forced: card.style.minHeight,
+  };
+}
+
+/**
+ * The "preview sheets" tab: three labelled slots, speed/size selects and the
+ * generated PNGs plus animated GIFs.  Also checks that a sheet dropped into the
+ * wrong slot is rejected with a translated message instead of silently used.
+ */
+async function runSheetGifs(doc) {
+  const sheets = await makeSheets();
+
+  // wrong slot first: the body grid is not a valid head sheet
+  await putFiles(doc, "#sheet-head-input", [sheets.body]);
+  await sleep(60);
+  const wrongSlotStatus = doc.querySelector("#sheet-status").textContent.trim();
+  const wrongSlotFilled = doc
+    .querySelector('#sheet-head-slot')
+    .closest(".slot")
+    .classList.contains("is-filled");
+
+  for (const role of ["head", "body", "legs"]) {
+    await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
+  }
+  for (let tick = 0; tick < 200; tick += 1) {
+    await sleep(25);
+    if (!doc.querySelector("#do-gifs").disabled) break;
+  }
+  const disabled = doc.querySelector("#do-gifs").disabled;
+  const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
+  const filled = [...doc.querySelectorAll(".slot")].map((slot) => slot.classList.contains("is-filled"));
+  // each slot has to show its own title and a thumbnail of what was dropped
+  const titles = [...doc.querySelectorAll(".slot-head > span")].map((el) => el.textContent.trim());
+  const thumbs = [...doc.querySelectorAll(".slot-thumb")].map((img) => ({
+    hidden: img.hidden,
+    src: (img.getAttribute("src") || "").slice(0, 5),
+    width: img.naturalWidth,
+  }));
+  if (disabled) return { error: "the generate button stayed disabled", sheetStatus, wrongSlotStatus };
+
+  // slow GIFs at 2x, so the test can see the settings really reach the encoder
+  const speed = doc.querySelector("#gif-speed");
+  speed.value = "slow";
+  speed.dispatchEvent(new Event("change", { bubbles: true }));
+  const size = doc.querySelector("#gif-size");
+  size.value = "2";
+  size.dispatchEvent(new Event("change", { bubbles: true }));
+
+  await sleep(150); // let the resize observer catch up with the filled slots
+  const heightsBefore = cardHeights(doc, "#tab-gifs");
+  doc.querySelector("#do-gifs").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    const images = doc.querySelectorAll("#gif-results .preview img");
+    if (images.length) {
+      // GIFs decode lazily: wait so naturalWidth is the real frame size
+      await Promise.all([...images].map((img) => img.decode().catch(() => null)));
+      const widths = [...images].map((img) => img.naturalWidth);
+      const gif = doc.querySelector('#gif-results .files a[download$=".gif"]');
+      return {
+        disabled,
+        sheetStatus,
+        wrongSlotStatus,
+        wrongSlotFilled,
+        filled,
+        heightsBefore,
+        heightsAfter: cardHeights(doc, "#tab-gifs"),
+        titles,
+        thumbs,
+        previews: images.length,
+        widths,
+        gifSize: gif ? gif.textContent : null,
+        captions: [...doc.querySelectorAll("#gif-results figcaption")].map((el) => el.textContent),
+        files: [...doc.querySelectorAll("#gif-results .files a")].map((a) => a.textContent),
+        sizes: [...doc.querySelectorAll("#gif-results .files li .muted")].map((el) => el.textContent),
+        sources: [...images].map((img) => img.src.slice(0, 5)),
+        status: doc.querySelector("#status").textContent.trim(),
+        settings: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.settings") || "{}"),
+        history: doc.querySelectorAll("#history-list li img").length,
+      };
+    }
+  }
+  return { error: "no GIF result", sheetStatus };
+}
+
+/**
+ * "Overlay player" has to work without any folder: the site ships the three
+ * player textures (`data/player/`), which is what makes it usable on a phone.
+ */
+async function runPlayerOverlay(doc) {
+  doc.querySelector("#gif-player").checked = true;
+  doc.querySelector("#gif-player").dispatchEvent(new Event("change", { bubbles: true }));
+
+  // exporting with player preview on: the hint must stay hidden (parts found)
+  const optPlayer = doc.querySelector("#opt-player");
+  optPlayer.checked = true;
+  optPlayer.dispatchEvent(new Event("change", { bubbles: true }));
+  const hint = doc.querySelector("#player-hint");
+  const hintVisible = !hint.hidden;
+  const hintText = hint.textContent.trim();
+
+  doc.querySelector("#do-gifs").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    const links = doc.querySelectorAll("#gif-results .files a");
+    if (links.length > 4) {
+      return {
+        hintVisible,
+        hintText,
+        files: [...links].map((a) => a.textContent),
+        previews: doc.querySelectorAll("#gif-results .preview img").length,
+        warnings: [...doc.querySelectorAll("#gif-results .warn")].map((el) => el.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+  }
+  return { error: "no player overlay result" };
+}
+
+/**
+ * Click "make resource pack" and hand the produced zip back to Python, which
+ * unzips it and checks the entry names, `pack.json` and every PNG.
+ */
+async function runResourcePack(doc) {
+  const button = doc.querySelector("#do-pack");
+  const enabled = !button.disabled;
+  button.click();
+
+  let link = null;
+  for (let tick = 0; tick < 400; tick += 1) {
+    // the preview run before this one left its own files in the same card
+    const anchor = [...doc.querySelectorAll("#gif-results .files a")].find(
+      (a) => a.textContent.trim().endsWith("-pack-pc.zip"),
+    );
+    if (anchor && (anchor.getAttribute("href") || "").startsWith("blob:")) {
+      link = anchor;
+      break;
+    }
+    await sleep(25);
+  }
+  if (!link) return { error: "no resource pack was produced", enabled };
+
+  const buffer = new Uint8Array(await (await fetch(link.href)).arrayBuffer());
+  let binary = "";
+  for (const byte of buffer) binary += String.fromCharCode(byte);
+  return {
+    enabled,
+    name: link.textContent.trim(),
+    bytes: buffer.length,
+    base64: btoa(binary),
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
+/**
+ * Click the two buttons at the bottom of a result card.
+ *
+ * This is what caught `save.save is not a function`: the card built its buttons
+ * with locals named `zip` / `save`, which shadowed `result.zip` / `result.save`,
+ * so nothing was ever downloaded and the console filled with TypeErrors.
+ */
+async function clickResultButtons(doc, panelId) {
+  const win = frame.contentWindow;
+  const card = doc.querySelector(`${panelId} .job`);
+  if (!card) return { error: "no result card" };
+  const buttons = [...card.querySelectorAll(".actions button")];
+  const labels = buttons.map((button) => button.textContent.trim());
+  const disabled = buttons.map((button) => button.disabled);
+
+  const captured = [];
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    captured.push(blob);
+    return realCreate(blob);
+  };
+  // the "write to the output folder" button would open a real folder picker,
+  // so only press the ones that are enabled — and never wait for a picker
+  for (const [index, button] of buttons.entries()) {
+    if (disabled[index]) continue;
+    button.click();
+  }
+  for (let tick = 0; tick < 200 && !captured.length; tick += 1) {
+    await sleep(25);
+  }
+  win.URL.createObjectURL = realCreate;
+
+  let signature = null;
+  let bytes = 0;
+  let base64 = null;
+  if (captured.length) {
+    const buffer = new Uint8Array(await captured[0].arrayBuffer());
+    bytes = buffer.length;
+    signature = String.fromCharCode(...buffer.slice(0, 2));
+    if (signature === "PK") {
+      let binary = "";
+      for (const byte of buffer) binary += String.fromCharCode(byte);
+      base64 = btoa(binary);
+    }
+  }
+  return {
+    labels,
+    disabled,
+    bytes,
+    signature,
+    base64,
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
+/** Run a plain export and report what the results card plus history look like. */
+async function runExport(doc) {
+  const sheets = await makeSheets();
+  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
+  // decoding is async: wait until the template shows up in the input list
+  for (let tick = 0; tick < 200; tick += 1) {
+    if (doc.querySelectorAll("#file-list li").length) break;
+    await sleep(25);
+  }
+  const heightsBefore = cardHeights(doc, "#tab-export");
+  doc.querySelector("#do-export").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    if (doc.querySelector("#results .files a")) break;
+  }
+  await sleep(120);
+  const heightsAfter = cardHeights(doc, "#tab-export");
+  const buttons = await clickResultButtons(doc, "#tab-export");
+
+  // switching the language has to translate the cards that are already there
+  const captions = () => [...doc.querySelectorAll("#results figcaption")].map((el) => el.textContent);
+  const before = captions();
+  const language = doc.querySelector("#language");
+  language.value = "en";
+  language.dispatchEvent(new Event("change", { bubbles: true }));
+  for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(before); tick += 1) {
+    await sleep(25);
+  }
+  const english = captions();
+  const englishFiles = doc.querySelectorAll("#results .files a").length;
+  language.value = "zh_CN";
+  language.dispatchEvent(new Event("change", { bubbles: true }));
+  for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(english); tick += 1) {
+    await sleep(25);
+  }
+  const chinese = captions();
+
+  const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
+  return {
+    heightsBefore,
+    heightsAfter,
+    buttons,
+    captions: { before, english, englishFiles, chinese },
+    files: [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent),
+    previews: doc.querySelectorAll("#results .preview img").length,
+    sizes: [...doc.querySelectorAll("#results .files li")][0]?.textContent.trim() ?? "",
+    history,
+    stored: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.history") || "[]"),
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+}
+
+/** The `gif-full*` targets have to write the same files the Python CLI did. */
+async function runGifTargets(doc) {
+  const boxes = [...doc.querySelectorAll("#targets input")];
+  // layout order: head, legs, body, legacy, full*, gif-full*  -> last four
+  const gifBoxes = boxes.slice(-4);
+  for (const box of gifBoxes) {
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  doc.querySelector("#do-export").click();
+
+  let names = [];
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    names = [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent);
+    if (names.length >= 7) break;
+  }
+  for (const box of gifBoxes) {
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  return { names, labels: gifBoxes.map((box) => box.parentElement.textContent.trim()) };
+}
+
+/** Hovering "download the drawing template" shows that image in a popover. */
+async function checkTemplatePopover(doc) {
+  const figure = doc.querySelector("#template-popover");
+  const image = doc.querySelector("#template-popover-img");
+  const button = doc.querySelector("#download-template");
+  const hiddenAtStart = figure.hidden;
+  button.dispatchEvent(new MouseEvent("mouseenter"));
+  for (let tick = 0; tick < 200; tick += 1) {
+    await sleep(25);
+    if ((image.getAttribute("src") || "").startsWith("data:") && image.complete && image.naturalWidth) break;
+  }
+  const visible = !figure.hidden;
+  const width = image.naturalWidth;
+  button.dispatchEvent(new MouseEvent("mouseleave"));
+  return { hiddenAtStart, visible, width, hiddenAfter: figure.hidden };
+}
+
+/** Fire "rebuild every set" and cancel it right away. */
+async function runReverseAllCancel(doc) {
+  doc.querySelector("#do-reverse-all").click();
+  const cancel = doc.querySelector("#cancel-job");
+  const sawCancelButton = !cancel.hidden;
+  const sawBar = !doc.querySelector("#job-bar").hidden;
+  cancel.click();
+  for (let tick = 0; tick < 2000; tick += 1) {
+    await sleep(25);
+    const status = doc.querySelector("#status");
+    if (status.className !== "busy") break;
+  }
+  return {
+    sawCancelButton,
+    sawBar,
+    status: doc.querySelector("#status").textContent.trim(),
+    files: doc.querySelectorAll("#reverse-result .files a").length,
+    cancelHiddenAfter: doc.querySelector("#cancel-job").hidden,
+  };
+}
+
+/** Fire "rebuild every set" and let it finish, watching the progress messages. */
+async function runReverseAll(doc) {
+  doc.querySelector("#do-reverse-all").click();
+  let sawProgress = false;
+  for (let tick = 0; tick < 8000; tick += 1) {
+    await sleep(25);
+    const status = doc.querySelector("#status");
+    if (/\d+\/\d+/.test(status.textContent)) sawProgress = true;
+    if (tick > 4 && status.className !== "busy") break;
+  }
+  await sleep(150);
+  return {
+    sawProgress,
+    status: doc.querySelector("#status").textContent.trim(),
+    files: doc.querySelectorAll("#reverse-result .files a").length,
+    history: doc.querySelectorAll("#history-list li img").length,
+  };
+}
+
+/**
+ * The harness clicks the real "download" buttons.  Anchor clicks are therefore
+ * swallowed: the tests capture the blob through `URL.createObjectURL`, and the
+ * user's Downloads folder stays empty.
+ */
+/**
+ * Remember anything the page throws.  A leftover identifier (`!!images` in
+ * renderFolders) only fired on one path and vanished into the status bar
+ * without failing any assertion.
+ */
+function collectErrors(win) {
+  if (win.__errors) return;
+  win.__errors = [];
+  win.addEventListener("error", (event) => win.__errors.push(String(event.message)));
+  win.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    win.__errors.push(String((reason && reason.message) || reason));
+  });
+}
+
+function blockDownloads(win) {
+  if (win.__downloadsBlocked) return;
+  win.__downloadsBlocked = true;
+  const proto = win.HTMLAnchorElement.prototype;
+  const real = proto.click;
+  proto.click = function click() {
+    if (this.hasAttribute && this.hasAttribute("download")) return undefined;
+    return real.call(this);
+  };
+}
+
+let ticks = 0;
+const timer = setInterval(async () => {
+  ticks += 1;
+  let doc;
+  try {
+    doc = frame.contentDocument;
+    if (frame.contentWindow) {
+      blockDownloads(frame.contentWindow);
+      collectErrors(frame.contentWindow);
+    }
+    const status = doc.querySelector("#status");
+    const text = status ? status.textContent.trim() : "";
+    if (!text || text === "…") {
+      if (ticks > 2000) {
+        clearInterval(timer);
+        report({ error: "timeout waiting for the app" });
+      }
+      return;
+    }
+    clearInterval(timer);
+  } catch (error) {
+    clearInterval(timer);
+    report({ error: String(error) });
+    return;
+  }
+
+  try {
+    const app = appInfo(doc);
+    // 1. no folder, no uploads — this is the phone case: the textures shipped
+    //    with the site have to be found on their own.
+    const download = await checkTemplateDownload(doc, frame.contentWindow);
+    const popover = await checkTemplatePopover(doc);
+    const builtin = await runReverse(doc);
+    // 2. an export from a dropped template, which also fills the history
+    const exported = await runExport(doc);
+    const gifTargets = await runGifTargets(doc);
+    // 3. the same thing again, but with the user's own files uploaded.
+    await uploadTextures(doc);
+    const uploaded = await runReverse(doc);
+    // 4. the preview-sheets tab, with three separate slots
+    const gifs = await runSheetGifs(doc);
+    const pack = await runResourcePack(doc);
+    const player = await runPlayerOverlay(doc);
+    // 5. the long task: cancel works, and a full run reports progress
+    const cancelled = await runReverseAllCancel(doc);
+    const reverseAll = await runReverseAll(doc);
+    report({
+      ...app,
+      download,
+      popover,
+      builtin,
+      exported,
+      gifTargets,
+      uploaded,
+      gifs,
+      pack,
+      player,
+      cancelled,
+      reverseAll,
+      errors: frame.contentWindow.__errors ?? [],
+    });
+  } catch (error) {
+    report({ error: String((error && error.stack) || error) });
+  }
+}, 20);
+</script>

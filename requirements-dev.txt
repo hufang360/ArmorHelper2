@@ -1,0 +1,4 @@
+# Python is only used by the vanilla atlas packer (tools/pack_vanilla_textures.py)
+# and its tests. Everything else — the app, the other tools, the test suite — is Node.
+pytest>=7
+Pillow>=9

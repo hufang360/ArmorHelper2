@@ -37,7 +37,17 @@ import {
   generateHead,
   generateLegs,
 } from "../js/generate.js";
-import { composeOverlay, contactSheet, fullArmorFrames, gifFrameOrder, magnify } from "../js/compose.js";
+import {
+  SKIN_TINT,
+  composeOverlay,
+  contactSheet,
+  fullArmorFrames,
+  gifFrameOrder,
+  magnify,
+  overlay as overlayFrames,
+  playerFrames,
+  tintFrames,
+} from "../js/compose.js";
 import { loadTextures, reverseTemplate, textureCandidates } from "../js/reverse.js";
 import { ATLAS_MAX_PAGE, createAtlasReader, sheetKey, validateIndex } from "../js/atlas.js";
 import { encodeGIF } from "../js/gif.js";
@@ -72,6 +82,7 @@ writeBitmap("js_head.rgba", generateHead(template));
 writeBitmap("js_legs.rgba", generateLegs(template));
 writeBitmap("js_arms.rgba", generateArms(template));
 writeBitmap("js_body_legacy.rgba", generateBodyLegacy(template, false));
+writeBitmap("js_body_legacy_female.rgba", generateBodyLegacy(template, true));
 writeBitmap("js_body.rgba", generateBodyComposite(template));
 writeBitmap("js_body_glow.rgba", generateBodyComposite(template, { glowRows: 4 }));
 
@@ -263,6 +274,23 @@ const shortHead = cropRegion(sheetInput.head, [0, 0, sheetInput.head.width, 1118
 const shortFrames = composeFrames({ ...sheetInput, head: shortHead });
 writeBitmap("js_sheet_short19.rgba", shortFrames[19]);
 
+/* ---- player body (the bundled skin 0) --------------------------------- */
+// "Full Armor + Player" draws the player's own frames under the armor; the
+// parts are the same three textures the site bundles in data/player.
+const playerParts = {
+  torso: readBitmap("py_player_torso.rgba", 360, 224),
+  arm: readBitmap("py_player_arm.rgba", 360, 224),
+  legs: readBitmap("py_player_legs.rgba", 40, 1120),
+};
+const playerMale = playerFrames(playerParts, false);
+const playerFemale = playerFrames(playerParts, true);
+playerMale.forEach((frame, index) => writeBitmap(`js_player_frame${index}.rgba`, frame));
+playerFemale.forEach((frame, index) => writeBitmap(`js_player_female${index}.rgba`, frame));
+const playerArmorMale = fullArmorFrames(template, false);
+overlayFrames(tintFrames(playerMale, SKIN_TINT), playerArmorMale).forEach((frame, index) =>
+  writeBitmap(`js_player_overlay${index}.rgba`, frame),
+);
+
 // Role detection and duplicate handling, including the dimension fallback.
 const blank = (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) });
 const classified = classifySheets([
@@ -328,7 +356,9 @@ const overlay = null; // filled below when the Python side supplies the pixels
 
 /* ---- codecs ---------------------------------------------------------- */
 const frames = fullArmorFrames(template, false);
-writeFileSync(join(workdir, "js_preview.gif"), Buffer.from(encodeGIF(frames, { order: gifFrameOrder() })));
+const gifOrder = gifFrameOrder();
+writeFileSync(join(workdir, "js_preview.gif"), Buffer.from(encodeGIF(frames, { order: gifOrder })));
+writeFileSync(join(workdir, "js_gif.json"), JSON.stringify({ order: gifOrder, delayMs: 66 }));
 writeFileSync(join(workdir, "js_head.png"), Buffer.from(await encodePNG(generateHead(template))));
 writeFileSync(join(workdir, "js_sheet.png"), Buffer.from(await encodePNG(contactSheet(frames))));
 writeFileSync(join(workdir, "js_first_frame.rgba"), Buffer.from(frames[0].data.buffer));

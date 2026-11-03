@@ -1,8 +1,8 @@
 # ArmorHelper bundled vanilla armor textures
 # packed from an extracted Content/Images folder by tools/pack_vanilla_textures.py
 # total_bytes counts the pages and index.json, not this file
-game=Terraria 1.4.5.7
-version=1.4.5.7
+game=Terraria 1.4.5.8
+version=1.4.5.8
 source=Images
 format=webp-atlas
 scale=2

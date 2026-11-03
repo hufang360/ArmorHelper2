@@ -198,15 +198,18 @@ def test_bundled_textures_are_valid_images(index, pages):
 
 def test_bundle_covers_the_known_sets(index):
     """Most sets in the table should be reversible from the bundle alone."""
-    from armorhelper.vanilla import all_sets
-
-    complete = [item for item in all_sets() if item.complete]
+    table = json.loads((ROOT / "web" / "data" / "armor_sets.json").read_text(encoding="utf-8"))
+    complete = [
+        item
+        for item in table["sets"]
+        if item["head"] is not None and item["legs"] is not None and item["body"] is not None
+    ]
     usable = [
         item
         for item in complete
-        if f"Armor_Head_{item.head}" in index["sheets"]
-        and f"Armor_Legs_{item.legs}" in index["sheets"]
-        and f"Armor/Armor_{item.body}" in index["sheets"]
+        if f"Armor_Head_{item['head']}" in index["sheets"]
+        and f"Armor_Legs_{item['legs']}" in index["sheets"]
+        and f"Armor/Armor_{item['body']}" in index["sheets"]
     ]
     assert len(usable) >= 140, f"only {len(usable)} of {len(complete)} sets are bundled"
 

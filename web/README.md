@@ -3,10 +3,9 @@
 纯前端实现，**没有任何服务端**：所有贴图生成、反向还原、预览与编码都在浏览器里完成。
 可以直接部署到 GitHub Pages，也能离线使用（用任意静态服务器打开即可）。
 
-功能与桌面版（Python + wxPython）一致，输出**逐像素相同**。
-
-> **版本状态**：Web 版是**当前唯一的开发目标**；Python 版已冻结于 2.0.0，只作参考实现与
-> 等价性基准（`tests/test_web_port.py` 逐像素比对两侧输出）。新功能请只加在这里。
+这是**这个工具唯一的实现**。2.0 时代的 Python 版（命令行 + wxPython 桌面界面）已经移除，
+它当时的输出被冻结成 `web/tests/golden/` 里的图片，网页版的像素仍被钉在那些数字上
+（`tests/node/core.test.mjs`）。
 
 ---
 
@@ -37,8 +36,8 @@ npx serve web
 
 工作流会：
 
-* 用 `tools/export_web.py` 从 Python 包重新导出 `web/data/`，并检查提交进去的数据没有过期；
-* 跑 `tests/test_web_port.py`，确认 JS 核心与 Python 实现逐像素一致；
+* 跑 `npm test`（核心逐像素、浏览器端到端、站点与文档）
+  与 `tests/test_vanilla_bundle.py`（内置图集）；
 * 把 `web/` 整个目录发布为 Pages 站点。
 
 站点地址：`https://<用户名>.github.io/<仓库名>/`
@@ -131,8 +130,8 @@ Content/Images/Armor/Armor_<id>.png
 
 ### 离线与安装
 
-`sw.js` 会预缓存启动所需的全部文件（`CORE` 清单），748 张内置贴图改成首次使用时再缓存，
-所以断网也能打开，刷新也不用重新下载。`manifest.webmanifest` 让 Chrome / Edge 可以把它
+`sw.js` 会预缓存启动所需的全部文件（`CORE` 清单），内置贴图（17 页 WebP 图集，约 290 KB）
+改成首次使用时再缓存，所以断网也能打开，刷新也不用重新下载。`manifest.webmanifest` 让 Chrome / Edge 可以把它
 「安装」成独立窗口。首屏是 `file://` 打开时不会有 Service Worker（浏览器限制），
 用静态服务器（本地或 Pages）即可。
 
@@ -156,45 +155,57 @@ Content/Images/Armor/Armor_<id>.png
 * iOS 添加到主屏幕的图标 `<link rel="apple-touch-icon">`
 * 页头左上角的标志
 
-它是手工放置的资源，`tools/export_web.py` 不会写它也不会删它（有测试守着）。
+它是手工放置的资源，没有脚本会覆盖它（有测试守着）。
 
-## 内置原版贴图
+## 内置原版贴图（打包成图集）
 
-`web/data/vanilla/` 由 `tools/import_vanilla_textures.py` 从一个已解包的
-`Content/Images` 复制而来（只取盔甲相关文件，身体贴图保留 `Armor/` 子目录）：
+`web/data/vanilla/` 里**只放打包后的产物**，748 张源 PNG 不进仓库：
+
+```
+web/data/vanilla/
+  version.txt      游戏版本、张数、页数、单页上限（max_page=2048）、总字节、内容 checksum
+  index.json       每页文件名与尺寸、每张贴图在页里的矩形（1× 尺寸）、例外像素
+  head-0.webp …    legs-0.webp …    body-0.webp …
+```
+
+生成方式（游戏更新后重跑即可）：
 
 ```bash
-python3 tools/import_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5.7
+python3 tools/pack_vanilla_textures.py "/path/to/Content/Images" --version 1.4.5.8
 ```
 
-`version.txt` 记录游戏版本、总张数与分类张数，还有一个覆盖全部文件的 checksum；
-`tests/test_vanilla_bundle.py` 会核对张数、checksum 与目录结构，
-并在设置了 `ARMORHELPER_VANILLA_SOURCE` 时验证脚本能**原样复现**这个目录。
+脚本做三件事，这也是 1.68 MB → 约 290 KB 的来源：
 
-## 与 Python 版的关系
+1. **按部位（head / legs / body）打包**，不按套装。套装表只引用了 530 / 748 张贴图，
+   按套装打包必漏 218 张（头 128 / 腿 90）；同部位贴图尺寸一致，拼页也没有空隙。
+2. **页里存 1× 像素**（原版贴图是 1× 的精确 2× 放大），`js/atlas.js` 读取时放大回 2×，
+   再用 `index.strays` 补回 120 个破例像素，重建结果与原图逐字节一致。
+3. **WebP lossless**：散图重编码后 PNG 只剩 1.19 MB，换 WebP 直接到 0.33 MB。
 
-**两个版本在运行时不共享任何代码**，但保证结果一致：
+**单页不得超过 2048×2048**：这是浏览器解码上限（iOS Safari 还限制 canvas 总面积），
+由打包脚本的 `MAX_PAGE` 拒绝超限值、写进 `version.txt` 的 `max_page` 与
+`index.json` 的 `maxPage`，`js/atlas.js` 加载时再校验一次，测试同时盯住这三处。
+默认页边 1024，单套还原最多解 4 页。
 
-```
-armorhelper/          Python 版（命令行 + wxPython 桌面界面）
-web/                  Web 版（纯静态，本目录）
-tools/export_web.py   把 Python 侧的常量导出成 web/data/*.json
-```
+`tests/test_vanilla_bundle.py` 会核对页与索引是否自洽、页内矩形是否越界、
+重建像素是否等于 `version.txt` 里的 checksum，单页是否 ≤ 2048，
+并在设置了 `ARMORHELPER_VANILLA_SOURCE` 时验证脚本能从源目录**原样重建**
+（逐张贴图与源 PNG 逐字节比对）。
 
-`tools/export_web.py` 生成：
+## 数据来源
 
-| 文件 | 内容 |
-|---|---|
-| `data/layout.json` | 模板区域、帧偏移表、格子映射表（由 `armorhelper/layout.py` 导出） |
-| `data/armor_sets.json` | 204 条原版套装表 |
-| `data/i18n.json` | 中英文案（与桌面版共用同一份） |
-| `data/ArmorTemplate_v1.png` | 绘制模板 |
+`web/data/` 就是数据本身，没有生成器了（以前由 Python 包导出）：
 
-改了 Python 侧之后重新导出：
-
-```bash
-python3 tools/export_web.py
-```
+| 文件 | 内容 | 谁维护 |
+|---|---|---|
+| `data/layout.json` | 模板区域、帧偏移表、格子映射表 | 手改；`tests/node/docs.test.mjs` 用裁切文档对账 |
+| `data/armor_sets.json` | 204 条原版套装表 | `tools/build_armor_sets.mjs` |
+| `data/i18n.json` | 中英文案（唯一来源，`tests/node/docs.test.mjs` 检查没有死条目） | 手改 |
+| `data/ArmorTemplate_v1.png` | 绘制模板（与 v1 逐字节相同） | 不要动 |
+| `data/ArmorTemplate_overlay.png` | 可选的参考线图层 | 手放 |
+| `data/vanilla/` | 748 张原版贴图的 WebP 图集 + `index.json` | `tools/pack_vanilla_textures.py` |
+| `data/player/` | 玩家贴图 `Player_0_3/0_7/0_10.png` | `tools/import_player_textures.mjs` |
+| `tests/golden/` | 冻结的参考输出 + `manifest.json`（sha256） | **不要手改**，改了就过不了测试 |
 
 ---
 
@@ -207,28 +218,29 @@ web/
   app.js                UI 逻辑（导入 / 导出 / 还原 / 预览贴图 / 设置）
   sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
   manifest.webmanifest  Web App Manifest（可安装成独立窗口）
-  i18n.web.json         仅 Web 的文案，导出时合并进 data/i18n.json
   js/
-    bitmap.js           RGBA 位图操作（等价于 armorhelper/imaging.py）
+    bitmap.js           RGBA 位图操作
+    atlas.js            读取打包好的内置贴图图集（裁切 + 1×→2× + 例外像素）
     data.js             布局 / 套装表 / 文案的加载与查询
     generate.js         头部 / 腿部 / 旧格式 / 复合身体贴图生成
     compose.js          20 帧合成、拼版预览、GIF 帧序列
-    sheets.js           成品贴图 → 20 帧全身合成（等价于 armorhelper/sheets.py）
+    sheets.js           成品贴图 → 20 帧全身合成
     reverse.js          原版贴图 → 128×80 模板
     png.js              PNG 编码（CompressionStream，带 stored 回退）
     gif.js              GIF89a 编码（精确调色板 + LZW）
     zip.js              ZIP 打包（stored）
     fs.js               文件解码、下载、File System Access
     idb.js              IndexedDB（保存目录句柄）
-  data/                 由 tools/export_web.py 生成
-                        （含可选的 ArmorTemplate_overlay.png 参考线图层）
+  data/                 布局 / 套装表 / 文案 / 模板 / 参考线 / 图标（唯一来源）
   data/icon.png         站点图标（浏览器标签页与页头左上角）
-  data/vanilla/         内置的原版盔甲贴图 + version.txt（手机离线可用）
+  data/vanilla/         内置原版盔甲贴图的 WebP 图集 + index.json + version.txt
+                        （手机离线可用，仓库里不放 748 张散图）→ tools/pack_vanilla_textures.py
   data/player/          内置的玩家贴图（Player_0_3 / 0_7 / 0_10 + version.txt），
-                        「叠加玩家」在手机上也能用 → tools/import_player_textures.py
+                        「叠加玩家」在手机上也能用 → tools/import_player_textures.mjs
   tests/
-    run.mjs             Node 下的核心自检（供 Python 测试对比）
+    run.mjs             Node 下的核心自检（供测试对比）
     smoke.html          浏览器内的端到端自检
+    golden/             冻结的参考输出（Python 版移除前生成）+ manifest.json
 ```
 
 无框架、无构建、无 CDN，全部是原生 ES 模块。
@@ -238,25 +250,20 @@ web/
 ## 测试
 
 ```bash
-# Python 侧：跑 Node 核心并与 Python 输出逐像素对比（含浏览器自检）
-python3 -m pytest tests/test_web_port.py -q
-
-# 只跑 Node 核心（需要先准备一个工作目录，见测试代码）
-node web/tests/run.mjs /tmp/workdir
+npm test                            # 全部：核心逐像素 + 浏览器端到端 + 站点 + 文档（143 项）
+python3 -m pytest tests -q          # 只有图集打包器的 19 项（它仍是 Python）
 
 # 浏览器自检：起个静态服务器后打开 web/tests/smoke.html
 python3 -m http.server 8000 --directory web
 ```
 
-`tests/test_web_port.py` 会：
+`tests/node/core.test.mjs` 会用 Node 跑一遍 JS 核心，把头部 / 腿部 / 手臂 / 旧版身体 /
+复合身体 / 发光版本 / 20 帧组合 / 玩家与叠加玩家 / 反推模板 / 成品贴图合成，全部与
+`web/tests/golden/` 里的参考图**逐像素**比较 —— 那些图是 Python 参考实现移除前冻结的，
+所以「只剩一个实现」并没有丢掉安全网。
 
-* 用 Node 跑一遍 JS 核心，把头部 / 腿部 / 手臂 / 旧版身体 / 复合身体 / 发光版本 /
-  20 帧组合 / 反推模板全部与 Python 结果**逐像素**比较；
-* 用 PIL 解码 JS 生成的 PNG 与 GIF，逐帧比对；
-* 用 `zipfile` 校验 JS 生成的 ZIP（含 CRC 与子目录结构）；
-* 检查 `web/data/` 与 `tools/export_web.py` 的输出一致（防止数据过期）；
-* 检查前端引用的元素与文案键都存在、页面不请求任何外部地址；
-* 如果本机有 Chrome / Chromium，再用无头浏览器跑一次 `smoke.html` 与首页渲染。
+`tests/node/site.test.mjs` 另外检查：前端引用的元素与文案键都存在、页面不请求任何外部地址、
+Service Worker 的 `CORE` 清单完整、Manifest 合法，并在无头 Chrome 里跑完整交互。
 
 ---
 

@@ -1,7 +1,7 @@
 # ArmorHelper 2
 
 [原版 ArmorHelper](https://forums.terraria.org/index.php?threads/armorhelper-sprite-armor-sets-30x-times-faster.68744/)
-（Mirsario 作）的 Python 重写版，已适配 **泰拉瑞亚 1.4.4 及之后的版本**。
+（Mirsario 作）的重写版，**纯静态网页**，已适配 **泰拉瑞亚 1.4.4 及之后的版本**。
 
 这个工具把一张 128×80 的小模板（`ArmorTemplate_v1.png`）展开成整套盔甲所需的全部贴图，
 不用再把同一件盔甲按每一层画 20 遍。
@@ -11,216 +11,51 @@
 重写成 *composite* 体系，身体与双臂合并为一张 **9 × 4 网格**，旧输出不再可用。本重写版
 **保持模板格式与绘制流程完全不变**，只是产出新格式。
 
----
-
-## 版本状态：Python 版已冻结，之后只做 Web 版
-
-| 形态 | 状态 |
-|---|---|
-| Web 版（[`web/`](web/README.md)） | **活跃开发**。新功能、界面调整、兼容性修复都只加在这里 |
-| Python 命令行 / 桌面界面 | **已冻结（2.0.0）**。保留为参考实现与等价性基准，不再新增功能，也不主动做平台适配 |
-
-冻结的含义：Python 侧的输出是 Web 版的**验收基准**（`tests/test_web_port.py` 会把 JS 核心
-与 Python 逐像素比对），所以它的行为不能变。除修正正确性缺陷外不接受改动；万一要改，
-必须同时改 `web/js/` 并让两侧测试一起通过。新需求请只写进
-[`docs/Web版需求文档.md`](docs/Web版需求文档.md)。
-
-下面「安装 / 快速开始 / 命令行 / 桌面界面」各节继续有效（工具仍然能跑），只是不再演进。
+> **只有一个实现：`web/`。** 2.0 时代还有一个 Python 包（命令行 + wxPython 桌面界面）作为
+> 参考实现，2026-11 起已移除；它当时的输出被冻结成
+> [`web/tests/golden/`](web/tests/golden/) 里的图片，网页版的像素仍被钉在那些数字上。
+> 历史版本在 git 里，`v1/` 目录保留原版工具的压缩包与模板。
 
 ---
-
-## 安装
-
-```bash
-pip install pillow            # 生成贴图只需要它
-pip install wxPython          # 只有桌面界面需要
-pip install -e .              # 可选，安装 armorhelper / armorhelper-gui 命令
-```
-
-不安装也能直接用：
-
-```bash
-python3 -m armorhelper --help
-```
 
 ## 快速开始
 
-```bash
-# 1. 导出一张绘制模板，用 Aseprite / Piskel 等随便改
-python3 -m armorhelper template -o MyArmor.png
-
-# 2. 生成贴图（文件名：MyArmor_Head.png / MyArmor_Legs.png / MyArmor_Body.png）
-python3 -m armorhelper -i MyArmor.png -o out/
-
-# 3. 或者直接按原版文件名输出，丢进游戏资源目录
-python3 -m armorhelper -i MyArmor.png -o "Terraria/Content/Images" \
-    --id-head 189 --id-body 190 --id-legs 130
-#   -> Content/Images/Armor_Head_189.png
-#      Content/Images/Armor_Legs_130.png
-#      Content/Images/Armor/Armor_190.png
-
-# 4. 预览图与 GIF
-python3 -m armorhelper -i MyArmor.png -o out/ --targets all \
-    --images "Terraria/Content/Images"
-```
-
-## 从成品贴图生成全身 GIF
-
-有时候三张成品贴图已经在手上了（原版、材质包、别人的作品），只想看看动画效果。
-`gif` 子命令**直接按引擎的采样方式**合成 20 帧，不经过 128×80 模板：
-
-```bash
-# 三个文件顺序随意，角色按文件名自动识别（Head / Legs / Armor）
-python3 -m armorhelper gif -i Armor_Head_52.png Armor_32.png Armor_Legs_31.png -o out/
-#   -> out/Armor_32_FullArmor.png             40×1120（20 帧竖排）
-#      out/Armor_32_FullArmor.gif             GIF 动画
-#      out/Armor_32_FullArmorFemale.png/.gif  女性版本
-
-# 也可以直接指向一个目录（只挑名字像盔甲贴图的文件）
-python3 -m armorhelper gif -i "材质包/爱神木/01" -o out/
-
-# 文件名看不出部位时显式指定
-python3 -m armorhelper gif --head a.png --body b.png --legs c.png -o out/
-
-# 有已解包的 Content/Images 时，额外输出「叠上玩家」的 GIF
-python3 -m armorhelper gif -i ... -o out/ --images "Terraria/Content/Images"
-```
-
-* 绘制顺序与游戏一致：腿 → 后肩 → 后臂 → 躯干 → 前肩 → 前臂 → 头。
-  原版贴图的肩部格也会参与合成，所以拿起任何材质包都能还原引擎里的样子。
-* 1× 素材会自动放大到 2×（游戏原生尺度）；带发光遮罩的身体贴图（360×448）只用第 0~3 行。
-* 比「反推模板再生成」更准确：反推对头部无损，但腿只有 90~100%、身体只有 90~97%
-  （前后脚互相遮挡、4 个行走手臂姿态被合并）。这里直接读贴图，因此是游戏实际画面。
-* 行走帧 7~10 等本来就共用同一格手臂素材（引擎就是这样采样的），所以这几帧手臂形状一致。
-
-桌面界面右侧多了一个「全身预览 → 从三张贴图生成 GIF...」按钮，效果相同。
-
-## 反向还原：由原版盔甲反推出模板
-
-有时候需要的方向相反 —— 拿原版盔甲当底稿来改。因为生成过程是「纯像素拷贝 + 末尾 2 倍最近邻
-放大」，每一步都可逆：
-
-```bash
-# 身体 ID 190 对应哪套？头/腿的 ID 是多少？
-python3 -m armorhelper sets --search stardust
-#   星尘板甲  StardustPlate (body 190, head 189, legs 130)  [name]
-python3 -m armorhelper sets --search 星尘        # 中文也能搜
-
-# 还原出绘制模板（头/腿 ID 自动查表）
-python3 -m armorhelper reverse --images "Terraria/Content/Images" --body 190 -o Stardust.png
-
-# 也可以手动指定三个 ID
-python3 -m armorhelper reverse --images "..." --body 190 --head 189 --legs 130 -o out.png
-
-# 一次还原全部套装，输出到 <输出目录>/ArmorTemplate/
-python3 -m armorhelper reverse --images "..." --all -o templates/
-#   templates/ArmorTemplate/星尘板甲_190.png ……（151 套约 0.4 秒）
-```
-
-桌面界面的「反向还原」分组里有两个按钮：
-
-* **从原版 ID 还原模板...** —— 可搜索的套装列表，还原结果写入**输出目录**（和贴图同一个目录）。
-* **还原全部套装...** —— 把贴图齐全的套装全部还原到 **`<输出目录>/ArmorTemplate/`**，
-  带进度显示，结束后询问是否打开目录。
-
-输出目录为空时会先弹出目录选择框，选完立即回填并记住。列表条目形如
-`星尘板甲  StardustPlate  (190)`，搜索框支持中文名、英文名与任意 ID。
-
-还原精度：
-
-| 部位 | 往返一致率 | 说明 |
-|---|---|---|
-| 头部 | 100% | 无损 |
-| 腿部 | 90~100% | 前后脚贴图在同一帧里互相遮挡，后脚的少数像素不可观测 |
-| 身体（按引擎渲染后的画面比较） | 90~97% | 模板只有 1 个行走手臂姿态，原版 4 个不同姿态格会被合并 |
-
-依据：**748 个原版盔甲贴图全部是 1× 像素画的精确 2 倍最近邻放大**（实测 2×2 同色块比例
-100%），所以 128×80 的模板足以描述它们。
-
-套装表在 `armorhelper/data/armor_sets.json`。泰拉并没有把「套装」存成数据，因此
-`tools/build_armor_sets.py` 从游戏源码推导：
-
-* 有套装加成的盔甲直接取自 `ArmorSetBonuses.cs`（权威，标记 `set-bonus`）；
-* 其余按原版命名规则匹配（标记 `name` / `prefix`）；
-* 中文名取自胸甲那一件：解析 `Item.cs` 里的 `bodySlot = n;` 拿到物品 ID，再查
-  `Terraria.Localization.Content.zh-Hans.Items.json`（204 条中 202 条有中文名）。
-
-重新生成：
-
-```bash
-python3 tools/build_armor_sets.py /path/to/decompiled/Terraria
-```
-
-## 桌面界面
-
-```bash
-python3 -m armorhelper gui        # 或：armorhelper-gui
-```
-
-用 **wxPython** 实现，四个分组与原版一致（输入文件、输出目录、导出、选项），另加「详情」
-面板放新格式需要的东西（发光遮罩、玩家肤色、三个盔甲 ID、泰拉贴图目录）。
-
-* 文件可以直接拖进窗口，也可以点「选择...」。
-* 输入列表显示 `从未导出` / `上次导出于 N 秒前`，绿黄红三色，和原版一样。
-* 「选项」里覆盖上表全部 12 种产物，含 GIF。
-* 所有设置记在 `config.json`：勾选项、ID、发光、肤色、**输入文件列表、窗口位置尺寸、
-  列宽、界面语言、对话框起始目录、每个文件上次导出时间** —— 下次打开就是关掉时的样子。
-  原版 v1 的 `config.json` 也能读。
-* 首次启动会自动探测游戏的 `Content/Images` 目录。
-* 「视图 → 界面语言」可切换中文 / English，切换后会被记住。
-* 导出在后台线程执行，界面不卡。
-* 「反向还原」分组可由盔甲 ID 反推模板。
-
-## 网页版
-
-[`web/`](web/README.md) 是一个**完全独立的纯静态站点** —— 不需要 Python、不需要服务端、
-没有构建步骤，可以直接发布到 **GitHub Pages**。
-
-**这是项目的活跃开发目标**（Python 侧已冻结，只做参考实现与等价性基准）：新功能、界面改动、
-浏览器兼容都只在这里落地。
+浏览器不允许 `file://` 下加载 ES 模块，用一个静态服务器打开即可（Python 自带就够）：
 
 ```bash
 python3 -m http.server 8000 --directory web
 # 然后打开 http://127.0.0.1:8000/
 ```
 
-全部处理都在浏览器里完成：生成贴图、合成 20 帧预览、编码 PNG / GIF / ZIP。JS 核心是本包的
-移植版，并有**逐像素等价性测试**（`tests/test_web_port.py` 用 Node 跑 JS 核心，与 Python
-输出逐像素比对：各类贴图、20 帧组合、反推模板、PNG、GIF 全部 52 帧、ZIP）。
+部署到 **GitHub Pages**：Settings → Pages → Source 选 **GitHub Actions**，推一次 `main`；
+`.github/workflows/pages.yml` 会跑测试并发布 `web/`。
 
-* 拖放 128×80 模板，勾选要导出的内容，得到预览 + 下载 + 打包 zip。
-  左列一张卡片装「输入文件 + 导出选项 + 预览选项 + 开始导出」，下面接「最近导出」，
-  右列是占一半页宽的导出结果；鼠标停在「下载绘制模板」上会弹出这 128×80 图的 4× 预览。
-* 可搜索的套装列表（中文名 / 英文名 / ID）与「还原全部套装」；批量任务显示 `12/151`
-  进度并可随时取消。
-* **预览贴图** 标签页：头部 / 身体 / 腿部**各一个上传格子**，拖进去就得到男 / 女两张
-  20 帧 PNG 与两个 GIF，可选叠加玩家；GIF 速率（快 100ms / 中 500ms / 慢 1000ms）
-  与尺寸（1× / 2× / 4×）可调。不需要 128×80 模板。
-* 「生成材质包」把这三张贴图打包成游戏能直接读的 `<名称>-pack-pc.zip`
-  （`pack.json` + `Content/Images/…`），丢进 `Terraria/ResourcePacks/` 就生效。
-* **内置玩家贴图**（`data/player/`，约 4 KB）：勾「叠加玩家」就能看到「玩家 + 盔甲」，
-  手机上也能用，不必先准备 `Content/Images`。
-* Service Worker 离线缓存 + Web App Manifest：打开一次后断网也能用，还能「安装」成独立窗口。
-* **内置 748 张原版盔甲贴图（Terraria 1.4.5.7，约 1.6 MB）**，手机上不用准备任何文件
-  就能还原任意一套盔甲。
-* Chrome / Edge 上可以直接读取你的 `Content/Images` 文件夹，并把贴图写回游戏资源目录
-  （File System Access API）；其它浏览器降级为下载 / zip / 手动上传贴图。
-* 默认中文，右上角可切英文。
-* 可选的**参考线叠加层**（`data/ArmorTemplate_overlay.png`，128×80）会叠在模板*预览*与
-  下载的绘制模板上，**不会**进入生成的贴图。
+---
 
-部署：推到 GitHub 后，**Settings → Pages → Source** 选 **GitHub Actions**。
-`.github/workflows/pages.yml` 会重新导出 `web/data/`、检查提交的数据没过期、跑等价性测试，
-然后发布 `web/`。
+## 功能
 
-两个版本刻意分开：运行时不共享代码，只共享 `tools/export_web.py` 导出的数据。
+| 标签页 | 做什么 |
+|---|---|
+| **导出贴图** | 拖入 128×80 模板（可多选），勾选 12 项产物，得到预览 + 下载 + 打包 zip + 写入输出目录。左侧是「输入文件（含导出选项）+ 最近导出」，右侧是占一半页宽的导出结果；鼠标停在「下载绘制模板」上会弹出这 128×80 模板的 4× 预览 |
+| **预览贴图** | 头部 / 身体 / 腿部**各一个槽位**，直接拖入成品贴图 → 男 / 女 20 帧 PNG 与 GIF。GIF 速率（100 / 500 / 1000ms）与尺寸（1× / 2× / 4×）可调；「生成材质包」打成游戏可直接读的 `<名称>-pack-pc.zip` |
+| **反向还原** | 由原版盔甲贴图反推出 128×80 模板：可搜索套装列表（中文名 / 英文名 / ID），或一次还原全部套装（带 `i/n` 进度与取消） |
+| **设置** | 输出目录与 `Content/Images` 目录（Chromium 的 File System Access）、三个盔甲 ID、玩家肤色 0~9、发光遮罩、生成后自检、界面语言 |
 
-规格见 [`docs/Web版需求文档.md`](docs/Web版需求文档.md)，网页版自身说明见
-[`web/README.md`](web/README.md)。
+* **内置 748 张原版盔甲贴图**（WebP 图集，约 290 KB）与 3 张玩家贴图：手机上不用准备任何文件
+  就能还原任意一套盔甲、叠加玩家预览。
+* **离线可用**：Service Worker 预缓存启动文件，内置贴图按需缓存；还带 Manifest，可「安装」成独立窗口。
+* **零依赖**：无框架、无 npm 包、无 CDN、无构建步骤；PNG / GIF / ZIP 都是自己编码的。
+* 中英文界面；设置与导出历史存在 localStorage。
+
+详见 [`docs/Web版需求文档.md`](docs/Web版需求文档.md) 与 [`web/README.md`](web/README.md)。
+
+---
 
 ## 产物一览
 
-| `--targets` 名称 | 文件 | 尺寸 | 说明 |
+导出页的 12 个勾选项（早期版本叫 `--targets`）：
+
+| 名称 | 文件 | 尺寸 | 说明 |
 |---|---|---|---|
 | `head` | `<名称>_Head.png` / `Armor_Head_<id>.png` | 40×1120 | 20 帧，与 1.3 相同 |
 | `legs` | `<名称>_Legs.png` / `Armor_Legs_<id>.png` | 40×1120 | 20 帧，与 1.3 相同 |
@@ -228,25 +63,23 @@ python3 -m http.server 8000 --directory web
 | `legacy` | `*_BodyLegacy.png`、`*_ArmsLegacy.png` 等 | 40×1120 | 旧版 1.3 格式，兼容老模组 |
 | `full` | `<名称>_FullArmor.png` | 40×1120 | 20 帧叠合 |
 | `full-female` | `<名称>_FullArmorFemale.png` | 40×1120 | |
-| `full-player` | `<名称>_FullArmorPlayer.png` | 40×1120 | 需要 `--images` |
-| `full-player-female` | `<名称>_FullArmorPlayerFemale.png` | 40×1120 | 需要 `--images` |
-| `gif-full` | `<名称>_FullArmor.gif` | 40×56 | 动画预览 |
-| `gif-full-female` | `<名称>_FullArmorFemale.gif` | 40×56 | |
-| `gif-full-player` | `<名称>_FullArmorPlayer.gif` | 40×56 | 需要 `--images` |
-| `gif-full-player-female` | `<名称>_FullArmorPlayerFemale.gif` | 40×56 | 需要 `--images` |
+| `full-player` | `<名称>_FullArmorPlayer.png` | 40×1120 | 勾了「叠加玩家」 |
+| `full-player-female` | `<名称>_FullArmorPlayerFemale.png` | 40×1120 | |
+| `gif-full` | `<名称>_FullArmor.gif` | 40×56 帧 | 动画 |
+| `gif-full-female` | `<名称>_FullArmorFemale.gif` | 40×56 帧 | |
+| `gif-full-player` | `<名称>_FullArmorPlayer.gif` | 40×56 帧 | 勾了「叠加玩家」 |
+| `gif-full-player-female` | `<名称>_FullArmorPlayerFemale.gif` | 40×56 帧 | |
 
-`--targets` 默认是 `head,legs,body`；用 `all` 全出，`none` 跳过。加 `--glow` 会把身体贴图
-写成 360×448（第 4~7 行为发光遮罩）。
-
-`--images` 必须指向**已解包**（PNG，不是 `.xnb`）的 `Terraria/Content/Images` 目录，
-只用于给 `*player*` 预览画上玩家本体。
+默认勾选 `head,legs,body`。设置里勾「发光遮罩」会把身体贴图写成 360×448（第 4~7 行为发光层）。
+指定盔甲 ID 时按原版命名输出（`Armor_Head_<id>` / `Armor_Legs_<id>` / `Armor/Armor_<id>`），
+否则用输入文件名。
 
 ---
 
 ## 模板
 
-`armorhelper/data/ArmorTemplate_v1.png` 与原版 ArmorHelper v1 附带的模板逐字节相同，
-尺寸 128×80，区域划分：
+[`web/data/ArmorTemplate_v1.png`](web/data/ArmorTemplate_v1.png) 与原版 ArmorHelper v1 附带的
+模板逐字节相同，尺寸 128×80，区域划分：
 
 ```
       x:  1        23        44        66      83  100 110
@@ -264,8 +97,9 @@ python3 -m http.server 8000 --directory web
 * **手臂** —— 5 个前臂姿态对应身体帧 0~4，1 个「行走臂」配合逐帧偏移用于帧 6~19，另有 1 个后臂。
 * **腿** —— 10 块腿部素材 + 2 块脚部素材，由帧表映射到 20 帧。
 
-全部逐帧偏移表（`FRONT_ARM_OFFSETS`、`BACK_ARM_OFFSETS`、`BODY_HEAD_OFFSETS`、`LEG_MAPPING`）
-都原样照搬原版工具 —— 见 `armorhelper/layout.py` 与 `docs/armorhelper-v1.decompiled.cs`。
+全部逐帧偏移表（`frontArmOffsets`、`backArmOffsets`、`bodyHeadOffsets`、`legMapping`）都原样
+照搬原版工具，存在 [`web/data/layout.json`](web/data/layout.json)，由 `web/js/` 读取 ——
+网页版不再重新实现常量，只有这一份数据。
 
 ---
 
@@ -296,7 +130,7 @@ Content/Images/Armor/Armor_<id>.png   360 x 448   ……外加第 4~7 行的发�
 第 4~7 行只存在于发光盔甲上，是发光遮罩，引擎以 `+224 px` 偏移采样。
 
 「身体帧 → 格子」的映射取自泰拉 1.4.5 源码的 `PlayerDrawSet.CreateCompositeData`，
-存放在 `armorhelper/layout.py` 的 `FRONT_ARM_CELL` / `BACK_ARM_CELL`。
+存在 `web/data/layout.json` 的 `cells.frontArm` / `cells.backArm`。
 
 ### 模板是怎么映射到新网格的
 
@@ -309,52 +143,88 @@ Content/Images/Armor/Armor_<id>.png   360 x 448   ……外加第 4~7 行的发�
   身体上下起伏；泰拉现在自己施加这个起伏（`Main.OffsetsPlayerHeadgear`），所以只剩常量部分。
 * 第 7、8 列用第 0 帧的手臂填充，保证挥武器时手臂不消失。想要完美效果就自己画这 4 档姿态
   （引擎会绕身体中心旋转这张图）。
-* `--glow` 把第 0~3 行复制到第 4~7 行，得到「整件都发光」的底稿，再擦掉不该发光的部分即可。
+* 勾「发光遮罩」把第 0~3 行复制到第 4~7 行，得到「整件都发光」的底稿，再擦掉不该发光的部分即可。
 
 ### 参考资料
 
 * [`docs/贴图裁切说明.md`](docs/贴图裁切说明.md) —— `Armor_1.png`（9×4 共 36 格逐格标注）、
   `Armor_Head_1.png`、`Armor_Legs_1.png` 的裁切方法，含可直接使用的
   `crop(left, upper, right, lower)` 坐标与「帧号 → 格子」对照表。
-* [`docs/需求文档.md`](docs/需求文档.md) —— Python 版的完整规格。
-* [`docs/Web版需求文档.md`](docs/Web版需求文档.md) —— 网页版的规格。
-* [`docs/Web版UI线框图.md`](docs/Web版UI线框图.md) —— 网页版各标签页的 ASCII 线框图、
-  两栏比例与响应式断点（880 / 700）。
+* [`docs/Web版需求文档.md`](docs/Web版需求文档.md) —— 网页版的规格与验收标准。
+* [`docs/需求文档.md`](docs/需求文档.md) —— 核心行为与算法的完整规格（含已移除的 Python
+  命令行 / 桌面界面章节，作历史参照）。
+* [`docs/Web版UI线框图.md`](docs/Web版UI线框图.md) —— 各标签页的 ASCII 线框图、两栏比例与
+  响应式断点。
 * [`web/README.md`](web/README.md) —— 网页版自身说明（会发布到 GitHub Pages）。
 * [`PROJECT_STATUS.md`](PROJECT_STATUS.md) —— 项目交接文档：技术决策、已知问题、下一步顺序。
 * [`v1/`](v1/) —— 原版工具的压缩包、模板与论坛链接，作为溯源参考。
 
-`tools/inspect_armor.py` 会按引擎算法渲染任意 1.4.4+ 身体贴图，方便和原版对照：
+---
+
+## 目录结构与工具
+
+```
+web/                  纯静态站点（发布的就是这个目录）
+  index.html app.js style.css sw.js manifest.webmanifest
+  js/                 核心：bitmap data generate compose reverse sheets atlas png gif zip fs idb
+  data/               layout.json armor_sets.json i18n.json 模板 / 参考线 / 图标
+                      vanilla/（748 张贴图的 WebP 图集）player/（玩家贴图）
+  tests/              run.mjs（Node 自检）smoke.html（浏览器自检）golden/（冻结的参考图）
+tools/                仍然用 Python 写的开发/打包脚本
+tests/                pytest：core（金标准）· port（数据/界面/浏览器）· bundle · docs
+```
+
+| 工具 | 用途 |
+|---|---|
+| `tools/pack_vanilla_textures.py` | 把已解包的 `Content/Images` 打包成 `web/data/vanilla` 的 WebP 图集（1× 存储、按部位分页、每页 ≤ 2048px） |
+| `tools/build_armor_sets.mjs` | 由游戏源码（`ArmorSetBonuses.cs` 等）生成 `web/data/armor_sets.json` |
+| `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/` |
+| `tools/inspect_armor.mjs` | 按引擎算法渲染任意 1.4.4+ 身体贴图，方便与原版对照 |
 
 ```bash
-python3 tools/inspect_armor.py "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
+node tools/build_armor_sets.mjs "/path/to/tr-code-1458"
+node tools/import_player_textures.mjs "/path/to/Content/Images" --version 1.4.5.8
+node tools/inspect_armor.mjs "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
 ```
+
+> `tools/` 里只剩**图集打包**还是 Python（`pack_vanilla_textures.py`）：无损 WebP 编码需要
+> libwebp，换到 Node 就得引入 wasm 依赖，而改成 PNG 图集会让首屏从 297 KB 涨到 2.3 MB
+> （实测 8.6×）—— 所以暂时保留这一个脚本，它只在游戏更新时跑一次。其余工具与测试全部
+> 是 Node。
 
 ---
 
 ## 旧格式输出的保真度
 
-`generate_head`、`generate_legs`、`generate_arms`、`generate_body_legacy` 是 ArmorHelper v1 的
-逐行移植，连历史怪癖都保留了（被裁剪的后臂、两个被忽略的模板像素、不跟随 bob 的 1 像素补点）。
-`tests/reference.py` 是原版 C# `GenerateSheets` 的独立直译，`tests/test_generate.py` 断言移植版
-产出**逐像素一致**的贴图 —— 也就是说 `--targets legacy` 的输出与 2018 年那版工具完全一样。
+`legacy` 目标（`*_BodyLegacy.png` / `*_ArmsLegacy.png` 等）是 ArmorHelper v1 的逐行移植，
+连历史怪癖都保留了（被裁剪的后臂、两个被忽略的模板像素、不跟随 bob 的 1 像素补点）。
+这些输出与 2018 年那版工具**逐像素一致**，并且现在由
+[`web/tests/golden/`](web/tests/golden/) 里冻结的参考图守着（见下）。
 
-## 开发
+## 开发与测试
 
 ```bash
-python3 -m pytest tests -q                      # 全部测试（约 4 秒）
-python3 -m pyflakes armorhelper tests tools      # 静态检查
-python3 tools/export_web.py                      # 改了 Python 侧常量后，重新导出 Web 数据
+npm test                    # 全部 143 项：文档 + 站点 + 核心逐像素 + 无头 Chrome 端到端
+npm start                   # 静态服务器：http://127.0.0.1:8000/
+
+# 只有图集打包（tools/pack_vanilla_textures.py）还是 Python，它的用例也是
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest tests -q  # 19 项
 ```
 
-改了 `armorhelper/` 下的常量或文案，务必跑一次 `tools/export_web.py`，否则
-`tests/test_web_port.py::test_exported_data_is_up_to_date` 会失败。
+| 文件 | 覆盖 |
+|---|---|
+| `tests/node/core.test.mjs` | 114 项：`web/js/` 核心 vs `web/tests/golden/` 的冻结参考图，逐像素 |
+| `tests/node/harness.test.mjs` | 5 项：贴图查找、部位识别、图集读取、zip 结构、拼版 PNG |
+| `tests/node/browser.test.mjs` | 3 项：真 Chrome 里跑完整交互（拖放、导出、预览贴图、材质包、取消、还原全部、切语言） |
+| `tests/node/docs.test.mjs` | 10 项：裁切表 ↔ `layout.json`、文档链接、用词、README 语言、文案无死条目 |
+| `tests/node/site.test.mjs` | 11 项：数据、HTML↔JS 接线、SW 的 `CORE` 清单、Manifest、图标、图集包、Pages 工作流 |
+| `tests/test_vanilla_bundle.py` | 19 项：WebP 图集的自洽性与可重建性（跟着打包器留在 Python） |
 
 ## 致谢
 
 * 原版工具、模板美术与工作流：**Mirsario**。
 * 新复合贴图布局的考证：泰拉瑞亚 1.4.5 源码与原版贴图集。
-* 本重写版：同一套工具的 Python / 网页双实现。
 
 ## 许可
 

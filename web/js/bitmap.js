@@ -2,9 +2,10 @@
  * RGBA bitmap helpers.
  *
  * A bitmap is `{ width, height, data: Uint8ClampedArray }` with 4 bytes per
- * pixel.  The operations mirror `armorhelper/imaging.py` exactly, including the
+ * pixel.  The operations mirror the v1 semantics exactly (the frozen images in
+ * `web/tests/golden/` are the reference), including the
  * "skip pixels with alpha <= 1" and "replace, do not blend" rules, so the
- * JavaScript output matches the Python output pixel for pixel.
+ * output matches the reference images in `web/tests/golden/` pixel for pixel.
  */
 
 export function createBitmap(width, height) {
@@ -143,13 +144,20 @@ export function stackFrames(frames, scale = 1) {
   return out;
 }
 
-/** Multiply the RGB of every pixel by `[r, g, b]` in 0..1 (keeps alpha). */
+/**
+ * Multiply the RGB of every pixel by `[r, g, b]` in 0..1 (keeps alpha).
+ *
+ * The result is **truncated**, not rounded: that is what the reference
+ * implementation did (`int(value * factor)`), and the frozen images in
+ * `web/tests/golden/` carry those exact values.  Writing the float straight
+ * into the Uint8ClampedArray would round instead and drift by 1/255.
+ */
 export function multiplyColor(bitmap, factor) {
   const out = cloneBitmap(bitmap);
   for (let i = 0; i < out.data.length; i += 4) {
-    out.data[i] = out.data[i] * factor[0];
-    out.data[i + 1] = out.data[i + 1] * factor[1];
-    out.data[i + 2] = out.data[i + 2] * factor[2];
+    out.data[i] = Math.trunc(out.data[i] * factor[0]);
+    out.data[i + 1] = Math.trunc(out.data[i + 1] * factor[1]);
+    out.data[i + 2] = Math.trunc(out.data[i + 2] * factor[2]);
   }
   return out;
 }

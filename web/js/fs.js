@@ -53,20 +53,6 @@ function makeCanvas(width, height) {
   return canvas;
 }
 
-/** Render a bitmap into a canvas so it can be shown in the page. */
-export function bitmapToCanvas(bitmap) {
-  const canvas = makeCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext("2d");
-  const image = context.createImageData(bitmap.width, bitmap.height);
-  image.data.set(bitmap.data);
-  context.putImageData(image, 0, 0);
-  if (canvas.convertToBlob) {
-    // OffscreenCanvas cannot be inserted into the DOM, so hand back a data URL.
-    return canvas;
-  }
-  return canvas;
-}
-
 export function bitmapToDataURL(bitmap) {
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;
@@ -113,15 +99,6 @@ export async function readFromFolder(root, path) {
   return file.getFile();
 }
 
-export async function existsInFolder(root, path) {
-  try {
-    await readFromFolder(root, path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Write `blob` to `path` inside `root`, creating sub folders as needed. */
 export async function writeToFolder(root, path, blob) {
   const parts = path.split("/").filter(Boolean);
@@ -133,26 +110,6 @@ export async function writeToFolder(root, path, blob) {
   const writable = await file.createWritable();
   await writable.write(blob);
   await writable.close();
-}
-
-/* ------------------------------------------------------------ storage ---- */
-
-export function loadJSON(key, fallback = null) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-export function saveJSON(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export { createBitmap };
