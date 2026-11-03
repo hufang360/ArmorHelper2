@@ -74,7 +74,7 @@
 
 ### 3.1 架构
 
-```
+```text
 ┌──────────────────────── 浏览器（唯一运行环境）────────────────────────┐
 │  index.html + style.css + app.js                                      │
 │    ├─ 文件拖放 / 选择（FileReader、createImageBitmap）                 │
@@ -113,11 +113,17 @@
 | 单页不超过 2048×2048 | 浏览器解码上限（iOS Safari 还限总面积），超了直接画不出来；由打包脚本拒绝、`index.json` 与 `version.txt` 记录、`atlas.js` 加载时再校验，测试守住 |
 | 预览贴图用三个槽位而不是自动识别 | 用户直接指定部位，识别只作为「一次拖入多个文件」时的便利，错了随时可换 |
 | GIF 速率/尺寸只改播放参数 | 帧像素不变，金标准断言不受影响 |
+| 结果卡片存 i18n key，渲染时才翻译 | 卡片不能在生成那一刻把译文冻死，否则切语言后已经画出来的卡片停在旧语言（这个 bug 真出现过）；`state.results` 统一重绘 |
+| 长任务逐项检查 + `nextFrame()`，不用 AbortController | 中途硬断 fetch 会留下不一致的结果；逐项检查更简单，也更好测；取消后已完成的结果仍可用 |
+| 参考线是独立叠加层，生成器只读原始模板 | 但随包模板本身已含参考线（overlay 的 4395 个像素与模板逐像素相同），所以现在叠加是**空操作**；用「只有美术的模板」验证过整条路径 |
+| 材质包照游戏的 `ResourcePacks` 结构打包 | 结构与自带的 `01-pack-pc.zip` 一致；zip 名用 ASCII 的 `Armor_<id>-pack-pc.zip`（游戏按 `*-pack-pc.zip` 扫描），`pack.json` 的 `Name` 用中文名（资源包列表里显示的就是它） |
+| 玩家贴图内置（`data/player/`） | 手机没有目录 API，不内置就永远勾不出「叠加玩家」；用户选了 `Content/Images` 时优先用用户的 |
+| 图集打包用 wasm 版 libwebp（devDependency） | 图集必须无损，Node 没有内置 WebP 编码；站点本身仍然零依赖（体积对照见附录 A） |
 
-### 3.3 目录结构
+### 3.3 目录结构与工具
 
-```
-web/
+```text
+web/                  纯静态站点（发布的就是这个目录）
   index.html  style.css  app.js  sw.js  manifest.webmanifest
   package.json  .nojekyll  README.md
   js/     bitmap data generate compose reverse sheets atlas png gif zip fs idb
@@ -128,13 +134,34 @@ web/
           player/（内置玩家贴图 Player_0_3 / 0_7 / 0_10 + version.txt）
   tests/  run.mjs（Node 自检）  smoke.html（浏览器自检）
           golden/（冻结的参考输出 + manifest.json）
+tools/                打包 / 开发脚本，全是 .mjs，与站点同一套 Node 工具链
+tests/node/           npm test：core · harness · browser · bundle · docs · site · subpath
 ```
+
+| 工具 | 用途 |
+|---|---|
+| `npm run pack` → `tools/pack_vanilla_textures.mjs` | 把已解包的 `Content/Images` 打包成 `web/data/vanilla` 的 WebP 图集（1× 存储、按部位分页、每页 ≤ 2048px） |
+| `npm run sets` → `tools/build_armor_sets.mjs` | 由游戏源码（`ArmorSetBonuses.cs` 等）生成 `web/data/armor_sets.json` |
+| `npm run players` → `tools/import_player_textures.mjs` | 把 `Player_0_3 / 0_7 / 0_10.png` 复制进 `web/data/player/` |
+| `npm run inspect` → `tools/inspect_armor.mjs` | 按引擎规则渲染任意 1.4.4+ 身体贴图，方便与原版对照 |
+| `npm start` → `tools/serve.mjs` | 静态服务器（`http://127.0.0.1:8000/`） |
+
+```bash
+npm ci                                              # 只装图集打包要用的 wasm 编解码器
+npm run pack -- "/path/to/Content/Images" --version 1.4.5.8
+npm run sets -- "/path/to/tr-code-1458"
+npm run players -- "/path/to/Content/Images" --version 1.4.5.8
+npm run inspect -- "Terraria/Content/Images/Armor/Armor_1.png" --frames 0,5
+```
+
+`@jsquash/webp`（libwebp 的 wasm 版）只是 **devDependency**：图集必须无损编码，Node 自带不了。
+发布出去的站点仍然零依赖，由浏览器原生解码 WebP。体积对照见附录 A.1。
 
 ### 3.4 内置贴图的打包格式
 
 `web/data/vanilla/` 只放打包后的产物，源文件（748 张 PNG）不进仓库：
 
-```
+```text
 web/data/vanilla/
   version.txt      元数据：版本 / 张数 / 分类张数 / 页数 / 单页上限 / 总字节 / checksum
   index.json       pages（每页文件名与尺寸）+ sheets（每张图在页里的矩形）+ strays（例外像素）
@@ -239,7 +266,7 @@ npm start        # 仓库自带的 node tools/serve.mjs（或任意静态服务�
 
 ### 6.1 布局
 
-```
+```text
 ┌ ArmorHelper · 泰拉盔甲贴图工具 · 网页版 ─── [导出贴图][预览贴图][反向还原][设置] [中文▾] ┐
 │ ┌─ 输入文件 ───────────────────────┐  ┌─ 导出结果（一半页宽）──────────────────┐  │
 │ │ ┌──────────────────────────────┐ │  │ 铜盔甲                                │  │
@@ -261,7 +288,7 @@ npm start        # 仓库自带的 node tools/serve.mjs（或任意静态服务�
 
 「预览贴图」页把左侧换成三个槽位（头部 / 身体 / 腿部），右侧仍是结果区：
 
-```
+```text
 ┌─ 三张成品贴图 → 全身预览 ───────────────────┐ ┌─ 导出结果 ──────────────────┐
 │ 头部（Armor_Head_ · 40×1120px）   [移除]     │ │ 全身盔甲（男）/（女）GIF     │
 │ ┌──── 缩略图 + 文件名 尺寸 ────┐             │ │ 20 帧拼版                   │
@@ -351,6 +378,9 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | 部署 | 本机 | GitHub Pages / 任意静态托管 |
 | 现状 | **已移除**（git 历史 + `web/tests/golden/` 保留其行为） | 唯一实现 |
 
+2.0 的命令行与桌面界面规格（界面线框、UI-01~21、`config.json`、非功能需求、
+Python 时代的验收表）在 [`历史-2.0.md`](历史-2.0.md)。
+
 功能上 Web 版已经覆盖它：12 个导出目标（含 `gif-full*`）、模板生成、反向还原（单套 /
 全部）、成品贴图 → 全身帧与 GIF、玩家肤色 0~9、发光遮罩、生成后自检、中英文；
 另外多了材质包导出、导出历史、离线缓存、进度与取消。
@@ -393,19 +423,115 @@ CI 会重新生成并比对，**数据过期会导致构建失败**。
 | WC-30 | 模板 popover 显示 4× 模板 | ``browser.test.mjs`` |
 | WC-31 | 文案只有一份，且没有死条目 | ``docs.test.mjs``（`web/data/i18n.json`） |
 | WC-32 | 资源包 zip 的条目名、`pack.json` 与三张 PNG 与游戏一致 | ``browser.test.mjs``（浏览器点「生成材质包」→ 用 `zipfile` 解开，逐项比对文件名、`pack.json` 字段，并把三张 PNG 与冻结的参考图逐像素比较） |
-| WC-33 | 打包图集：页内矩形与张数自洽、重建像素与记录的 checksum 一致、单页 ≤ 2048×2048（脚本拒绝超限、`maxPage` 记录、`validateIndex` 校验） | `test_vanilla_bundle.py` 18 项（含 `test_every_page_fits_the_2048_cap`、`test_the_pages_reproduce_the_recorded_content_checksum`、`test_the_javascript_reader_knows_the_same_cap`）、`harness.test.mjs`（图集读取） |
+| WC-33 | 打包图集：页内矩形与张数自洽、重建像素与记录的 checksum 一致、单页 ≤ 2048×2048（脚本拒绝超限、`maxPage` 记录、`validateIndex` 校验） | `bundle.test.mjs` 19 项（含 `every page fits the 2048 cap`、`the pages reproduce the recorded content checksum`、`the JavaScript reader knows the same cap`）、`harness.test.mjs`（图集读取） |
 
 ---
 
-## 11. 已知限制与后续可做
+## 11. 已知限制
 
 | 编号 | 内容 |
 |---|---|
-| WL-01 | 文件夹读写仅 Chromium 支持，其它浏览器用下载 / zip |
-| WL-02 | 浏览器拿不到本机路径，无法自动定位游戏目录，需要用户选一次 |
+| WL-01 | 文件夹读写仅 Chromium 支持，其它浏览器用下载 / zip / 手动上传贴图；**还原**仍可用内置贴图 |
+| WL-02 | 浏览器拿不到本机路径，无法自动定位游戏目录，需要用户自己选一次（不选也能用内置贴图还原） |
 | WL-03 | 不支持 `.xnb`，需要已解包的 PNG 资源目录 |
 | WL-04 | 全部在内存处理，一次几百套盔甲可能吃紧 |
-| WL-05 | 没有 Service Worker，刷新后需要重新联网加载（可加 PWA） |
+| WL-05 | `file://` 不能直接用：ES 模块受 CORS 限制，必须经静态服务器打开 |
+| WL-06 | Service Worker 需要 HTTPS / localhost；`file://` 下没有离线缓存（功能本身可用） |
+| WL-07 | 改了 `web/` 的文件却不升 `sw.js` 的 `VERSION`，已安装的旧缓存会继续命中 |
+| WL-08 | 文件夹授权刷新后被浏览器收回，每次操作要再要一次（句柄本身存在 IndexedDB） |
+| WL-09 | 内置玩家贴图只有原版默认肤色；用材质包或自改皮肤时请在设置里选 `Content/Images` |
+| WL-10 | `event.waitUntil()` 只能在事件派发期间调用：放进 `respondWith` 的 `.then()` 会抛 `InvalidStateError` 并让这次 fetch 直接失败，后台缓存必须用普通浮动 promise |
 
-后续可做：Service Worker 离线缓存、还原时允许直接上传整套贴图、
-导出历史记录、把 GIF 帧率/尺寸做成可调。
+### 11.1 未验证
+
+* **非 Chromium 浏览器**（Firefox / Safari）的降级路径与 Service Worker 注册未实测。
+* **离线只有静态断言**（`CORE` 清单 + Manifest + 注册代码），没有真的断网重载过。
+* 套装表的中文名来自游戏源码的 `zh-Hans` 本地化，游戏版本升级后需要重新生成。
+
+### 11.2 后续可做
+
+| 优先级 | 内容 | 说明 |
+|---|---|---|
+| P1 | 非 Chromium 实测、离线自动化 | 用 Chrome 的 `Network.emulateNetworkConditions` 断网后重载，断言页面仍能启动 |
+| P2 | 套装表补全 | 204 条里 53 条缺头或缺腿（13 条置信度 `none`）；值得加一张人工覆盖表，免得每次重新生成又被覆盖 |
+| P2 | 「预览贴图」一键用内置原版贴图 | 现在只能自己上传三张图 |
+| P2 | 导出历史可点击回填 | 现在只记时间 / 名称 / 文件数 / 缩略图，不能重新下载 |
+| P3 | 导出页也放 GIF 速率/尺寸 | 目前只有「预览贴图」页有控件（设置全局生效） |
+| P3 | 模板扩展（行走手臂 / 肩部各占区域） | 能明显提升反向还原保真度，但模板没有空闲像素、必须重画，金标准也要整批重做 —— 见 [`需求文档.md`](需求文档.md) §5.1 |
+| P3 | `.xnb` 解码、发光层图形化编辑 | 工作量都在解析器 / 编辑器上 |
+
+---
+
+## 附录 A：取舍与实测
+
+### A.1 内置图集的几种做法
+
+| 做法 | 实测 | 结论 |
+|---|---|---|
+| 只裁掉空白（2× PNG） | 1.680 MB → 1.061 MB（−37%） | 有用但不是大头；WebP 下只有 −3%，空白本来就几乎免费 |
+| 换 WebP lossless（2× 散图） | 1.680 MB → 0.329 MB | 单这一项就是 −80%，**采用** |
+| 存 1× 再运行时放大 | 0.329 MB → 0.270 MB；像素 41.7M → 10.4M | **采用**，前提是 3.4 的「确实是精确 2× 放大」 |
+| 按套装打包（1× WebP） | 106 页 0.279 MB，且覆盖不全（204 套只引用 530 张，218 张不属于任何套装） | **否决**；按部位打包 17 页 267 KB + 索引 30 KB |
+
+首屏体积（同一页面、同一批图）：无损 WebP 图集 **297 KB**、PNG 图集 2 298 KB（**8.6×**）、
+748 张散图 1 150 KB（748 个请求）。这就是 `@jsquash/webp` 只作 devDependency 的唯一理由。
+
+### A.2 被否决的方案
+
+| 方案 | 为什么否决 |
+|---|---|
+| 服务端式 Web 版（Python `http.server` + 一组 JSON 接口） | GitHub Pages 只能托管静态文件，部署不了；代码留在 git 历史里 |
+| 2× 模板（256×160） | 不需要：原版贴图都是 1× 的精确 2× 放大，1× 模板已能无损往返 |
+| 无头浏览器测试用 `--virtual-time-budget` + `--dump-dom` | 虚拟时间跑在真实异步之前，约一半概率在页面完成前 dump，且不随预算增大而改善；改为页面 `POST /__done` 回报结果 |
+| 无头测试服务器沿用默认的 HTTP/1.0 | 每次请求都关连接，Chrome 同时拉十几个模块时约 1/4 概率卡满 40 秒；改 HTTP/1.1 长连接后稳定 |
+| 把 `web/` 放进 Python 包（`armorhelper/web/`） | 静态站点不该和 Python 包混在一起；现在还有测试禁止 `web/` 里出现 `.py` |
+
+### A.3 测试栈
+
+`node --test` 内置、零依赖。浏览器用例用 `node:http` 起静态服务器 + `child_process` 拉
+Chrome，靠页面 `POST /__done` 回报结果，而不是 sleep 等。为此自带两个解码器：
+`tools/lib/png.mjs`（`node:zlib` + 五种滤波）与 `tests/node/lib/gif.mjs`（GIF89a + LZW）——
+「与冻结参考图逐像素比对」因此不再需要 Pillow，`tools/inspect_armor.mjs` 也能直接读 PNG。
+
+### A.4 已修但容易回归的坑
+
+每条都修过一次以上，或只在一个选项下才触发。改代码前读一遍。
+
+| 坑 | 现象与现状 |
+|---|---|
+| 浏览器缓存让 `index.html` 与 `app.js` 版本错配 | 盔甲套列表为空，状态栏没有提示。现在 `wire()` 用 `on()` 容错；启动结束检查套装表，为空就提示强制刷新 |
+| `ImageBitmap.close()` 清零宽高 | 关闭后再读 `width`/`height` 得 0，`getImageData` 报「source width is 0」。先取尺寸，再关闭 |
+| `withTimeout` 泄漏定时器 | `web/js/idb.js` 的守卫定时器不在 promise 结束后 `clearTimeout`，IndexedDB 不可用时启动卡住 |
+| GIF 调色板遍历错对象 | `web/js/gif.js` 要遍历 `frame.data`，不是 `frame` |
+| 还原时「文件名 → 槽位」映射 | 曾把原版文件名当字典键，结果只还原出躯干。映射在 `web/js/reverse.js` 的 `loadTextures()` |
+| 静态服务器用 HTTP/1.0 | 每个请求都关连接。Chrome 同时拉十几个模块时会卡几十秒。必须 HTTP/1.1 长连接 |
+| `renderFolders()` 里残留 `!!images` | 引用了从未声明的变量。`!needsPlayer` 会短路，只有勾上「叠加玩家」才抛 `images is not defined` |
+| 结果卡片的 zip / 写入按钮 | `const zip` / `const save` 曾遮蔽 `result.zip` / `result.save`。`zipBlob()` 收 `{name, data}`；Blob 条目走 `zipBlobAsync()` |
+| 结果卡片文案在生成时就译好 | 切语言后卡片停在旧语言。结果对象只存 `titleKey` / `captionKey`，`applyI18n()` 用 `state.results` 重绘 |
+| 浏览器测试写进 `~/Downloads` | 用例会真的点「下载」。harness 吞掉带 `download` 属性的 `<a>` 点击，并把 `download.default_directory` 指到临时目录 |
+
+无头用例收集页面里所有 `error` / `unhandledrejection`，断言列表为空。只在某个选项下才触发的
+`ReferenceError` 也会让它变红。不要以「平时看不见」为由跳过。
+
+### A.5 测试清单
+
+```bash
+npm ci          # devDependency：wasm WebP 编解码器（只有打包工具与图集用例要用）
+npm test        # 全部用例，约 16 秒
+npm start       # 静态服务器：http://127.0.0.1:8000/
+```
+
+| 文件 | 覆盖 |
+|---|---|
+| `tests/node/core.test.mjs` | `web/js/` 核心 vs `web/tests/golden/` 的冻结参考图，逐像素 |
+| `tests/node/harness.test.mjs` | 贴图查找、部位识别、图集读取、zip 结构、拼版 PNG |
+| `tests/node/browser.test.mjs` | 真 Chrome 里跑完整交互（拖放、导出、预览贴图、材质包、取消、还原全部、切语言） |
+| `tests/node/bundle.test.mjs` | WebP 图集自洽、内容 checksum、从源目录重打的可复现性 |
+| `tests/node/docs.test.mjs` | 裁切表 ↔ `layout.json`、文档链接、用词、README 章节与格式、文案无死条目 |
+| `tests/node/site.test.mjs` | 数据、HTML↔JS 接线、SW 的 `CORE` 清单、Manifest、图标、图集包、Pages 工作流、无绝对路径 |
+| `tests/node/subpath.test.mjs` | 把站点挂到 `/some/deep/directory/` 下，真 Chrome 跑启动 + 图集 + 反推 + SW 作用域 |
+
+用例数会随开发变化，以 `npm test` 的输出为准，本文不再拄一份。
+
+设置 `ARMORHELPER_VANILLA_SOURCE="<Content/Images>"` 时，`bundle.test.mjs` 会把整包从源目录
+重打一遍，并把 748 张贴图逐像素还原比对（约 30 秒）。
