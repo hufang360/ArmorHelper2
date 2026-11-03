@@ -1,3 +1,7 @@
+/* Bootstrap 5.3 does the components. This file only re-colors them and adds
+   the widgets Bootstrap has no equivalent for: the drop zones, the pixel
+   previews, the history rail and the status bar. Keep it small. */
+
 :root {
   --bg: #14161c;
   --panel: #1c1f28;
@@ -10,238 +14,374 @@
   --ok: #9fe0ac;
   --warn: #e3c76b;
   --bad: #ff9a9a;
-  --radius: 10px;
+
+  /* Bootstrap dark theme, moved onto the palette above. */
+  --bs-body-bg: var(--bg);
+  --bs-body-bg-rgb: 20, 22, 28;
+  --bs-body-color: var(--text);
+  --bs-body-color-rgb: 231, 233, 238;
+  --bs-emphasis-color: var(--text);
+  --bs-heading-color: var(--text);
+  --bs-secondary-color: var(--muted);
+  --bs-secondary-bg: var(--panel);
+  --bs-secondary-bg-rgb: 28, 31, 40;
+  --bs-tertiary-bg: var(--panel-2);
+  --bs-tertiary-bg-rgb: 35, 39, 51;
+  --bs-border-color: var(--line);
+  --bs-border-color-translucent: rgba(255, 255, 255, .12);
+  --bs-link-color: var(--accent);
+  --bs-link-hover-color: var(--accent-2);
+  --bs-body-font-size: .875rem;
+  --bs-body-line-height: 1.5;
+  --bs-card-spacer-y: .75rem;
+  --bs-card-spacer-x: .75rem;
 }
 
-* { box-sizing: border-box; }
+body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; }
 
-/* `hidden` has to win over the display rules below (buttons, progress, popover). */
+/* `hidden` has to win over the display rules below (progress, popover, images). */
 [hidden] { display: none !important; }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  color: var(--text);
-  font: 14px/1.55 "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-}
-
-h1 { font-size: 18px; margin: 0; }
-h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: .04em; }
-p { margin: 6px 0; }
-a { color: var(--accent); }
-.muted { color: var(--muted); }
-.small { font-size: 12px; }
-.spaced { margin-top: 16px; }
 .pixel { image-rendering: pixelated; }
 
 /* ---------------------------------------------------------------- topbar */
-.topbar {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 10px 18px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-}
-.brand { display: flex; align-items: center; gap: 10px; }
-/* The site icon is smooth artwork, not pixel art, so no `pixelated` here. */
-.brand-icon { width: 52px; height: 52px; object-fit: contain; flex: none; }
-.brand p { margin: 0; font-size: 12px; }
-.tabs { display: flex; gap: 6px; margin-left: auto; }
-.tab {
-  background: transparent; color: var(--muted); font-size: 14px;
-  border: 1px solid transparent; border-radius: var(--radius);
-  padding: 6px 14px; cursor: pointer;
-}
-.tab:hover { color: var(--text); background: var(--panel-2); }
-.tab.is-active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-.lang select {
-  background: var(--panel-2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px;
-}
+.topbar { background: var(--panel); position: sticky; top: 0; z-index: 30; }
+.brand-icon { width: 40px; height: 40px; object-fit: contain; flex: none; }
+/* Underline tabs: a filled pill read as a button. Active = bold text + underline. */
+.tabs { --bs-nav-underline-gap: 1rem; --bs-nav-underline-link-active-color: var(--accent); }
+.tabs .nav-link { font-size: .875rem; padding: 0 0 .2rem; color: var(--muted); }
+.tabs .nav-link.active { color: var(--accent); }
+.lang .form-select { width: auto; }
 
-/* ------------------------------------------------------------------ main */
-main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-.panel { display: none; flex-direction: column; gap: 16px; }
-.panel.is-active { display: flex; }
-.row { display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; }
+/* --------------------------------------------------------------- panels */
+.tab-content > .panel { display: none; }
+.tab-content > .panel.active { display: block; }
 
-/* Two columns: a stack of cards on the left, one tall rail on the right.  The
-   rail is as tall as input + results together, so the export button and the
-   option list do not scroll away while the results grow below. */
-.split { display: flex; gap: 16px; align-items: flex-start; }
-.stack { flex: 1 1 auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.card {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px; min-width: 260px;
-}
-.row > .card { flex: 0 1 330px; }
-.row > .card.grow { flex: 1 1 420px; }
-.split .card { flex: none; min-width: 0; }
-.sidebar {
-  flex: 0 0 320px; position: sticky; top: 16px;
-  max-height: calc(100vh - 32px); overflow: auto;
-}
-.cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.cardhead h2 { margin: 0 0 8px; }
-
-/* Export tab: one card on the left (inputs + options + the export button) and
-   the results on the right, taking half the page width. */
-.export-split { align-items: flex-start; }
-.export-split > .stack { flex: 1 1 0; min-width: 0; }
-.export-split > .results-card { flex: 1 1 0; min-width: 0; }
-@media (max-width: 900px) {
-  .export-split { flex-direction: column; }
-  .export-split > .stack, .export-split > .results-card { width: 100%; flex: none; }
-}
-
-/* the preview tab shows 40x56 GIFs: keep the result rail wide enough */
-#tab-gifs .sidebar { flex-basis: min(520px, 45%); }
-
-@media (max-width: 880px) {
-  .split { flex-direction: column; }
-  .sidebar, #tab-gifs .sidebar { position: static; flex: 1 1 auto; max-height: none; width: 100%; }
-}
+/* A column of cards; the export panel puts its results right below it. */
+.stack { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.stack > .card { flex: none; }
+.card { --bs-card-bg: var(--panel); --bs-card-border-color: var(--line); --bs-card-cap-bg: var(--panel); }
+.card-title { letter-spacing: .04em; }
 
 /* ------------------------------------------------------------------ drop */
+/* The drop zone has the template's own 128:80 ratio: a dropped template then
+   fills it edge to edge, and the area shows the file itself instead of the hint. */
 .drop {
-  border: 2px dashed var(--line); border-radius: var(--radius);
-  padding: 22px 14px; text-align: center; color: var(--muted);
+  aspect-ratio: 128 / 80; width: 100%; max-width: 22rem; margin-right: auto;
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .75rem; overflow: hidden;
+  border: 2px dashed var(--line); border-radius: .5rem;
+  text-align: center; color: var(--muted);
   cursor: pointer; transition: .15s;
 }
+.drop-preview { width: 100%; height: 100%; object-fit: contain; }
+/* the hint is two lines: the drop text carries a newline of its own */
+#drop-hint { white-space: pre-line; }
+
+/* The drop area and the animation beside it are one row of equal height. */
+.input-row { display: flex; align-items: stretch; gap: .5rem; flex-wrap: wrap; }
+.input-row .drop { margin-right: 0; }
+.preview-box {
+  flex: 1 1 12rem; min-width: 11rem; min-height: 0;
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .35rem; border: 1px solid var(--line); border-radius: .5rem;
+  background: var(--panel-2);
+}
+.preview-stage {
+  flex: 1 1 auto; min-height: 3rem; display: grid; place-items: center;
+  overflow: hidden; border-radius: .25rem;
+}
+.preview-stage img {
+  max-width: 100%; max-height: 100%; image-rendering: pixelated;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 0 0 / 12px 12px;
+}
+.preview-opts { flex: none; font-size: .75rem; }
+.preview-opts .form-check { margin-right: .5rem; margin-bottom: 0; }
+.preview-opts .form-check-label { font-size: .75rem; }
+/* once a template is in, the area still accepts a replacement but no longer
+   competes with the picture */
+.drop.is-filled { border-style: solid; border-color: #3d5a45; padding: 0; }
+.drop.is-filled:hover, .drop.is-filled:focus { border-color: var(--accent); background: #1b2130; }
 .drop:hover, .drop:focus { border-color: var(--accent); color: var(--text); background: #1b2130; outline: none; }
 .drop.is-over { border-color: var(--accent); background: #1e2740; }
 
-.filelist { list-style: none; margin: 8px 0 0; padding: 0; max-height: 190px; overflow: auto; }
-/* name, size and the remove button stay next to each other: pushing the size to
-   the far edge of a wide card made the row read like two unrelated columns. */
-.filelist li {
-  display: flex; gap: 8px; align-items: baseline;
-  padding: 4px 8px; border-radius: 6px; background: var(--panel-2);
-  margin-bottom: 4px; font-size: 13px;
+/* The drop area's own tools sit in its top right corner. They are buttons, so
+   each one stops the click that would otherwise open the file picker. */
+/* Stacked icons in the top right corner, revealed when the pointer is over the
+   area. Hidden means hidden: no invisible click targets. */
+.drop-tools {
+  position: absolute; top: .3rem; right: .3rem; z-index: 2;
+  display: flex; flex-direction: column; gap: .25rem;
+  opacity: 0; visibility: hidden; transition: opacity .12s;
 }
-.filelist li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.filelist li .muted { flex: none; font-size: 12px; }
-.filelist li button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 2px; }
-.filelist li button { margin-left: auto; }
+.drop:hover .drop-tools, .drop:focus-within .drop-tools { opacity: 1; visibility: visible; }
+.drop { position: relative; }
+.icon-btn {
+  display: grid; place-items: center; width: 1.6rem; height: 1.6rem; padding: 0;
+  border: 1px solid transparent; border-radius: .3rem;
+  background: rgba(28, 31, 40, .6); color: var(--muted);
+  opacity: .55; cursor: pointer; transition: .15s;
+}
+.icon-btn:hover:not(:disabled), .icon-btn:focus-visible {
+  color: var(--text); border-color: var(--accent); outline: none; opacity: 1;
+}
+.icon-btn.is-on { color: var(--accent); border-color: var(--accent); background: rgba(77, 127, 240, .18); opacity: 1; }
+.icon-btn:disabled { opacity: .25; cursor: default; }
+
+/* Tooltips are CSS only: the bundled Bootstrap has no JavaScript. */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; top: calc(100% + .35rem); right: 0; z-index: 40;
+  padding: .15rem .4rem; border-radius: .25rem;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  font-size: .7rem; line-height: 1.4; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; }
 
 /* --------------------------------------------------------------- slots -- */
-.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 700px) { .slots { grid-template-columns: 1fr; } }
-.slot { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 8px; }
-.slot-drop { position: relative; }
-.slot-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.slot-head > span { font-size: 12px; color: var(--muted); letter-spacing: .02em; line-height: 1.3; }
-.slot-head button { flex: none; white-space: nowrap; align-self: flex-start; }
+/* The body sheet is 360x224, so its box is that size and the pixels are 1:1.
+   Head and legs are half as wide and show the whole 40x1120 strip scaled down. */
+.slots { display: grid; grid-template-columns: 180px 360px 180px; gap: 1rem; justify-content: start; align-items: start; }
+@media (max-width: 840px) { .slots { grid-template-columns: minmax(0, 1fr); } }
+.slot { min-width: 0; }
+.slot-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .25rem; }
+.slot-head > span { font-size: .75rem; letter-spacing: .02em; line-height: 1.3; }
+.slot-head .icon-btn { flex: none; width: 1.25rem; height: 1.25rem; }
 .slot-drop {
-  margin-top: 4px; border: 1px dashed var(--line); border-radius: 6px;
-  padding: 8px; font-size: 12px; color: var(--muted); text-align: center;
-  cursor: pointer; min-height: 132px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  position: relative; margin-top: .25rem; width: 100%; height: 224px;
+  border: 1px dashed var(--line); border-radius: .25rem;
+  padding: .5rem; font-size: .75rem; color: var(--muted); text-align: center;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem;
 }
-/* the uploaded sheet itself: tall for head/legs, wide for the body grid */
+/* a filled slot shows nothing but the sheet: the file name sits below the box */
+.slot.is-filled .slot-drop { padding: 0; }
+/* The sheet itself, whole: tall for head and legs, 1:1 for the body grid. */
 .slot-thumb {
-  max-width: 100%; max-height: 96px; object-fit: contain;
-  border-radius: 4px;
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  border-radius: .25rem;
   background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 12px 12px;
 }
-.slot-drop > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.slot-drop > span { white-space: pre-line; line-height: 1.4; max-width: 100%; }
+.slot-info { margin-top: .25rem; color: var(--text); word-break: break-all; }
 .slot-drop:hover, .slot-drop:focus { border-color: var(--accent); color: var(--text); outline: none; }
 .slot-drop.is-over { border-color: var(--accent); background: #1e2740; }
-.slot.is-filled { border-color: #3d5a45; }
-.slot.is-filled .slot-drop { color: var(--text); border-style: solid; }
+.slot.is-filled .slot-drop { color: var(--text); border-style: solid; border-color: #3d5a45; }
 .slot.is-filled .slot-drop::before {
   content: "\2713"; position: absolute; top: 2px; right: 5px;
-  color: var(--ok); font-size: 12px; line-height: 1;
+  color: var(--ok); font-size: .75rem; line-height: 1;
 }
-.tight { margin: 2px 0; }
-.opts-inline { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px; }
-.opts-inline .field { margin-bottom: 0; width: auto; }
-.opts-inline select { min-width: 132px; }
+.opts-inline .field { margin-bottom: 0; }
+
+/* Bootstrap's select padding, arrow and border-box height are for one row. On a
+   listbox with size=8 they pin the box to 8 rows plus 2px of border, so the last
+   row is half cut. Size the box here instead. */
+#set-select[size] {
+  padding: 0 .35rem;
+  background-image: none;
+  height: calc(8 * .875rem * 1.5 + 2px);
+}
+.opts-inline .form-select { min-width: 8.25rem; }
 
 /* A hover/focus popover with the template that the button downloads. */
 .popwrap { position: relative; display: inline-block; }
 .popover {
-  position: absolute; z-index: 20; top: calc(100% + 8px); left: 0;
-  margin: 0; padding: 8px; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 10px;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
+  position: absolute; z-index: 20; top: calc(100% + .5rem); left: 0;
+  margin: 0; padding: .5rem; background: var(--panel);
+  border: 1px solid var(--line); border-radius: .375rem;
+  box-shadow: 0 .625rem 1.625rem rgba(0, 0, 0, .45);
+  font-size: .7rem;
 }
 .popover img { display: block; width: 256px; height: 160px; object-fit: contain; }
-.popover figcaption { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+.popover figcaption { color: var(--muted); text-align: center; margin-top: .25rem; }
 
 /* ------------------------------------------------------------- history -- */
-.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow: auto; }
-.history li { display: flex; gap: 10px; align-items: center; font-size: 13px; }
-.history img { width: 48px; height: 30px; padding: 2px; flex: none; border-radius: 4px;
+.history { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 260px; overflow: auto; }
+.history li { display: flex; gap: .5rem; align-items: center; font-size: .8rem; }
+.history img { width: 48px; height: 30px; padding: 2px; flex: none; border-radius: .25rem;
   background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 12px 12px; }
-.history .when { color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
+.history .when { color: var(--muted); font-size: .75rem; flex: none; font-variant-numeric: tabular-nums; }
 .history .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history .count { color: var(--muted); font-size: 12px; flex: none; margin-left: auto; }
+.history .count { color: var(--muted); font-size: .75rem; flex: none; margin-left: auto; }
 
 /* -------------------------------------------------------------- controls */
-button, .link {
-  font: inherit; cursor: pointer; border-radius: 8px;
-  padding: 7px 14px; border: 1px solid var(--line);
-  background: var(--panel-2); color: var(--text);
-  text-decoration: none; display: inline-block;
+.actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: .5rem; }
+.btn-primary {
+  --bs-btn-bg: var(--accent-2); --bs-btn-border-color: var(--accent-2);
+  --bs-btn-hover-bg: var(--accent); --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-bg: var(--accent); --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-bg: var(--accent-2); --bs-btn-disabled-border-color: var(--accent-2);
 }
-button:hover:not(:disabled), .link:hover { border-color: var(--accent); }
-button:disabled { opacity: .5; cursor: not-allowed; }
-.primary { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
-.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
-.ghost { background: transparent; }
-.tiny { padding: 3px 8px; font-size: 12px; border-radius: 6px; }
-.wide { width: 100%; margin-top: 14px; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.field { margin-bottom: .5rem; }
 
-input[type=text], input[type=search], input[type=number], select {
-  background: var(--panel-2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px;
-  font: inherit; width: 100%;
+/* History: an icon button in the action row, the list in a panel below it. */
+.history-pop {
+  position: absolute; z-index: 25; top: calc(100% + .4rem); left: 0;
+  width: min(22rem, 82vw); padding: .5rem .6rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: .375rem;
+  box-shadow: 0 .625rem 1.625rem rgba(0, 0, 0, .45);
+  text-align: left;
 }
-input:focus, select:focus { outline: 1px solid var(--accent); }
-.field { display: block; margin-bottom: 10px; }
-.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
-.inputrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.ids { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 10px; }
-.check { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-.check input { width: auto; }
-.checklist { max-height: 250px; overflow: auto; }
+
+/* Export options and preview options: both fold away, side by side. */
+.opt-group > summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: .35rem;
+  font-size: .75rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bs-secondary-color);
+  padding-bottom: .25rem; border-bottom: 1px solid var(--line);
+}
+.opt-group > summary::-webkit-details-marker { display: none; }
+.opt-group > summary::before { content: "▸"; font-size: .7rem; line-height: 1; }
+.opt-group[open] > summary::before { content: "▾"; }
+.opt-group > summary:hover { color: var(--text); }
+.opt-group[open] > summary { margin-bottom: .35rem; }
+
+/* Bootstrap draws an unchecked box in the border color, which is too dark here. */
+.form-check-input { border-color: #59617a; }
+.form-check-input:checked, .form-check-input:indeterminate {
+  background-color: var(--accent-2); border-color: var(--accent-2);
+}
+.form-check-input:focus { border-color: var(--accent); box-shadow: 0 0 0 .15rem rgba(110, 168, 254, .25); }
+
+/* Buttons with a leading icon: the icon is a sibling of the label span. */
+.actions .btn { display: inline-flex; align-items: center; gap: .3rem; }
+.actions .btn svg { flex: none; }
 
 /* --------------------------------------------------------------- results */
-.results { display: flex; flex-direction: column; gap: 14px; }
-.job { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-.job h3 { margin: 0 0 8px; font-size: 14px; }
-.previews { display: flex; gap: 10px; flex-wrap: wrap; }
+.results { display: flex; flex-direction: column; gap: .75rem; }
+.job { background: var(--panel-2); border: 1px solid var(--line); border-radius: .5rem; padding: .6rem; }
+.job h3 { margin: 0 0 .5rem; font-size: .875rem; }
+.previews { display: flex; gap: .5rem; flex-wrap: wrap; }
 .preview {
   background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 16px 16px;
-  border-radius: 8px; padding: 6px; overflow: auto; max-width: 100%;
+  border-radius: .375rem; padding: .35rem; overflow: auto; max-width: 100%;
+  margin: 0; display: flex; flex-direction: column; gap: .25rem;
 }
-.preview { margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .preview img { display: block; max-width: 100%; }
 .preview figcaption {
-  font-size: 11px; color: var(--muted); text-align: center;
+  font-size: .7rem; color: var(--muted); text-align: center;
   letter-spacing: .02em;
 }
-.job .files { list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; max-height: 220px; overflow: auto; }
-.job .files li { display: flex; align-items: baseline; gap: 8px; padding: 2px 0; }
+.job .files { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .8rem; max-height: 200px; overflow: auto; }
+.job .files li { display: flex; align-items: baseline; gap: .5rem; padding: .1rem 0; }
 .job .files li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job .files li .muted { flex: none; font-size: 12px; }
-.warn { color: var(--warn); font-size: 12px; }
+.job .files li .text-body-secondary { flex: none; font-size: .75rem; }
+
+/* Thin scrollbars that stay out of the way: no track, a faint thumb, and the
+   thumb only appears while the pointer is over the area or it is scrolling. */
+.thin-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.thin-scroll:hover, .thin-scroll.is-scrolling { scrollbar-color: rgba(154, 163, 181, .38) transparent; }
+.thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.thin-scroll::-webkit-scrollbar-track { background: none; }
+.thin-scroll::-webkit-scrollbar-corner { background: none; }
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: transparent; border-radius: 3px;
+}
+.thin-scroll:hover::-webkit-scrollbar-thumb,
+.thin-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(154, 163, 181, .38); }
+.thin-scroll::-webkit-scrollbar-thumb:hover { background: rgba(154, 163, 181, .6); }
+
+/* The 材质包 card: actions on top, era tabs below them, then one scrolling
+   body for the table and the sheets. */
+.pack-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-top: 1rem; }
+.pack-actions .pack-info { flex: 1 1 18rem; min-width: 11rem; }
+.pack-info .is-short { flex: 0 1 8rem; }
+.pack-info .is-long { flex: 1 1 14rem; }
+.pack-tabs { margin: .5rem 0 .25rem; --bs-nav-underline-gap: .75rem; }
+.pack-tabs .nav-link {
+  font-size: .8rem; padding: 0 0 .2rem; color: var(--muted);
+  background: none; border: 0; border-bottom: 2px solid transparent;
+}
+.pack-tabs .nav-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* A material pack card: file table, then the sheets themselves. */
+.sheet-table {
+  width: 100%; margin: .5rem 0 0; font-size: .8rem; border-collapse: collapse;
+  table-layout: fixed;
+}
+/* the widest file name is FullArmorPlayerFemale.png: 23 characters */
+.sheet-table th:nth-child(1) { width: 14rem; }
+.sheet-table th:nth-child(2) { width: 5.5rem; }
+.sheet-table th:nth-child(4) { width: 13rem; }
+.sheet-table tbody td:nth-child(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.id-cell { display: flex; align-items: baseline; gap: .4rem; }
+.id-cell .sheet-id { width: 4.5rem; flex: none; }
+.id-cell .id-name { font-size: .72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+/* vertical rules too, so the three columns read as a table */
+.sheet-table th, .sheet-table td {
+  padding: .15rem .5rem; vertical-align: baseline;
+  border-right: 1px solid var(--line);
+}
+.sheet-table th:last-child, .sheet-table td:last-child { border-right: 0; }
+.sheet-table th { border-bottom: 1px solid var(--line); }
+.sheet-table th {
+  text-align: left; font-weight: 500; color: var(--muted);
+}
+.sheet-table td:first-child { white-space: nowrap; }
+.sheet-table th:not(:first-child), .sheet-table td:not(:first-child) { white-space: nowrap; }
+.sheet-table td:last-child { white-space: normal; }
+
+/* The material pack card's body scrolls as one block: the table and the
+   sheets stay together, however tall the sheets are. */
+.sheet-body { max-height: 26rem; overflow: auto; }
+
+/* The export page has one card that fills the window: a minimum height, and it
+   grows into whatever space is left. */
+.export-stack { display: flex; flex-direction: column; min-height: 100%; }
+.export-card { flex: 1 1 auto; min-height: 26rem; display: flex; flex-direction: column; }
+.export-card > .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.export-results { margin-top: 1.25rem; }
+.pack { display: flex; flex-direction: column; }
+.result-block { padding: 0; }
+
+/* the info bubble next to "叠加玩家" */
+.info-icon {
+  display: inline-grid; place-items: center; vertical-align: middle;
+  color: var(--muted); opacity: .7; cursor: help;
+}
+.info-icon:hover, .info-icon:focus-visible { color: var(--text); opacity: 1; outline: none; }
+/* Every sheet keeps its own pixel size, so head, body and legs stay in the same
+   scale. The checkerboard sits on the image itself: no tinted empty area. */
+.sheet-cols { display: flex; gap: .75rem; margin-top: .5rem; align-items: flex-start; }
+.sheet-col { margin: 0; flex: none; display: flex; flex-direction: column; gap: .25rem; }
+.sheet-col figcaption { font-size: .7rem; color: var(--muted); text-align: left; }
+/* the sheet labels sit at the left edge, so their tooltip must too */
+.tip-left[data-tooltip]::after { right: auto; left: 0; }
+.sheet-col img {
+  display: block;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 0 0 / 12px 12px;
+}
+.sheet-scroll {
+  border-radius: .25rem;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 12px 12px;
+}
+.sheet-scroll img { display: block; width: 100%; }
+
+/* The sheet behind a result link, shown on hover: as big as fits on screen. */
+.file-preview {
+  position: fixed; z-index: 40; pointer-events: none;
+  padding: .25rem; background: var(--panel);
+  border: 1px solid var(--line); border-radius: .375rem;
+  box-shadow: 0 .625rem 1.625rem rgba(0, 0, 0, .45);
+}
+.file-preview img {
+  display: block; max-width: min(45vw, 30rem); max-height: 85vh;
+  object-fit: contain;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 12px 12px;
+}
+.warn { color: var(--warn); font-size: .75rem; }
 
 /* ---------------------------------------------------------------- status */
 .statusbar {
-  padding: 8px 18px; border-top: 1px solid var(--line);
-  background: var(--panel); font-size: 13px; position: sticky; bottom: 0;
-  display: flex; align-items: center; gap: 12px;
+  background: var(--panel); font-size: .8rem;
+  position: sticky; bottom: 0; z-index: 20;
 }
 #status { flex: 1 1 auto; min-width: 0; }
-#job-bar { width: 160px; height: 6px; flex: none; appearance: none; }
-#job-bar::-webkit-progress-bar { background: var(--panel-2); border-radius: 4px; }
-#job-bar::-webkit-progress-value { background: var(--accent); border-radius: 4px; }
-#job-bar::-moz-progress-bar { background: var(--accent); border-radius: 4px; }
+#job-bar { width: 160px; height: .375rem; flex: none; --bs-progress-bg: var(--panel-2); }
+#job-bar .progress-bar { background-color: var(--accent); transition: width .12s linear; }
 #status.ok { color: var(--ok); }
 #status.warn { color: var(--warn); }
 #status.bad { color: var(--bad); }

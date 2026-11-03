@@ -34,13 +34,25 @@ const MIME = {
  * (that alone used to make one run in four hang for 40 seconds).
  */
 export function serve(root, { harness = null, prefix = "/" } = {}) {
-  const state = { paths: [], done: null, payload: null, waiters: [] };
+  const state = { paths: [], done: null, payload: null, waiters: [], steps: [] };
   const base = prefix.endsWith("/") ? prefix : `${prefix}/`;
   const harnessUrl = `${base}__harness.html`;
   const doneUrl = `${base}__done`;
+  const stepUrl = `${base}__step`;
 
   const server = createServer((request, response) => {
     state.paths.push(request.url);
+
+    // The harness names its current step: a hang then reports where it stopped.
+    if (request.method === "POST" && request.url.startsWith(stepUrl)) {
+      const chunks = [];
+      request.on("data", (chunk) => chunks.push(chunk));
+      request.on("end", () => {
+        state.steps.push(Buffer.concat(chunks).toString("utf8"));
+        response.writeHead(204).end();
+      });
+      return;
+    }
 
     if (request.method === "POST" && request.url.startsWith(doneUrl)) {
       const chunks = [];
@@ -108,7 +120,10 @@ export function serve(root, { harness = null, prefix = "/" } = {}) {
           new Promise((resolveReport, rejectReport) => {
             if (state.done) return resolveReport();
             const timer = setTimeout(() => {
-              rejectReport(new Error(`the page never reported back; requests=${state.paths.join(", ")}`));
+              const last = state.steps.slice(-4).join(" > ") || "none";
+              rejectReport(
+                new Error(`the page never reported back (last steps: ${last}); requests=${state.paths.join(", ")}`),
+              );
             }, timeoutMs);
             state.waiters.push(() => {
               clearTimeout(timer);

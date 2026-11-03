@@ -4,6 +4,14 @@
 <script type="module">
 const report = (payload) =>
   fetch("__done", { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+
+/**
+ * Name the step the harness is in, so a hang says where instead of "the page
+ * never reported back". The runner keeps the tail and prints it on timeout.
+ */
+const step = (name) => {
+  fetch("__step", { method: "POST", body: name }).catch(() => {});
+};
 const frame = document.getElementById("frame");
 
 /** Is the service worker registered, and is its scope the folder we are in? */
@@ -22,63 +30,141 @@ async function serviceWorkerInfo(win) {
   };
 }
 
+/** Wait until the card has been redrawn for the current template. */
+async function waitRender(doc) {
+  let last = "";
+  let stable = 0;
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    const now = doc.querySelector("#preview-gif")?.getAttribute("src") ?? "";
+    if (now && now === last) stable += 1;
+    else stable = 0;
+    last = now;
+    if (stable >= 3) return;
+  }
+}
+
 const appInfo = (doc) => ({
+  uploadPrimaryAtStart: doc.querySelector("#upload-file").classList.contains("btn-primary"),
   status: doc.querySelector("#status").textContent.trim(),
   sets: doc.querySelectorAll("#set-select option").length,
   checkboxes: doc.querySelectorAll("input[type=checkbox]").length,
-  targets: doc.querySelectorAll("#targets input").length,
+  checkboxIds: [...doc.querySelectorAll("input[type=checkbox]")].map((el) => el.id),
   tabs: [...doc.querySelectorAll(".tab")].map((tab) => tab.textContent),
   subtitle: (doc.querySelector('[data-i18n="web.subtitle"]') || {}).textContent || "",
-  guide: !!doc.querySelector("#opt-guide")?.checked,
+  guide: !!doc.querySelector("#rev-guide")?.checked,
   source: doc.querySelector("#images-status").textContent.trim(),
   guideLabel: (doc.querySelector('[data-i18n="web.guideOverlay"]') || {}).textContent || "",
-  downloadButton: doc.querySelector("#download-template")?.tagName || null,
+  historyDisabled: doc.querySelector("#history-toggle")?.disabled ?? null,
   favicon: doc.querySelector('link[rel="icon"]')?.getAttribute("href") || null,
   logo: doc.querySelector(".brand img")?.getAttribute("src") || null,
 });
 
 /**
- * Click "download the drawing template" and inspect what it actually produces.
- *
- * Downloads are intercepted by hooking `URL.createObjectURL`, so the blob can be
- * decoded and compared with the raw template instead of landing on disk.
+ * The drop area's own tools: the demo button loads the bundled template, the
+ * guide icon overlays the preview, and the download icon hands out what is
+ * shown — merged when the guide is on, the untouched file when it is off.
  */
-function equalBytes(a, b) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
-  return true;
-}
-
-async function checkTemplateDownload(doc, win) {
-  const { decodeBitmap } = await import("./js/fs.js");
-  const captured = [];
-  const realCreate = win.URL.createObjectURL.bind(win.URL);
-  win.URL.createObjectURL = (blob) => {
-    captured.push(blob);
-    return realCreate(blob);
+async function runDropTools(doc) {
+  const preview = doc.querySelector("#template-preview");
+  const guideButton = doc.querySelector("#drop-guide");
+  const downloadButton = doc.querySelector("#drop-download");
+  const waitPreview = async (test) => {
+    for (let tick = 0; tick < 200; tick += 1) {
+      await sleep(25);
+      if (test(preview.getAttribute("src") ?? "")) return;
+    }
   };
 
-  const rawResponse = await win.fetch("./data/ArmorTemplate_v1.png");
-  const raw = await decodeBitmap(await rawResponse.blob());
+  doc.querySelector("#load-demo").click();
+  for (let tick = 0; tick < 200 && preview.hidden; tick += 1) await sleep(25);
+  const report = {
+    loaded: !doc.querySelector("#template-preview").hidden,
+    titles: [guideButton, downloadButton, doc.querySelector("#load-demo")].map((el) => el.getAttribute("title")),
+    // the demo template already carries the guide lines
+    guideDisabledOnDemo: guideButton.disabled,
+    tooltips: [guideButton, downloadButton, doc.querySelector("#drop-clear"), doc.querySelector("#load-demo")].map(
+      (el) => el.dataset.tooltip ?? null,
+    ),
+  };
 
-  doc.querySelector("#download-template").click();
-  for (let tick = 0; tick < 200 && !captured.length; tick += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
+  // The bundled template already carries the guide lines, so the overlay makes
+  // no difference on it. Use a flat template, where the effect is visible.
+  const { createBitmap } = await import("./js/bitmap.js");
+  const flat = createBitmap(128, 80);
+  for (let offset = 0; offset < flat.data.length; offset += 4) {
+    flat.data[offset] = 40;
+    flat.data[offset + 1] = 40;
+    flat.data[offset + 2] = 40;
+    flat.data[offset + 3] = 255;
   }
-  win.URL.createObjectURL = realCreate;
-  if (!captured.length) return { error: "the download button produced nothing" };
+  await putFiles(doc, "#file-input", [["Flat.png", flat]]);
+  await waitPreview((src) => src !== "");
+  await sleep(200);
+  report.guideEnabledOnFlat = !guideButton.disabled;
 
-  const produced = await decodeBitmap(captured[0]);
+  const decode = async (capture) => {
+    const { decodeBitmap } = await import("./js/fs.js");
+    const bytes = Uint8Array.from(atob(capture.base64), (char) => char.charCodeAt(0));
+    return decodeBitmap(new Blob([bytes], { type: "image/png" }));
+  };
+
+  // the guide starts on: that download is the merged image
+  const merged = await captureDownload(frame.contentWindow, downloadButton);
+  const mergedSrc = preview.getAttribute("src");
+  guideButton.click();
+  await waitPreview((src) => src !== mergedSrc);
+  const plain = await captureDownload(frame.contentWindow, downloadButton);
+  const plainSrc = preview.getAttribute("src");
+  const pressed = [guideButton.getAttribute("aria-pressed")];
+
+  guideButton.click();
+  await waitPreview((src) => src === mergedSrc);
+  pressed.unshift(guideButton.getAttribute("aria-pressed"));
+
+  const mergedBitmap = await decode(merged);
+  const plainBitmap = await decode(plain);
+
+  // the same on the real drawing template: the overlay must add its pixels
   const opaque = (bitmap) => {
     let count = 0;
-    for (let i = 3; i < bitmap.data.length; i += 4) if (bitmap.data[i] > 1) count += 1;
+    for (let index = 3; index < bitmap.data.length; index += 4) if (bitmap.data[index] > 1) count += 1;
     return count;
   };
+  const { decodeBitmap } = await import("./js/fs.js");
+  const artBlob = await (await fetch("./data/ArmorTemplate_v1.png")).blob();
+  const artBitmap = await decodeBitmap(artBlob);
+  await putFiles(doc, "#file-input", [["Art.png", artBitmap]]);
+  await waitPreview((src) => src !== plainSrc);
+  await sleep(200);
+  const artMerged = opaque(await decode(await captureDownload(frame.contentWindow, downloadButton)));
+  guideButton.click();
+  await waitPreview((src) => src !== mergedSrc);
+  const artPlain = opaque(await decode(await captureDownload(frame.contentWindow, downloadButton)));
+  guideButton.click();
+  await waitPreview((src) => src !== plainSrc);
+  // the overlay changes colours, not alpha, so count differing pixels
+  let changed = 0;
+  for (let index = 0; index < plainBitmap.data.length; index += 4) {
+    for (let channel = 0; channel < 3; channel += 1) {
+      if (mergedBitmap.data[index + channel] !== plainBitmap.data[index + channel]) {
+        changed += 1;
+        break;
+      }
+    }
+  }
+
+  doc.querySelector("#drop-clear").click();
+  for (let tick = 0; tick < 200 && !preview.hidden; tick += 1) await sleep(25);
+  await sleep(150);
+
   return {
-    size: `${produced.width}x${produced.height}`,
-    rawOpaque: opaque(raw),
-    producedOpaque: opaque(produced),
-    identicalToRaw: equalBytes(produced.data, raw.data),
+    ...report,
+    pressed,
+    guideRedraws: mergedSrc !== plainSrc,
+    changed,
+    plainMatchesFlat: equalBytes(plainBitmap.data, flat.data),
+    artOpaque: [artPlain, artMerged],
   };
 }
 
@@ -93,7 +179,7 @@ async function runReverse(doc) {
     await new Promise((resolve) => setTimeout(resolve, 25));
     const images = doc.querySelectorAll("#reverse-result .preview img");
     if (images.length) {
-      return {
+      const report = {
         previews: images.length,
         captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
         widths: [...images].map((img) => img.naturalWidth),
@@ -101,6 +187,25 @@ async function runReverse(doc) {
         warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
         status: doc.querySelector("#status").textContent.trim(),
       };
+
+      // The reverse page has its own guide switch: flipping it redraws the
+      // template preview without reversing anything again.
+      const before = images[0].src;
+      const guide = doc.querySelector("#rev-guide");
+      guide.checked = false;
+      guide.dispatchEvent(new Event("change", { bubbles: true }));
+      let after = before;
+      for (let tick = 0; tick < 400; tick += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        const now = doc.querySelector("#reverse-result .preview img")?.src ?? "";
+        if (now && now !== before) {
+          after = now;
+          break;
+        }
+      }
+      guide.checked = true;
+      guide.dispatchEvent(new Event("change", { bubbles: true }));
+      return { ...report, guideChanged: Boolean(before) && after !== before };
     }
     const warnings = doc.querySelectorAll("#reverse-result .warn");
     if (warnings.length && doc.querySelector("#status").className !== "busy") {
@@ -146,6 +251,7 @@ async function uploadTextures(doc, selector = "#texture-input") {
   await putFiles(doc, selector, [sheets.head, sheets.body, sheets.legs]);
 }
 
+const equalBytes = (a, b) => a.length === b.length && a.every((byte, index) => byte === b[index]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -154,12 +260,13 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 function cardHeights(doc, panelId) {
   const panel = doc.querySelector(panelId);
-  const left = panel.querySelector(".stack > .card");
-  const card = panel.querySelector(".results-card");
+  // the export page keeps its results outside a card; the other panels do not
+  const left = panel.querySelector(".stack > .card, .card");
+  const card = panel.querySelector(".results-card") ?? panel.querySelector(".export-results");
   return {
-    left: Math.round(left.getBoundingClientRect().height),
-    results: Math.round(card.getBoundingClientRect().height),
-    forced: card.style.minHeight,
+    left: Math.round(left?.getBoundingClientRect().height ?? 0),
+    results: Math.round(card?.getBoundingClientRect().height ?? 0),
+    forced: card?.style.minHeight ?? "",
   };
 }
 
@@ -169,6 +276,9 @@ function cardHeights(doc, panelId) {
  * wrong slot is rejected with a translated message instead of silently used.
  */
 async function runSheetGifs(doc) {
+  // the box sizes are only measurable while the tab is on screen
+  doc.querySelector('[data-tab="gifs"]').click();
+  await sleep(60);
   const sheets = await makeSheets();
 
   // wrong slot first: the body grid is not a valid head sheet
@@ -197,6 +307,16 @@ async function runSheetGifs(doc) {
     src: (img.getAttribute("src") || "").slice(0, 5),
     width: img.naturalWidth,
   }));
+  // the body box is the sheet's own 360x224, head and legs are half as wide
+  const boxes = [...doc.querySelectorAll(".slot-drop")].map((el) => {
+    const rect = el.getBoundingClientRect();
+    return [Math.round(rect.width), Math.round(rect.height)];
+  });
+  // the remove control is an icon button, not a word
+  const clearIcons = [...doc.querySelectorAll(".slot-head button")].map((el) => ({
+    svg: !!el.querySelector("svg"),
+    text: el.textContent.trim(),
+  }));
   if (disabled) return { error: "the generate button stayed disabled", sheetStatus, wrongSlotStatus };
 
   // slow GIFs at 2x, so the test can see the settings really reach the encoder
@@ -207,8 +327,7 @@ async function runSheetGifs(doc) {
   size.value = "2";
   size.dispatchEvent(new Event("change", { bubbles: true }));
 
-  await sleep(150); // let the resize observer catch up with the filled slots
-  const heightsBefore = cardHeights(doc, "#tab-gifs");
+  await sleep(150); // let the layout settle after the slots are filled
   doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
@@ -224,10 +343,10 @@ async function runSheetGifs(doc) {
         wrongSlotStatus,
         wrongSlotFilled,
         filled,
-        heightsBefore,
-        heightsAfter: cardHeights(doc, "#tab-gifs"),
         titles,
         thumbs,
+        boxes,
+        clearIcons,
         previews: images.length,
         widths,
         gifSize: gif ? gif.textContent : null,
@@ -252,13 +371,12 @@ async function runPlayerOverlay(doc) {
   doc.querySelector("#gif-player").checked = true;
   doc.querySelector("#gif-player").dispatchEvent(new Event("change", { bubbles: true }));
 
-  // exporting with player preview on: the hint must stay hidden (parts found)
+  // the player note is an info icon next to the switch, not a paragraph
   const optPlayer = doc.querySelector("#opt-player");
   optPlayer.checked = true;
   optPlayer.dispatchEvent(new Event("change", { bubbles: true }));
-  const hint = doc.querySelector("#player-hint");
-  const hintVisible = !hint.hidden;
-  const hintText = hint.textContent.trim();
+  const info = doc.querySelector("#player-info");
+  const hintText = info?.dataset.tooltip ?? "";
 
   doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
@@ -266,7 +384,6 @@ async function runPlayerOverlay(doc) {
     const links = doc.querySelectorAll("#gif-results .files a");
     if (links.length > 4) {
       return {
-        hintVisible,
         hintText,
         files: [...links].map((a) => a.textContent),
         previews: doc.querySelectorAll("#gif-results .preview img").length,
@@ -320,11 +437,12 @@ async function runResourcePack(doc) {
  * with locals named `zip` / `save`, which shadowed `result.zip` / `result.save`,
  * so nothing was ever downloaded and the console filled with TypeErrors.
  */
-async function clickResultButtons(doc, panelId) {
+async function clickResultButtons(doc, panelId, buttonSelector = null) {
   const win = frame.contentWindow;
-  const card = doc.querySelector(`${panelId} .job`);
+  const card = doc.querySelector(`${panelId} .job, ${panelId} .result-block`);
   if (!card) return { error: "no result card" };
-  const buttons = [...card.querySelectorAll(".actions button")];
+  // the export zip button lives in the input card, so callers pass its selector
+  const buttons = [...doc.querySelectorAll(buttonSelector ?? `${panelId} .job .actions button`)];
   const labels = buttons.map((button) => button.textContent.trim());
   const disabled = buttons.map((button) => button.disabled);
 
@@ -368,24 +486,37 @@ async function clickResultButtons(doc, panelId) {
   };
 }
 
+/** Titles of the cards in the export result area, top to bottom. */
+const cardTitles = (doc) =>
+  [...doc.querySelectorAll("#results .job h3")].map((el) => el.textContent.trim());
+
 /** Run a plain export and report what the results card plus history look like. */
 async function runExport(doc) {
   const sheets = await makeSheets();
-  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
-  // decoding is async: wait until the template shows up in the input list
-  for (let tick = 0; tick < 200; tick += 1) {
-    if (doc.querySelectorAll("#file-list li").length) break;
-    await sleep(25);
-  }
+  // there is no export button: the card is drawn as soon as a template lands
   const heightsBefore = cardHeights(doc, "#tab-export");
-  doc.querySelector("#do-export").click();
+  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
-    if (doc.querySelector("#results .files a")) break;
+    if (doc.querySelector("#results a[download]")) break;
   }
   await sleep(120);
   const heightsAfter = cardHeights(doc, "#tab-export");
-  const buttons = await clickResultButtons(doc, "#tab-export");
+  // the export actions live inside the active tab now
+  const buttons = await clickResultButtons(doc, "#tab-export", "#results .pack-actions > button");
+  const ui = {
+    // the upload button is the main action only while nothing is loaded
+    uploadSecondaryAfter: doc.querySelector("#upload-file").classList.contains("btn-secondary"),
+    uploadLabel: doc.querySelector("#upload-file").textContent.trim(),
+    uploadIcon: !!doc.querySelector("#upload-file svg"),
+    historyLabel: doc.querySelector("#history-toggle").dataset.tooltip ?? "",
+    historyHasIcon: !!doc.querySelector("#history-toggle svg"),
+    summary: !!doc.querySelector("#file-summary"),
+    list: !!doc.querySelector("#file-list"),
+    cardActions: [...doc.querySelectorAll("#results .pack-actions > button")].map((button) => button.textContent.trim()),
+    packButtonPrimary: doc.querySelector("#results .pack-actions > button")?.classList.contains("btn-primary") ?? false,
+    cards: [...doc.querySelectorAll("#results .job h3")].map((el) => el.textContent.trim()),
+  };
 
   // switching the language has to translate the cards that are already there
   const captions = () => [...doc.querySelectorAll("#results figcaption")].map((el) => el.textContent);
@@ -397,7 +528,7 @@ async function runExport(doc) {
     await sleep(25);
   }
   const english = captions();
-  const englishFiles = doc.querySelectorAll("#results .files a").length;
+  const englishFiles = doc.querySelectorAll("#results a[download]").length;
   language.value = "zh_CN";
   language.dispatchEvent(new Event("change", { bubbles: true }));
   for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(english); tick += 1) {
@@ -405,60 +536,199 @@ async function runExport(doc) {
   }
   const chinese = captions();
 
+  // The switches have to redraw the card. Wait for the card to stop changing
+  // first: a run started by the previous step may still land.
+  // the animation no longer lives in the result card: it is beside the drop area
+  const previewSrc = () => doc.querySelector("#preview-gif")?.getAttribute("src") ?? "";
+  const settle = async () => {
+    let last = "";
+    let stable = 0;
+    for (let tick = 0; tick < 400; tick += 1) {
+      await sleep(25);
+      const now = previewSrc();
+      if (now === last && now !== "") stable += 1;
+      else stable = 0;
+      last = now;
+      if (stable >= 4) return now;
+    }
+    return last;
+  };
+  const flip = async (selector) => {
+    const box = doc.querySelector(selector);
+    box.checked = !box.checked;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    // the re-render is debounced, so a settled card right now is still the old one
+    await sleep(300);
+    return box.checked;
+  };
+
+  await settle();
+  // the export card shows the animation only
+  const framesBefore = previewSrc();
+  const playerOn = await flip("#opt-player");
+  await settle();
+  const playerChanged = previewSrc() !== framesBefore;
+  if (playerOn) await flip("#opt-player");
+  await settle();
+
+  const femaleBefore = previewSrc();
+  await flip("#opt-female");
+  await settle();
+  const femaleChanged = previewSrc() !== femaleBefore;
+  await flip("#opt-female");
+  await settle();
+  const previewVisible = !doc.querySelector("#preview-gif").hidden;
+
+  // hand the original template back for the steps that follow
+  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
+  await waitRender(doc);
+  await settle();
+
   const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
-  return {
+  // read the result card before the next step, which clears it on purpose
+  const report = {
     heightsBefore,
     heightsAfter,
     buttons,
+    ui,
     captions: { before, english, englishFiles, chinese },
-    files: [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent),
-    previews: doc.querySelectorAll("#results .preview img").length,
-    sizes: [...doc.querySelectorAll("#results .files li")][0]?.textContent.trim() ?? "",
+    files: [...doc.querySelectorAll("#results a[download]")].map((a) => a.textContent),
+    previews: doc.querySelectorAll("#preview-gif").length,
+    sizes: doc.querySelector("#results .sheet-table tbody tr:not(.id-row) td:nth-child(2)")?.textContent.trim() ?? "",
+    setId: doc.querySelector("#results .sheet-id")?.value ?? null,
+    idNames: [...doc.querySelectorAll("#results .id-cell .id-name")].map((el) => el.textContent.trim()),
     history,
+    playerChanged,
+    femaleChanged,
+    previewVisible,
     stored: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.history") || "[]"),
     status: doc.querySelector("#status").textContent.trim(),
   };
-}
 
-/** The `gif-full*` targets have to write the same files the Python CLI did. */
-async function runGifTargets(doc) {
-  const boxes = [...doc.querySelectorAll("#targets input")];
-  // layout order: head, legs, body, legacy, full*, gif-full*  -> last four
-  const gifBoxes = boxes.slice(-4);
-  for (const box of gifBoxes) {
-    box.checked = true;
-    box.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-  doc.querySelector("#do-export").click();
-
-  let names = [];
-  for (let tick = 0; tick < 400; tick += 1) {
-    await sleep(25);
-    names = [...doc.querySelectorAll("#results .files a")].map((a) => a.textContent);
-    if (names.length >= 7) break;
-  }
-  for (const box of gifBoxes) {
-    box.checked = false;
-    box.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-  return { names, labels: gifBoxes.map((box) => box.parentElement.textContent.trim()) };
-}
-
-/** Hovering "download the drawing template" shows that image in a popover. */
-async function checkTemplatePopover(doc) {
-  const figure = doc.querySelector("#template-popover");
-  const image = doc.querySelector("#template-popover-img");
-  const button = doc.querySelector("#download-template");
-  const hiddenAtStart = figure.hidden;
-  button.dispatchEvent(new MouseEvent("mouseenter"));
+  // a wrong size is refused: no result, and the status line says why
+  await putFiles(doc, "#file-input", [["WrongSize.png", sheets.head]]);
   for (let tick = 0; tick < 200; tick += 1) {
     await sleep(25);
-    if ((image.getAttribute("src") || "").startsWith("data:") && image.complete && image.naturalWidth) break;
+    if (doc.querySelector("#status").className !== "ok") break;
   }
-  const visible = !figure.hidden;
-  const width = image.naturalWidth;
-  button.dispatchEvent(new MouseEvent("mouseleave"));
-  return { hiddenAtStart, visible, width, hiddenAfter: figure.hidden };
+  report.wrongSize = {
+    hasResult: !!doc.querySelector("#results .pack"),
+    titles: cardTitles(doc),
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+  await sleep(150);
+
+  // one template at a time: the second replaces the first, and the first one's
+  // result goes with it
+  await putFiles(doc, "#file-input", [["Second.png", sheets.template]]);
+  await waitRender(doc);
+  report.replaced = {
+    titles: cardTitles(doc),
+    resultsText: doc.querySelector("#results").textContent.trim(),
+  };
+
+  // hand the original template back: later steps export by that name
+  await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
+  await waitRender(doc);
+  return report;
+}
+
+/** Press one button and return the blob it handed to `URL.createObjectURL`. */
+async function captureDownload(win, button) {
+  const captured = [];
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    captured.push(blob);
+    return realCreate(blob);
+  };
+  button.click();
+  for (let tick = 0; tick < 400 && !captured.length; tick += 1) await sleep(25);
+  win.URL.createObjectURL = realCreate;
+  if (!captured.length) return { error: "no download" };
+  const buffer = new Uint8Array(await captured[0].arrayBuffer());
+  let binary = "";
+  for (const byte of buffer) binary += String.fromCharCode(byte);
+  return {
+    bytes: buffer.length,
+    signature: String.fromCharCode(...buffer.slice(0, 2)),
+    base64: btoa(binary),
+  };
+}
+
+/**
+ * The material pack cards: a file table, the sheets, and their own pack button.
+ *
+ * Both eras get a card. Only the 1.4.4 one writes a resource pack, because 1.3
+ * has no `pack.json`.
+ */
+async function runPackCards(doc) {
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    if (doc.querySelectorAll("#results .pack-tabs .nav-link").length > 1) break;
+  }
+  await sleep(150);
+
+  // the card is rebuilt on every tab click, so never keep a reference to it
+  const card = () => doc.querySelector("#results .pack");
+  const tabs = () => [...card().querySelectorAll(".pack-tabs .nav-link")];
+  const activeTab = () => card().querySelector(".pack-tabs .nav-link.active")?.textContent.trim() ?? null;
+  const pick = async (label) => {
+    tabs().find((el) => el.textContent.trim() === label)?.click();
+    for (let tick = 0; tick < 400; tick += 1) {
+      await sleep(25);
+      if (activeTab() === label) break;
+    }
+    await sleep(150);
+  };
+  const readTab = () => ({
+    button: card().querySelector(".pack-actions > button")?.textContent.trim() ?? null,
+    inputs: [...card().querySelectorAll(".pack-info input")].map((input) => input.placeholder),
+    rows: [...card().querySelectorAll(".sheet-table tbody tr")].map((tr) =>
+      [...tr.children].slice(0, 3).map((td) => td.textContent.trim()),
+    ),
+    // the ID column carries an input plus the vanilla name it resolves to
+    ids: [...card().querySelectorAll(".id-cell")].map((cell) => ({
+      value: cell.querySelector("input").value,
+      name: cell.querySelector(".id-name").textContent.trim(),
+    })),
+    columns: [...card().querySelectorAll(".sheet-col figcaption")].map((el) => el.textContent.trim()),
+    sheets: card().querySelectorAll(".sheet-col img").length,
+    tabs: tabs().map((el) => el.textContent.trim()),
+    activeTab: activeTab(),
+  });
+
+  // the tab is remembered across runs, so pick 1.4.4+ explicitly
+  await pick("1.4");
+  const first = readTab();
+  const pack144 = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
+
+  await pick("1.3");
+  const second = readTab();
+  const pack13 = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
+
+  // the third tab holds the full armour outputs and has its own zip
+  await pick("全身盔甲");
+  const fullTab = readTab();
+  const packFull = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
+
+  await pick("1.4");
+  return { info: [first, second], packs: [pack144, pack13, packFull], full: fullTab };
+}
+
+/** The GIFs of the full armour tab are real files, not just a preview. */
+async function runGifTargets(doc) {
+  const tabs = [...doc.querySelectorAll("#results .pack-tabs .nav-link")].map((el) => el.textContent.trim());
+  const fullTab = () =>
+    [...doc.querySelectorAll("#results .pack-tabs .nav-link")].find((el) => el.textContent.trim() === "全身盔甲");
+  fullTab()?.click();
+  for (let tick = 0; tick < 200; tick += 1) {
+    await sleep(25);
+    if (doc.querySelectorAll("#results a[download$='.gif']").length) break;
+  }
+  await sleep(150);
+  const names = [...doc.querySelectorAll("#results a[download]")].map((a) => a.textContent);
+  const active = doc.querySelector("#results .pack-tabs .nav-link.active")?.textContent.trim() ?? null;
+  return { names, labels: tabs, active };
 }
 
 /** Fire "rebuild every set" and cancel it right away. */
@@ -486,15 +756,19 @@ async function runReverseAllCancel(doc) {
 async function runReverseAll(doc) {
   doc.querySelector("#do-reverse-all").click();
   let sawProgress = false;
+  let sawFill = false;
   for (let tick = 0; tick < 8000; tick += 1) {
     await sleep(25);
     const status = doc.querySelector("#status");
     if (/\d+\/\d+/.test(status.textContent)) sawProgress = true;
+    const width = doc.querySelector("#job-bar .progress-bar")?.style.width ?? "";
+    if (width && width !== "0%") sawFill = true;
     if (tick > 4 && status.className !== "busy") break;
   }
   await sleep(150);
   return {
     sawProgress,
+    sawFill,
     status: doc.querySelector("#status").textContent.trim(),
     files: doc.querySelectorAll("#reverse-result .files a").length,
     history: doc.querySelectorAll("#history-list li img").length,
@@ -563,30 +837,41 @@ const timer = setInterval(async () => {
     const serviceWorker = await serviceWorkerInfo(frame.contentWindow);
     // 1. no folder, no uploads — this is the phone case: the textures shipped
     //    with the site have to be found on their own.
-    const download = await checkTemplateDownload(doc, frame.contentWindow);
-    const popover = await checkTemplatePopover(doc);
+    step("reverse");
     const builtin = await runReverse(doc);
+    step("drop-tools");
+    const dropTools = await runDropTools(doc);
     // 2. an export from a dropped template, which also fills the history
+    step("export");
     const exported = await runExport(doc);
+    step("gif-targets");
     const gifTargets = await runGifTargets(doc);
-    // 3. the same thing again, but with the user's own files uploaded.
+    step("pack-cards");
+    const packCards = await runPackCards(doc);
+    // 3. the same thing again, but with the user's own files uploaded
+    step("upload");
     await uploadTextures(doc);
     const uploaded = await runReverse(doc);
     // 4. the preview-sheets tab, with three separate slots
+    step("sheet-gifs");
     const gifs = await runSheetGifs(doc);
+    step("resource-pack");
     const pack = await runResourcePack(doc);
+    step("player-overlay");
     const player = await runPlayerOverlay(doc);
     // 5. the long task: cancel works, and a full run reports progress
+    step("reverse-all-cancel");
     const cancelled = await runReverseAllCancel(doc);
+    step("reverse-all");
     const reverseAll = await runReverseAll(doc);
     report({
       ...app,
       serviceWorker,
-      download,
-      popover,
       builtin,
+      dropTools,
       exported,
       gifTargets,
+      packCards,
       uploaded,
       gifs,
       pack,

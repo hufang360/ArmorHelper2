@@ -59,22 +59,18 @@ async function artOnlyWeb() {
   return { root, art };
 }
 
-test("downloading the template applies the guide overlay", { skip }, async () => {
+test("the guide overlay is drawn on the downloaded template", { skip }, async () => {
   const { root, art } = await artOnlyWeb();
   const served = await serve(root, { harness: HARNESS });
   try {
     const payload = await openInBrowser(chrome, `${served.base}/__harness.html`, scratch(), served);
     assert.equal(payload.error, undefined, payload.error);
 
-    const download = payload.download;
-    assert.equal(download.error, undefined, download.error);
-    assert.equal(download.size, "128x80");
-
+    const [plain, merged] = payload.dropTools.artOpaque;
     const bare = art.data.filter((_, index) => index % 4 === 3 && art.data[index] > 1).length;
-    assert.equal(download.rawOpaque, bare, "the served template should be art only");
-    assert.ok(download.producedOpaque > bare, "the overlay was not drawn on the download");
-    assert.equal(download.producedOpaque, bare + 4395);
-    assert.equal(download.identicalToRaw, false);
+    // the served template is the art only, so the difference is the overlay
+    assert.equal(plain, bare, "the guide-off download should be the template itself");
+    assert.equal(merged, bare + 4395, "the overlay was not drawn on the download");
   } finally {
     await served.close();
   }
@@ -90,17 +86,25 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(payload.status.includes("就绪"), payload.status);
     assert.ok(!payload.status.includes("已连接"), payload.status);
     assert.ok(payload.sets > 150, `${payload.sets} sets`);
-    assert.equal(payload.targets, 12);
-    assert.equal(payload.checkboxes, 18);
+    // no export targets are left: every output is always generated
+    // the export page's guide switch is the drop area icon, not a checkbox;
+    // the reverse page keeps a checkbox of its own
+    assert.deepEqual(payload.checkboxIds, [
+      "opt-female",
+      "opt-player",
+      "gif-player",
+      "rev-guide",
+      "set-glow",
+      "set-verify",
+    ]);
     assert.deepEqual(payload.tabs, ["导出贴图", "预览贴图", "反向还原", "设置"]);
     assert.ok(payload.subtitle.includes("网页版"), payload.subtitle);
     assert.equal(payload.guide, true);
     assert.ok(payload.guideLabel.includes("参考线"), payload.guideLabel);
-    assert.equal(payload.downloadButton, "BUTTON");
     assert.equal(payload.favicon, "data/icon.png");
     assert.equal(payload.logo, "data/icon.png");
-    assert.equal(payload.download.error, undefined, payload.download.error);
-    assert.equal(payload.download.size, "128x80");
+    // on a clean profile: nothing to open yet
+    assert.equal(payload.historyDisabled, true);
 
     // the bundled textures are what a phone user relies on
     assert.ok(payload.source.includes("内置"), payload.source);
@@ -120,74 +124,222 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       assert.ok(reverse.captions[0].includes("绘制模板"), reverse.captions[0]);
       assert.ok(reverse.captions[1].includes("20 帧"), reverse.captions[1]);
       assert.equal(reverse.widths[0], 128 * 4 + 4, `${reverse.widths[0]}`);
+      // the guide switch is checked here: this is the only template preview left
+      assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
     }
 
-    // the hover popover really shows the template the button downloads
-    const popover = payload.popover;
-    assert.equal(popover.hiddenAtStart, true);
-    assert.equal(popover.visible, true);
-    assert.equal(popover.width, 128 * 4 + 4); // magnified 4x + the 2px border
-    assert.equal(popover.hiddenAfter, true);
+
+    // the drop area's own tools: demo template, guide overlay, download
+    const dropTools = payload.dropTools;
+    assert.equal(dropTools.loaded, true);
+    // tooltips are translated text, never the browser's own title bubble
+    assert.deepEqual(dropTools.titles, [null, null, null]);
+    assert.deepEqual(dropTools.tooltips, [
+      "叠加标注画面",
+      "下载当前模板",
+      "清空当前模板",
+      "载入内置绘制模板作为示例",
+    ]);
+    assert.deepEqual(dropTools.pressed, ["true", "false"]);
+    // the demo picture is already annotated, so the toggle is disabled for it
+    assert.equal(dropTools.guideDisabledOnDemo, true);
+    assert.equal(dropTools.guideEnabledOnFlat, true);
+    assert.equal(dropTools.guideRedraws, true);
+    // the merged download carries the guide lines, the plain one is the original
+    assert.ok(dropTools.changed > 0, JSON.stringify(dropTools));
+    assert.equal(dropTools.plainMatchesFlat, true);
 
     // a plain export, and the history entry it leaves behind
     const exported = payload.exported;
     assert.ok(exported.files.length > 0);
-    assert.equal(exported.previews, 3);
+    // the animation sits beside the drop area, not in the result card
+    assert.equal(exported.previewVisible, true);
+    // dimensions carry their unit, and the size in KB is gone
+    // the material pack table drops the px unit; the file list keeps it
     assert.ok(exported.sizes.includes("40×1120"), exported.sizes);
+    assert.ok(!exported.sizes.includes("px"), exported.sizes);
+    assert.ok(!/\d+ KB/.test(exported.sizes), exported.sizes);
+    // the set id is editable inside the 1.4 table
+    assert.equal(exported.setId, "0");
     assert.ok(exported.history.length >= 1);
     assert.ok(exported.history[0].includes("MyArmor"), exported.history[0]);
-    assert.equal(exported.stored[0].files, exported.files.length);
+    // the history counts every generated file: 6 sheets + 4 PNG + 4 GIF
+    assert.equal(exported.stored[0].files, 14);
     assert.ok(exported.stored[0].thumb.startsWith("data:image/png"), exported.stored[0].thumb);
 
-    // the empty results card matches the input card ...
+    // the results are not a card any more: no forced height, content decides
     const before = exported.heightsBefore;
-    assert.ok(Math.abs(before.results - before.left) <= 2, JSON.stringify(before));
-    assert.ok(before.forced.endsWith("px"), JSON.stringify(before));
-    // ... and once there is a result the content decides
-    const after = exported.heightsAfter;
-    assert.equal(after.forced, "");
-    assert.ok(after.results > 0);
+    assert.equal(before.forced, "");
+    // they grow with the content once a template is loaded
+    assert.ok(exported.heightsAfter.results > 0, JSON.stringify(exported.heightsAfter));
+
+    // one template at a time: the second replaces the first, and the card is
+    // redrawn for it instead of keeping the old file's result
+    // the card no longer shows the template name, so check its content instead
+    // no title any more: the results are a bare block
+    assert.deepEqual(exported.replaced.titles, []);
+    assert.ok(exported.replaced.resultsText.includes("Armor_Head_0.png"), exported.replaced.resultsText);
+    assert.ok(exported.replaced.resultsText.includes("Armor_Head_0.png"), exported.replaced.resultsText);
+    assert.ok(!exported.replaced.resultsText.includes("MyArmor"), exported.replaced.resultsText);
+
+    // WFR-02: a template that is not 128x80 is refused, and nothing is written
+    assert.equal(exported.wrongSize.hasResult, true); // the good template is still there
+    assert.deepEqual(exported.wrongSize.titles, []); // the bad one was not taken
+    assert.ok(exported.wrongSize.status.includes("128×80"), exported.wrongSize.status);
+
 
     // the result card's buttons really do something (this used to throw
     // "save.save is not a function" because of a shadowed local)
     const buttons = exported.buttons;
-    assert.deepEqual(buttons.labels, ["打包下载 (zip)", "写入输出目录"]);
+    // the export action lives inside the active tab
+    assert.deepEqual(buttons.labels, ["下载材质包"]);
+    assert.deepEqual(exported.ui.cardActions, ["下载材质包"]);
+    assert.deepEqual(exported.ui.cards, []);
     assert.ok(!buttons.status.includes("not a function"), buttons.status);
     assert.equal(buttons.signature, "PK");
 
     const zipped = readZip(Buffer.from(buttons.base64, "base64"));
+    // the 1.4.4 tab's button writes a resource pack
     assert.deepEqual(
       zipped.map((entry) => entry.name),
-      ["MyArmor_Head.png", "MyArmor_Legs.png", "MyArmor_Body.png"],
+      [
+        "pack.json",
+        "Content/",
+        "Content/Images/",
+        "Content/Images/Armor_Head_0.png",
+        "Content/Images/Armor_Legs_0.png",
+        "Content/Images/Armor/",
+        "Content/Images/Armor/Armor_0.png",
+      ],
     );
-    const head = zipped.find((entry) => entry.name === "MyArmor_Head.png");
+    const head = zipped.find((entry) => entry.name === "Content/Images/Armor_Head_0.png");
     const { decodePNG } = await import("../../tools/lib/png.mjs");
     assertSamePixels(decodePNG(head.data), goldenImage("head"), "zipped head sheet");
 
     // a language switch redraws the cards instead of leaving the old wording
     const captions = exported.captions;
-    assert.deepEqual(captions.before, ["绘制模板 (128×80)", "生成效果 (20 帧)", "GIF 动画"]);
-    assert.equal(captions.english[0], "Drawing template (128x80)");
+    assert.deepEqual(captions.before, ["头", "身", "腿"]);
+    assert.equal(captions.english[0], "Head");
     assert.equal(captions.englishFiles, exported.files.length);
     assert.deepEqual(captions.chinese, captions.before);
+    assert.deepEqual(exported.files, ["Armor_Head_0.png", "Armor/Armor_0.png", "Armor_Legs_0.png"]);
 
-    // the gif-full* targets are real files (the web app used to ignore them)
+    // the GIFs are real files in the 全身盔甲 tab
     const gifTargets = payload.gifTargets;
-    assert.deepEqual(gifTargets.labels, [
-      "GIF 全身盔甲",
-      "GIF 全身盔甲（女性）",
-      "GIF 全身盔甲 + 玩家",
-      "GIF 全身盔甲 + 玩家（女性）",
-    ]);
+    assert.deepEqual(gifTargets.labels, ["1.4", "1.3", "全身盔甲"]);
+    assert.equal(gifTargets.active, "全身盔甲", JSON.stringify(gifTargets));
+    // the full armour tab lists the four PNGs, then the four GIFs
     assert.deepEqual(gifTargets.names, [
-      "MyArmor_Head.png",
-      "MyArmor_Legs.png",
-      "MyArmor_Body.png",
-      "MyArmor_FullArmor.gif",
-      "MyArmor_FullArmorFemale.gif",
-      "MyArmor_FullArmorPlayer.gif",
-      "MyArmor_FullArmorPlayerFemale.gif",
+      "FullArmor.png",
+      "FullArmorFemale.png",
+      "FullArmorPlayer.png",
+      "FullArmorPlayerFemale.png",
+      "FullArmor.gif",
+      "FullArmorFemale.gif",
+      "FullArmorPlayer.gif",
+      "FullArmorPlayerFemale.gif",
     ]);
+
+    // the results block: three tabs, each with its own zip
+    const packCards = payload.packCards;
+    assert.equal(packCards.info.length, 2);
+    const [tab144, tab13] = packCards.info;
+    assert.deepEqual(tab144.tabs, ["1.4", "1.3", "全身盔甲"]);
+    assert.equal(tab144.activeTab, "1.4");
+    assert.equal(tab13.activeTab, "1.3");
+    // only 1.4.4+ writes a pack.json, so only its tab offers the inputs
+    assert.deepEqual(tab144.inputs, ["材质包名称", "作者", "由 ArmorHelper 生成"]);
+    assert.deepEqual(tab13.inputs, []);
+    assert.equal(tab144.button, "下载材质包");
+    assert.equal(tab13.button, "打包下载");
+    assert.deepEqual(tab144.rows, [
+      ["Armor_Head_0.png", "40×1120", "头部，20 帧"],
+      ["Armor/Armor_0.png", "360×224", "身体，包括男身和女身"],
+      ["Armor_Legs_0.png", "40×1120", "腿部，20 帧"],
+    ]);
+    assert.deepEqual(tab144.columns, ["头", "身", "腿"]);
+    // the 1.4 table carries one editable ID per part, with its vanilla name
+    assert.deepEqual(tab144.ids, [
+      { value: "0", name: "便装假发" },
+      { value: "0", name: "便装衣" },
+      { value: "0", name: "便装裤" },
+    ]);
+    // the other tabs have no ID column
+    assert.deepEqual(tab13.ids, []);
+    // 1.3: table order follows the preview columns
+    assert.deepEqual(tab13.rows, [
+      ["Armor_Head_0.png", "40×1120", "头部，20 帧"],
+      ["Armor_Body_0.png", "40×1120", "男性身体，20 帧"],
+      ["Female_Body_0.png", "40×1120", "女性身体，20 帧"],
+      ["Armor_Arm_0.png", "40×1120", "手臂，20 帧"],
+      ["Armor_Legs_0.png", "40×1120", "腿部，20 帧"],
+    ]);
+    assert.deepEqual(tab13.columns, ["头", "男身", "女身", "手臂", "腿"]);
+    assert.equal(tab144.sheets, 3);
+    assert.equal(tab13.sheets, 5);
+    // the 全身盔甲 tab has its own zip of the eight files
+    assert.equal(packCards.full.rows.length, 8);
+    assert.equal(packCards.full.button, "打包下载");
+
+    const [pack144, pack13, packFull] = packCards.packs.map((pack) => ({
+      ...pack,
+      entries: readZip(Buffer.from(pack.base64, "base64")).map((entry) => entry.name),
+    }));
+    assert.equal(pack144.signature, "PK");
+    assert.deepEqual(pack144.entries, [
+      "pack.json",
+      "Content/",
+      "Content/Images/",
+      "Content/Images/Armor_Head_0.png",
+      "Content/Images/Armor_Legs_0.png",
+      "Content/Images/Armor/",
+      "Content/Images/Armor/Armor_0.png",
+    ]);
+    // 1.3 had no resource packs, so its zip carries no pack.json
+    assert.equal(pack13.signature, "PK");
+    assert.deepEqual(pack13.entries, [
+      "Content/",
+      "Content/Images/",
+      "Content/Images/Armor_Head_0.png",
+      "Content/Images/Armor_Legs_0.png",
+      "Content/Images/Armor_Body_0.png",
+      "Content/Images/Female_Body_0.png",
+      "Content/Images/Armor_Arm_0.png",
+    ]);
+    // the full armour zip carries the eight generated files, not the sheets
+    assert.equal(packFull.signature, "PK");
+    assert.deepEqual(packFull.entries, [
+      "FullArmor.png",
+      "FullArmorFemale.png",
+      "FullArmorPlayer.png",
+      "FullArmorPlayerFemale.png",
+      "FullArmor.gif",
+      "FullArmorFemale.gif",
+      "FullArmorPlayer.gif",
+      "FullArmorPlayerFemale.gif",
+    ]);
+
+    // the player switch and the female switch both redraw the animation
+    assert.equal(exported.previewVisible, true);
+    assert.equal(exported.playerChanged, true);
+    assert.equal(exported.femaleChanged, true);
+
+    // the action row is text only now: upload / demo / history
+    const ui = exported.ui;
+    assert.equal(ui.uploadLabel, "上传");
+    // a template is loaded here, so the button demoted itself to a secondary one
+    assert.equal(ui.uploadSecondaryAfter, true);
+    assert.equal(payload.uploadPrimaryAtStart, true);
+    // history is an icon in the drop area now, named by its tooltip
+    assert.equal(ui.historyLabel, "最近导出");
+    assert.equal(ui.historyHasIcon, true);
+    assert.equal(ui.uploadIcon, false);
+    // the pack button lives in the tab content, as a primary action
+    assert.equal(ui.cardActions.includes("下载材质包"), true);
+    assert.equal(ui.packButtonPrimary, true);
+    // the file summary and the file list are gone: the drop area shows the file
+    assert.equal(ui.summary, false);
+    assert.equal(ui.list, false);
 
     // the preview-sheets tab: three labelled slots, speed/size, and the GIFs
     const gifs = payload.gifs;
@@ -198,16 +350,22 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(gifs.wrongSlotStatus.includes("还缺"), gifs.wrongSlotStatus);
     assert.equal(gifs.disabled, false);
     assert.deepEqual(gifs.filled, [true, true, true]);
-    assert.deepEqual(gifs.titles, [
-      "头部（Armor_Head_ · 40×1120px）",
-      "身体（Armor_ · 360×224，整数倍也行）",
-      "腿部（Armor_Legs_ · 40×1120px）",
-    ]);
+    assert.deepEqual(gifs.titles, ["头", "身体", "腿"]);
     assert.deepEqual(gifs.thumbs.map((thumb) => thumb.hidden), [false, false, false]);
     assert.deepEqual(gifs.thumbs.map((thumb) => thumb.src), ["data:", "data:", "data:"]);
-    // tall sheets show their first frame at 2x, the body grid shows all 9x4 cells
-    assert.deepEqual(gifs.thumbs.map((thumb) => thumb.width), [80, 360, 80]);
-    assert.ok(gifs.sheetStatus.includes("头部 ✓"), gifs.sheetStatus);
+    // every slot shows the whole sheet that was dropped in
+    assert.deepEqual(gifs.thumbs.map((thumb) => thumb.width), [40, 360, 40]);
+    // the body box is 360x224 itself, head and legs are half as wide
+    assert.deepEqual(gifs.boxes, [
+      [180, 224],
+      [360, 224],
+      [180, 224],
+    ]);
+    // "remove" is an icon button with no label text
+    assert.deepEqual(gifs.clearIcons.map((icon) => icon.svg), [true, true, true]);
+    assert.deepEqual(gifs.clearIcons.map((icon) => icon.text), ["", "", ""]);
+    // a filled slot shows its own tick, so the status line is empty
+    assert.equal(gifs.sheetStatus, "");
     assert.deepEqual(gifs.files, [
       "Armor_190_FullArmor.png",
       "Armor_190_FullArmorFemale.png",
@@ -221,9 +379,6 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // 2x was chosen, so the GIFs (and their preview) are twice as wide
     assert.deepEqual(gifs.widths.slice(0, 2), [80, 80]);
     assert.ok(gifs.widths[2] > 800, String(gifs.widths[2])); // the 20 frame contact sheet
-    assert.ok(Math.abs(gifs.heightsBefore.results - gifs.heightsBefore.left) <= 2);
-    assert.ok(gifs.heightsBefore.forced.endsWith("px"));
-    assert.equal(gifs.heightsAfter.forced, "");
     assert.equal(gifs.settings.gifSpeed, "slow");
     assert.equal(gifs.settings.gifSize, 2);
 
@@ -249,8 +404,9 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     );
 
     const meta = JSON.parse(new TextDecoder().decode(entries.find((entry) => entry.name === "pack.json").data));
-    assert.equal(meta.Name, "星尘板甲");
-    assert.ok(meta.Author);
+    // the defaults the inputs advertise: 盔甲 / ArmorHelper2 / description
+    assert.equal(meta.Name, "盔甲");
+    assert.equal(meta.Author, "ArmorHelper2");
     assert.ok(meta.Description);
     assert.deepEqual(meta.Version, { major: 1, minor: 0 });
 
@@ -267,7 +423,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // "overlay player" works with no folder at all (bundled player textures)
     const player = payload.player;
     assert.equal(player.error, undefined, player.error);
-    assert.equal(player.hintVisible, true);
+    // the note lives in the info icon's tooltip
     assert.ok(player.hintText.includes("内置"), player.hintText);
     assert.deepEqual(player.files, [
       "Armor_190_FullArmor.png",
@@ -296,6 +452,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // ... and letting it finish reports progress on the way
     const reverseAll = payload.reverseAll;
     assert.equal(reverseAll.sawProgress, true);
+    // the Bootstrap progress bar fills as the job advances
+    assert.equal(reverseAll.sawFill, true);
     assert.ok(reverseAll.files > 100, `${reverseAll.files} files`);
     assert.ok(reverseAll.status.includes("已还原"), reverseAll.status);
     assert.ok(reverseAll.history >= 2, `${reverseAll.history} history entries`);

@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT = resolve(here, "..", "web", "data", "armor_sets.json");
+const DEFAULT_NAMES_OUTPUT = resolve(here, "..", "web", "data", "armor_names.json");
 
 const HEAD_SUFFIXES = [
   "Headgear", "Headphones", "Earmuffs", "Bandana", "Goggles", "Helmet", "Crown",
@@ -258,6 +259,52 @@ export function build(source, { localization = null } = {}) {
   };
 }
 
+/**
+ * `slot id -> { name, zh }` for the head, body and legs armor slots.
+ *
+ * The set table only carries the body item name, so per-slot names come from
+ * the items themselves: `Item.cs` maps item id -> slot id, `ItemID.cs` gives the
+ * constant name, and the localization file gives the translated one. When
+ * several items share a slot, the lowest item id wins, so the result is stable.
+ */
+export function slotNames(source, itemNames, translated) {
+  const chosen = { head: new Map(), body: new Map(), legs: new Map() };
+  const fields = [["head", "headSlot"], ["body", "bodySlot"], ["legs", "legSlot"]];
+  for (const [itemId, entry] of parseItemSlots(source)) {
+    const constant = itemNames.get(itemId);
+    for (const [key, field] of fields) {
+      const slot = entry[field];
+      if (slot === undefined) continue;
+      const current = chosen[key].get(slot);
+      if (current !== undefined && current.item < itemId) continue;
+      chosen[key].set(slot, { item: itemId, constant });
+    }
+  }
+
+  const result = { head: {}, body: {}, legs: {} };
+  for (const [key, table] of Object.entries(chosen)) {
+    for (const slot of [...table.keys()].sort((a, b) => a - b)) {
+      const { constant } = table.get(slot);
+      const name = constant ?? "";
+      result[key][slot] = { name, zh: translated[name] ?? "" };
+    }
+  }
+  return result;
+}
+
+/** The per-slot name table, written next to the set table. */
+export function buildNames(source, { localization = null } = {}) {
+  const itemNames = parseItemIds(source);
+  const translated = parseLocalization(
+    localization ?? join(source, "Terraria.Localization.Content.zh-Hans.Items.json"),
+  );
+  return {
+    source: "Terraria (rowid 1.4.5.x) — Item.cs slots + ItemID.cs names",
+    generated: localDate(),
+    slots: slotNames(source, itemNames, translated),
+  };
+}
+
 /** `date.today()` in local time, as `YYYY-MM-DD`. */
 function localDate() {
   const now = new Date();
@@ -266,14 +313,17 @@ function localDate() {
 }
 
 function parseArgs(argv) {
-  const args = { source: null, localization: null, output: DEFAULT_OUTPUT };
+  const args = { source: null, localization: null, output: DEFAULT_OUTPUT, names: DEFAULT_NAMES_OUTPUT };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "-h" || arg === "--help") {
-      console.log("usage: node tools/build_armor_sets.mjs <source-tree> [-o OUTPUT] [--localization FILE]");
+      console.log(
+      "usage: node tools/build_armor_sets.mjs <source-tree> [-o OUTPUT] [--names OUTPUT] [--localization FILE]",
+    );
       process.exit(0);
     }
     if (arg === "-o" || arg === "--output") args.output = resolve(argv[++index]);
+    else if (arg === "--names") args.names = resolve(argv[++index]);
     else if (arg === "--localization") args.localization = resolve(argv[++index]);
     else if (!args.source) args.source = resolve(arg);
     else throw new Error(`unexpected argument: ${arg}`);
@@ -288,11 +338,16 @@ function main(argv) {
   mkdirSync(dirname(args.output), { recursive: true });
   writeFileSync(args.output, `${JSON.stringify(data, null, 1)}\n`, "utf8");
 
+  const names = buildNames(args.source, { localization: args.localization });
+  writeFileSync(args.names, `${JSON.stringify(names, null, 1)}\n`, "utf8");
+
   const complete = data.sets.filter((set) => set.head !== null && set.legs !== null).length;
   const translated = data.sets.filter((set) => set.zh).length;
   const confidence = {};
   for (const set of data.sets) confidence[set.confidence] = (confidence[set.confidence] ?? 0) + 1;
   console.log(`wrote ${args.output}`);
+  const slots = names.slots;
+  console.log(`  names: ${Object.keys(slots.head).length} head, ${Object.keys(slots.body).length} body, ${Object.keys(slots.legs).length} legs -> ${args.names}`);
   console.log(`  ${data.count} body armors, ${complete} with both a head and a legs guess`);
   console.log(`  ${translated} with a localized name`);
   console.log(`  confidence: ${JSON.stringify(confidence)}`);

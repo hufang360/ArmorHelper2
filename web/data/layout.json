@@ -1047,24 +1047,7 @@
   }
  },
  "targets": {
-  "all": [
-   "head",
-   "legs",
-   "body",
-   "legacy",
-   "full",
-   "full-female",
-   "full-player",
-   "full-player-female",
-   "gif-full",
-   "gif-full-female",
-   "gif-full-player",
-   "gif-full-player-female"
-  ],
-  "defaults": [
-   "head",
-   "legs",
-   "body"
-  ]
+  "all": [],
+  "defaults": []
  }
 }

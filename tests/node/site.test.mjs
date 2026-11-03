@@ -35,8 +35,9 @@ test("the layout data covers every frame", () => {
   assert.equal(Object.keys(LAYOUT.cells.frontArm).length, 20);
   assert.equal(Object.keys(LAYOUT.cells.backArm).length, 20);
   assert.equal(LAYOUT.legMapping.length, 10);
-  assert.ok(LAYOUT.targets.all.includes("head"));
-  assert.equal(LAYOUT.targets.all.length, 12);
+  // no export targets are left: every output is always built
+  assert.deepEqual(LAYOUT.targets.all, []);
+  assert.deepEqual(LAYOUT.targets.defaults, []);
 });
 
 test("the front end files exist and are wired", () => {
@@ -174,6 +175,17 @@ test("the service worker precaches the whole app", () => {
   const modules = new Set([...APP.matchAll(/from "\.\/(js\/[^"]+)"/g)].map((m) => m[1]));
   const missing = [...modules].filter((module) => !files.includes(module));
   assert.deepEqual(missing, [], `sw.js does not cache ${missing}`);
+
+  // ...and so has everything index.html pulls off disk, vendor CSS included
+  const assets = new Set([
+    ...[...HTML.matchAll(/<link[^>]+href="([^"]+)"/g)].map((match) => match[1]),
+    ...[...HTML.matchAll(/<script[^>]+src="([^"]+)"/g)].map((match) => match[1]),
+  ]);
+  assert.deepEqual(
+    [...assets].filter((asset) => !files.includes(asset)),
+    [],
+    "index.html loads a file that sw.js does not cache",
+  );
 
   // the bundled textures are big: they are cached on use, not on install
   assert.ok(script.includes("data/vanilla/"));

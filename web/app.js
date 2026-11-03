@@ -19,7 +19,7 @@ import {
   searchSets,
   setLabel,
 } from "./js/data.js";
-import { countDifferences, cropRegion, stackFrames, upscale } from "./js/bitmap.js";
+import { countDifferences, stackFrames, upscale } from "./js/bitmap.js";
 import {
   generateArms,
   generateBodyComposite,
@@ -120,7 +120,6 @@ const state = {
   builtin: null, // {version, count, ...} when data/vanilla is bundled
   atlas: null, // texture reader over data/vanilla's packed pages
   overlay: null, // the guide layer drawn on top of templates in the preview
-  templateBitmap: null, // the raw 128x80 template, for the hover popover
   playerParts: null,
   results: { export: null, gif: null, reverse: null }, // last result per panel
   job: null, // {cancelled, done, total} while a long task runs
@@ -153,7 +152,8 @@ function applyI18n() {
   document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
   for (const el of $$("[data-i18n]")) el.textContent = t(el.dataset.i18n);
   for (const el of $$("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
-  renderTargets();
+  renderTooltips();
+  renderGuideToggle();
   renderFiles();
   renderSlots();
   renderFolders();
@@ -179,8 +179,16 @@ function defaultConfig() {
     gifPlayer: false,
     gifSpeed: "fast",
     gifSize: 1,
+    // the export page keeps its own copy: the two pages never share these
+    exportGifSpeed: "fast",
+    exportGifSize: 1,
     verify: false,
     guide: true,
+    // the reverse page owns its own guide switch: the two pages never share one
+    revGuide: true,
+    // `pack.json` fields; empty means "use the default"
+    pack: { name: "", author: "", description: "" },
+    packTab: "144",
   };
 }
 
@@ -193,17 +201,13 @@ function loadConfig() {
   }
   state.config = { ...defaultConfig(), ...stored };
   state.config.ids = { ...defaultConfig().ids, ...(stored.ids || {}) };
+  state.config.pack = { ...defaultConfig().pack, ...(stored.pack || {}) };
   state.language = state.config.language || "zh_CN";
 }
 
 function saveConfig() {
   state.config.language = state.language;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.config));
-}
-
-function isTargetOn(name) {
-  const value = state.config.targets?.[name];
-  return value === undefined ? state.defaults.includes(name) : !!value;
 }
 
 function asId(value) {
@@ -213,86 +217,131 @@ function asId(value) {
   return Number.isInteger(number) && number >= 0 ? number : null;
 }
 
-/** The ids actually used for output names (body fills in the blanks). */
-function effectiveIds() {
-  const head = asId($("#set-head").value);
-  const body = asId($("#set-body").value);
-  const legs = asId($("#set-legs").value);
-  return {
-    head: head ?? body,
-    body,
-    legs: legs ?? body,
-  };
+let armorNames = null;
+
+/** Per-slot armor names, for the ID column. A missing file is not an error. */
+async function loadArmorNames() {
+  try {
+    const response = await fetch("data/armor_names.json");
+    if (!response.ok) return null;
+    armorNames = (await response.json()).slots ?? null;
+  } catch {
+    armorNames = null;
+  }
+  return armorNames;
 }
 
-function outputNames(stem) {
+/** `head 11` -> `挖矿头盔`, or an empty string when the table has no entry. */
+function armorName(part, id) {
+  const entry = armorNames?.[part]?.[String(id)];
+  return entry ? displayName(entry.zh) || entry.name : "";
+}
+
+/** The ids used for output names: 0 when the field is empty. */
+function effectiveIds() {
+  const body = asId($("#set-body")?.value) ?? 0;
+  const head = asId($("#set-head")?.value) ?? body;
+  const legs = asId($("#set-legs")?.value) ?? body;
+  return { head, body, legs };
+}
+
+/** Original file names. They never follow the input file name. */
+function outputNames() {
   const ids = effectiveIds();
-  if (ids.body === null && ids.head === null && ids.legs === null) {
-    return {
-      head: `${stem}_Head.png`,
-      legs: `${stem}_Legs.png`,
-      body: `${stem}_Body.png`,
-      bodyLegacy: `${stem}_BodyLegacy.png`,
-      bodyLegacyFemale: `${stem}_BodyLegacyFemale.png`,
-      arms: `${stem}_ArmsLegacy.png`,
-    };
-  }
-  const bodyId = ids.body ?? ids.head ?? ids.legs;
   return {
-    head: `Armor_Head_${ids.head ?? bodyId}.png`,
-    legs: `Armor_Legs_${ids.legs ?? bodyId}.png`,
-    body: `Armor/Armor_${bodyId}.png`,
-    bodyLegacy: `Armor_Body_${bodyId}.png`,
-    bodyLegacyFemale: `Female_Body_${bodyId}.png`,
-    arms: `Armor_Arm_${bodyId}.png`,
+    head: `Armor_Head_${ids.head}.png`,
+    legs: `Armor_Legs_${ids.legs}.png`,
+    body: `Armor/Armor_${ids.body}.png`,
+    bodyLegacy: `Armor_Body_${ids.body}.png`,
+    bodyLegacyFemale: `Female_Body_${ids.body}.png`,
+    arms: `Armor_Arm_${ids.body}.png`,
   };
 }
 
 /* ------------------------------------------------------------------ ui -- */
 
-function renderTargets() {
-  const host = $("#targets");
-  if (!host || !state.layout) return;
-  host.innerHTML = "";
-  for (const name of state.layout.targets.all) {
-    const label = document.createElement("label");
-    label.className = "check";
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = isTargetOn(name);
-    box.addEventListener("change", () => {
-      state.config.targets = { ...state.config.targets, [name]: box.checked };
-      saveConfig();
-    });
-    const span = document.createElement("span");
-    span.textContent = t(`target.${name}`);
-    label.append(box, span);
-    host.append(label);
+/** Show the loaded template in the drop area, or the hint when there is none. */
+/**
+ * Tooltips of the drop area icons and the info bubble.
+ *
+ * They are plain text in a `data-tooltip` attribute, shown by CSS: the bundled
+ * Bootstrap is CSS only, so there is no `Tooltip` component. A `title` would
+ * pop up the browser's own bubble, which cannot be styled or translated.
+ */
+const TOOLTIPS = [
+  ["#drop-guide", "web.guideTooltip"],
+  ["#drop-download", "web.downloadTooltip"],
+  ["#drop-clear", "web.clearTooltip"],
+  ["#history-toggle", "web.historyTitle"],
+  ["#load-demo", "web.demoTooltip"],
+  ["#player-info", "web.playerHint"],
+  ...SHEET_ROLES.map((role) => [`#sheet-${role}-clear`, "web.remove"]),
+];
+
+function renderTooltips() {
+  for (const [selector, key] of TOOLTIPS) {
+    const el = $(selector);
+    if (!el) continue;
+    el.dataset.tooltip = t(key);
+    // the icon buttons have no text of their own to name them
+    if (!el.textContent.trim()) el.setAttribute("aria-label", t(key));
   }
 }
 
+/**
+ * What the drop area shows and the download hands out: the template, with the
+ * guide overlay when the switch is on and the file does not carry it already.
+ */
+function shownTemplate(file) {
+  return file.preGuided ? file.bitmap : withGuide(file.bitmap, state.config.guide !== false);
+}
+
 function renderFiles() {
-  const list = $("#file-list");
-  if (!list) return;
-  list.innerHTML = "";
-  state.files.forEach((file, index) => {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.textContent = file.name;
-    const meta = document.createElement("span");
-    meta.className = "muted";
-    meta.textContent = file.bitmap ? `${file.bitmap.width}×${file.bitmap.height}` : "";
-    const remove = document.createElement("button");
-    remove.textContent = "✕";
-    remove.title = t("web.remove");
-    remove.addEventListener("click", () => {
-      state.files.splice(index, 1);
-      renderFiles();
-    });
-    li.append(name, meta, remove);
-    list.append(li);
-  });
-  $("#file-summary").textContent = state.files.length ? t("web.selected", { count: state.files.length }) : "";
+  const file = state.files[0];
+  const preview = $("#template-preview");
+  const hint = $("#drop-hint");
+  const download = $("#drop-download");
+  if (preview) {
+    preview.hidden = !file;
+    if (file) {
+      // the template itself stands in for the hint, so the area shows what the
+      // export will use
+      preview.src = keepUrl(shownTemplate(file));
+    } else {
+      preview.removeAttribute("src");
+    }
+  }
+  if (download) download.disabled = !file;
+  // the guide overlay only makes sense on a template that has none yet
+  const guide = $("#drop-guide");
+  if (guide) guide.disabled = !file || !!file.preGuided;
+  const clear = $("#drop-clear");
+  if (clear) clear.disabled = !file;
+  // the demo would replace what is already loaded
+  const demo = $("#load-demo");
+  if (demo) demo.disabled = !!file;
+  // the upload button is the main action only while there is nothing loaded
+  const upload = $("#upload-file");
+  if (upload) {
+    upload.classList.toggle("btn-primary", !file);
+    upload.classList.toggle("btn-secondary", !!file);
+  }
+  if (hint) hint.hidden = !!file;
+  $("#drop")?.classList.toggle("is-filled", !!file);
+}
+
+/**
+ * The guide switch exists twice: in the preview options and on the drop area.
+ * Both show the same state, so either one can flip it.
+ */
+function renderGuideToggle() {
+  const on_ = state.config.guide !== false;
+  const button = $("#drop-guide");
+  if (button) {
+    button.setAttribute("aria-pressed", on_ ? "true" : "false");
+    button.classList.toggle("is-on", on_);
+  }
+  renderFiles();
 }
 
 /* --------------------------------------------------------- long tasks -- */
@@ -300,6 +349,14 @@ function renderFiles() {
 /** Let the browser repaint, so the progress text is actually visible. */
 function nextFrame() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** Bootstrap progress is a div pair: the wrapper has the id, the inner div has the width. */
+function setProgress(bar, done, total) {
+  const percent = Math.round((done / Math.max(1, total)) * 100);
+  const fill = bar.firstElementChild;
+  if (fill) fill.style.width = `${percent}%`;
+  bar.setAttribute("aria-valuenow", String(percent));
 }
 
 /** Begin a task with `total` steps: shows the progress bar and cancel button. */
@@ -310,8 +367,7 @@ function startJob(total) {
   const long = total > 1;
   if (bar) {
     bar.hidden = !long;
-    bar.max = Math.max(1, total);
-    bar.value = 0;
+    setProgress(bar, 0, total);
   }
   if (cancel) {
     cancel.hidden = !long;
@@ -324,7 +380,7 @@ function jobProgress(index, name) {
   if (!state.job) return;
   state.job.done = index;
   const bar = $("#job-bar");
-  if (bar) bar.value = index;
+  if (bar) setProgress(bar, index, state.job.total);
   say(
     t("web.progress", {
       index: Math.min(index + 1, state.job.total),
@@ -348,7 +404,7 @@ function endJob() {
   const cancel = $("#cancel-job");
   if (bar) {
     bar.hidden = true;
-    bar.value = 0;
+    setProgress(bar, 0, job?.total ?? 1);
   }
   if (cancel) cancel.hidden = true;
   return job;
@@ -399,10 +455,13 @@ function renderHistory() {
   const list = $("#history-list");
   if (!list) return;
   const entries = loadHistory();
+  // nothing recorded yet: the button would open an empty panel
+  const toggle = $("#history-toggle");
+  if (toggle) toggle.disabled = entries.length === 0;
   list.innerHTML = "";
   if (!entries.length) {
     const li = document.createElement("li");
-    li.className = "muted small";
+    li.className = "text-body-secondary small";
     li.textContent = t("web.historyEmpty");
     list.append(li);
     return;
@@ -438,54 +497,53 @@ function clearHistory() {
 
 /* ------------------------------------------------------- full-body GIFs -- */
 
-/** Per-frame delay chosen in the UI (fast / medium / slow). */
-function gifDelay() {
-  return GIF_SPEEDS[state.config.gifSpeed] ?? GIF_SPEEDS.fast;
+/** Per-frame delay of one page's GIF speed choice (fast / medium / slow). */
+function gifDelay(speed = state.config.gifSpeed) {
+  return GIF_SPEEDS[speed] ?? GIF_SPEEDS.fast;
 }
 
 /** The GIF scale chosen in the UI: 1, 2 or 4. */
-function gifScale() {
-  const value = Math.floor(Number(state.config.gifSize) || 1);
+function gifScale(size = state.config.gifSize) {
+  const value = Math.floor(Number(size) || 1);
   return value > 1 ? value : 1;
 }
 
 /** Frames as they go into the GIF: nearest-neighbour scaled to the chosen size. */
-function gifFrames(frames) {
-  const factor = gifScale();
+function gifFrames(frames, size = state.config.gifSize) {
+  const factor = gifScale(size);
   return factor > 1 ? frames.map((frame) => upscale(frame, factor)) : frames;
 }
 
 /** Encode a GIF with the current speed, size and frame order. */
-function makeGif(frames) {
-  return gifBlob(gifFrames(frames), { order: gifFrameOrder(), delayMs: gifDelay() });
+function makeGif(frames, speed = state.config.gifSpeed, size = state.config.gifSize) {
+  return gifBlob(gifFrames(frames, size), { order: gifFrameOrder(), delayMs: gifDelay(speed) });
 }
+
+/**
+ * The export page owns its GIF settings.
+ *
+ * The speed and size selects live on the preview-sheets tab, which the user
+ * cannot see from here, so sharing them would look like a bug.
+ */
+const exportGif = () => ({
+  speed: state.config.exportGifSpeed ?? "fast",
+  size: state.config.exportGifSize ?? 1,
+});
 
 /* ------------------------------------------------------- preview sheets -- */
 
 const SLOT_LABEL = { head: "web.slot.head", body: "web.slot.body", legs: "web.slot.legs" };
-
-/**
- * What the slot shows for an uploaded sheet.
- *
- * The body grid (360x224) is readable as a whole, but a head/legs sheet is
- * 40x1120: scaled down it becomes a 3px sliver, so those show their first frame
- * at 2x instead.  The full size is still written next to the file name.
- */
-function slotPreview(bitmap) {
-  if (bitmap.height <= bitmap.width * 4) return bitmap;
-  const cellH = Math.max(1, Math.round((bitmap.width * 28) / 20));
-  const frame = cropRegion(bitmap, [0, 0, bitmap.width, Math.min(cellH, bitmap.height)]);
-  return upscale(frame, 2);
-}
+const SLOT_HINT = { head: "web.slot.headDrop", body: "web.slot.bodyDrop", legs: "web.slot.legsDrop" };
 
 /** Show what each of the three slots holds, and what is still missing. */
 function renderSlots() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   for (const role of SHEET_ROLES) {
     const slot = $(`#sheet-${role}-slot`);
-    const nameEl = $(`#sheet-${role}-name`);
+    const hint = $(`#sheet-${role}-hint`);
+    const info = $(`#sheet-${role}-name`);
     const clear = $(`#sheet-${role}-clear`);
-    if (!slot || !nameEl || !clear) continue;
+    if (!slot || !hint || !info || !clear) continue;
     const entry = state.sheetSlots[role];
     const thumb = $(`#sheet-${role}-thumb`);
     slot.closest(".slot")?.classList.toggle("is-filled", !!entry);
@@ -493,26 +551,22 @@ function renderSlots() {
       thumb.hidden = !entry;
       if (entry && thumb.getAttribute("src") !== (entry.url ?? "")) {
         // keep the data URL on the entry: re-rendering must not re-encode the sheet
-        if (!entry.url) entry.url = keepUrl(slotPreview(entry.bitmap));
+        if (!entry.url) entry.url = keepUrl(entry.bitmap);
         thumb.src = entry.url;
       }
     }
-    nameEl.textContent = entry
-      ? `${entry.name}  ${entry.bitmap.width}×${entry.bitmap.height}`
-      : t("web.slotDrop");
+    // the hint fills the box while it is empty; a filled box shows the sheet only
+    hint.hidden = !!entry;
+    if (!entry) hint.textContent = t(SLOT_HINT[role]);
+    info.hidden = !entry;
+    if (entry) info.textContent = `${entry.name} · ${entry.bitmap.width}×${entry.bitmap.height}`;
     clear.hidden = !entry;
   }
 
   const status = $("#sheet-status");
   if (status) {
+    // a filled slot shows its own tick, so only the gaps and the warnings go here
     const lines = [];
-    if (SHEET_ROLES.some((role) => state.sheetSlots[role])) {
-      lines.push(
-        SHEET_ROLES.map(
-          (role) => `${t(SLOT_LABEL[role])} ${state.sheetSlots[role] ? "✓" : "—"}`,
-        ).join("  ·  "),
-      );
-    }
     if (missing.length) {
       lines.push(
         t("web.gifsMissing", { roles: missing.map((role) => t(SLOT_LABEL[role])).join(" / ") }),
@@ -593,6 +647,48 @@ async function addSheetFiles(fileList, role = null) {
  * `pack.json` carries the display name; the zip's own name is what the game
  * lists in `ResourcePacks/`, so it stays ASCII (`Armor_<id>`).
  */
+async function resourcePackBlob({ head, legs, body }, id, info = {}) {
+  // an empty field means "use the default", so the inputs can stay blank
+  const pack = {
+    Name: (info.name ?? "").trim() || t("web.packDefaultName"),
+    Author: (info.author ?? "").trim() || t("web.packDefaultAuthor"),
+    Description: (info.description ?? "").trim() || t("web.packDescription"),
+    Version: { major: 1, minor: 0 },
+  };
+  const png = async (bitmap) => (await pngBlob(bitmap)).arrayBuffer();
+
+  const entries = [
+    { name: "pack.json", data: `${JSON.stringify(pack, null, 2)}\n` },
+    { name: "Content/", data: new Uint8Array(0) },
+    { name: "Content/Images/", data: new Uint8Array(0) },
+    { name: `Content/Images/Armor_Head_${id}.png`, data: await png(head) },
+    { name: `Content/Images/Armor_Legs_${id}.png`, data: await png(legs) },
+    { name: "Content/Images/Armor/", data: new Uint8Array(0) },
+    { name: `Content/Images/Armor/Armor_${id}.png`, data: await png(body) },
+  ];
+  return zipBlob(entries);
+}
+
+/**
+ * The same five sheets for Terraria 1.3, which had no resource packs.
+ *
+ * The zip keeps the game's folder layout so it can be unpacked next to
+ * `Content/Images`, but it carries no `pack.json`: 1.3 never reads one.
+ */
+async function legacyPackBlob({ head, legs, body, female, arms }, id) {
+  const png = async (bitmap) => (await pngBlob(bitmap)).arrayBuffer();
+  const entries = [
+    { name: "Content/", data: new Uint8Array(0) },
+    { name: "Content/Images/", data: new Uint8Array(0) },
+    { name: `Content/Images/Armor_Head_${id}.png`, data: await png(head) },
+    { name: `Content/Images/Armor_Legs_${id}.png`, data: await png(legs) },
+    { name: `Content/Images/Armor_Body_${id}.png`, data: await png(body) },
+    { name: `Content/Images/Female_Body_${id}.png`, data: await png(female) },
+    { name: `Content/Images/Armor_Arm_${id}.png`, data: await png(arms) },
+  ];
+  return zipBlob(entries);
+}
+
 async function doResourcePack() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   if (missing.length) {
@@ -612,34 +708,13 @@ async function doResourcePack() {
     const friendly = (item && (displayName(item.zh) || item.name)) || `Armor_${id}`;
     const slug = `Armor_${id}`;
     const zipName = `${slug}-pack-pc.zip`;
-
-    const pack = {
-      Name: friendly,
-      Author: "ArmorHelper",
-      Description: t("web.packDescription"),
-      Version: { major: 1, minor: 0 },
+    const bitmaps = {
+      head: state.sheetSlots.head.bitmap,
+      legs: state.sheetSlots.legs.bitmap,
+      body: state.sheetSlots.body.bitmap,
     };
 
-    const entries = [
-      { name: "pack.json", data: `${JSON.stringify(pack, null, 2)}\n` },
-      { name: "Content/", data: new Uint8Array(0) },
-      { name: "Content/Images/", data: new Uint8Array(0) },
-      {
-        name: `Content/Images/Armor_Head_${id}.png`,
-        data: await pngBlob(state.sheetSlots.head.bitmap).then((blob) => blob.arrayBuffer()),
-      },
-      {
-        name: `Content/Images/Armor_Legs_${id}.png`,
-        data: await pngBlob(state.sheetSlots.legs.bitmap).then((blob) => blob.arrayBuffer()),
-      },
-      { name: "Content/Images/Armor/", data: new Uint8Array(0) },
-      {
-        name: `Content/Images/Armor/Armor_${id}.png`,
-        data: await pngBlob(state.sheetSlots.body.bitmap).then((blob) => blob.arrayBuffer()),
-      },
-    ];
-
-    const blob = zipBlob(entries);
+    const blob = await resourcePackBlob(bitmaps, id);
     const url = URL.createObjectURL(blob);
     const result = {
       title: friendly,
@@ -660,7 +735,7 @@ async function doResourcePack() {
     };
 
     showResult("gif", result);
-    addHistory(slug, [{ name: zipName }], keepUrl(slotPreview(state.sheetSlots.body.bitmap)));
+    addHistory(slug, [{ name: zipName }], keepUrl(state.sheetSlots.body.bitmap));
     say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
   } catch (error) {
     console.error(error);
@@ -828,11 +903,8 @@ function renderFolders() {
   $("#images-status").textContent = imagesText;
   $("#images-status-2").textContent = imagesText;
 
-  // The player textures are bundled now, so this is an explanation rather than
-  // a warning: show it whenever the box is ticked.  (This line used to read
-  // `!!images`, a leftover identifier that threw as soon as it was evaluated.)
-  const playerHint = $("#player-hint");
-  if (playerHint) playerHint.hidden = !$("#opt-player")?.checked;
+  // The player textures are bundled now, so the note lives in the info icon's
+  // tooltip instead of a paragraph that has to be shown and hidden.
 }
 
 /**
@@ -866,13 +938,44 @@ function watchResultHeights() {
 const RESULT_HOSTS = { export: "#results", gif: "#gif-results", reverse: "#reverse-result" };
 
 /** Show `result` in one panel's result area and remember it for redraws. */
-function showResult(panel, result) {
+function showResult(panel, results) {
   const host = $(RESULT_HOSTS[panel]);
   if (!host) return;
-  state.results[panel] = result;
+  // a panel may show several cards: one per material pack, then the preview
+  const list = Array.isArray(results) ? results : [results];
+  state.results[panel] = list;
   host.innerHTML = "";
-  host.append(resultCard(result, host));
+  for (const item of list) host.append(resultCard(item, host));
   syncResultHeights();
+}
+
+/** Drop one panel's result and put the empty line back. */
+function clearResult(panel) {
+  state.results[panel] = null;
+  const host = $(RESULT_HOSTS[panel]);
+  if (host) {
+    host.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "text-body-secondary mb-0";
+    empty.textContent = t("web.empty");
+    host.append(empty);
+  }
+  if (panel === "export") setPreviewGif(null);
+  syncResultHeights();
+}
+
+/**
+ * The export zip button sits in the input card's action row, not in the result
+ * card, so it keeps a reference to the current result instead of being redrawn
+ * with it.
+ */
+/** The 20 frame animation that sits next to the drop area. */
+function setPreviewGif(url) {
+  const image = $("#preview-gif");
+  if (!image) return;
+  image.hidden = !url;
+  if (url) image.src = url;
+  else image.removeAttribute("src");
 }
 
 /** One captioned preview: a checkerboard tile with the label underneath. */
@@ -898,54 +1001,312 @@ function previewFigure(url, caption, alt) {
   return figure;
 }
 
-function resultCard(result, host = $("#results")) {
-  const card = document.createElement("div");
-  card.className = "job";
+/**
+ * The "make resource pack" button of a material pack card.
+ *
+ * The zip is built on click: most visits never press it, and a resource pack
+ * is the one output large enough to notice.
+ */
+function packButton(pack) {
+  const button = document.createElement("button");
+  button.className = "btn btn-sm btn-primary";
+  button.textContent = t(pack.labelKey);
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      downloadBlob(await pack.run(), pack.name);
+    } catch (error) {
+      console.error(error);
+      say(String(error.message || error), "bad");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return button;
+}
 
-  const heading = document.createElement("h3");
-  heading.textContent = result.titleKey
-    ? `${t(result.titleKey, result.titleVars)}${result.titleSuffix ?? ""}`
-    : result.title;
-  card.append(heading);
+/**
+ * Reveal the scrollbar of `element` only while it moves.
+ *
+ * The thumb is transparent at rest, so a long sheet list does not sit behind a
+ * permanent grey bar; hover still shows it (see `.thin-scroll` in style.css).
+ */
+function thinScroll(element) {
+  let timer = null;
+  element.addEventListener(
+    "scroll",
+    () => {
+      element.classList.add("is-scrolling");
+      clearTimeout(timer);
+      timer = setTimeout(() => element.classList.remove("is-scrolling"), 700);
+    },
+    { passive: true },
+  );
+  return element;
+}
+
+/** The `pack.json` fields: empty means the default is used. */
+const PACK_FIELDS = [
+  ["name", "web.packName", "is-short"],
+  ["author", "web.packAuthor", "is-short"],
+  ["description", "web.packDescription", "is-long"],
+];
+
+function packInfoInputs() {
+  const group = document.createElement("div");
+  group.className = "input-group input-group-sm pack-info";
+  for (const [field, key, size] of PACK_FIELDS) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = `form-control ${size}`;
+    input.placeholder = t(key);
+    input.setAttribute("aria-label", t(key));
+    input.value = state.config.pack?.[field] ?? "";
+    input.addEventListener("input", () => {
+      state.config.pack = { ...(state.config.pack ?? {}), [field]: input.value };
+      saveConfig();
+    });
+    group.append(input);
+  }
+  return group;
+}
+
+/**
+ * The result block: the era tabs, then the actions and the content of the
+ * active one.
+ *
+ * It is not a card any more: the results sit directly under the input card, so
+ * there is no title and no frame around them.
+ */
+function packCardBody(tabs) {
+  const wrap = document.createElement("div");
+  wrap.className = "pack";
+  const active = tabs.find((tab) => tab.id === state.config.packTab) ?? tabs[0];
+
+  if (tabs.length > 1) {
+    const nav = document.createElement("div");
+    nav.className = "nav nav-underline pack-tabs";
+    for (const tab of tabs) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `nav-link${tab.id === active.id ? " active" : ""}`;
+      button.textContent = t(tab.labelKey);
+      button.addEventListener("click", () => {
+        state.config.packTab = tab.id;
+        saveConfig();
+        // the card is cheap to rebuild: no sheet is generated again
+        showResult("export", state.results.export);
+      });
+      nav.append(button);
+    }
+    wrap.append(nav);
+  }
+
+  // the export actions belong to the tab whose files they hand out
+  const bar = document.createElement("div");
+  bar.className = "pack-actions";
+  if (active.pack) {
+    bar.append(packButton(active.pack));
+    if (active.pack.fields) bar.append(packInfoInputs());
+  }
+  wrap.append(bar);
+
+  const body = thinScroll(document.createElement("div"));
+  body.className = "sheet-body thin-scroll";
+  if (active.hint) {
+    const hint = document.createElement("p");
+    hint.className = "text-body-secondary small mb-0";
+    hint.textContent = t(active.hint);
+    body.append(hint);
+  } else {
+    body.append(
+      sheetTable(active.table, { idColumn: active.idColumn }),
+      sheetColumns(active.columns),
+    );
+  }
+  wrap.append(body);
+  return wrap;
+}
+
+/** Name, size and purpose of every file in a material pack. */
+function sheetTable(rows = [], options = {}) {
+  const table = document.createElement("table");
+  table.className = "sheet-table";
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const headings = ["web.table.file", "web.table.size", "web.table.content"];
+  if (options.idColumn) headings.push("web.table.id");
+  for (const key of headings) {
+    const cell = document.createElement("th");
+    cell.textContent = t(key);
+    headRow.append(cell);
+  }
+  head.append(headRow);
+  table.append(head);
+
+  const body = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    const link = document.createElement("a");
+    link.href = row.url;
+    link.download = row.name.split("/").pop();
+    link.textContent = row.name;
+    for (const type of ["mouseenter", "focus"]) link.addEventListener(type, () => showFilePreview(row.url, link));
+    for (const type of ["mouseleave", "blur"]) link.addEventListener(type, hideFilePreview);
+    nameCell.append(link);
+
+    const sizeCell = document.createElement("td");
+    sizeCell.textContent = `${row.width}×${row.height}`;
+    const descCell = document.createElement("td");
+    descCell.textContent = t(row.descKey);
+    tr.append(nameCell, sizeCell, descCell);
+    if (options.idColumn) tr.append(idCell(row.part));
+    body.append(tr);
+  }
+  table.append(body);
+  return table;
+}
+
+/** Which settings field feeds one part of the sheet set. */
+const PART_ID = { head: "#set-head", body: "#set-body", legs: "#set-legs" };
+
+/**
+ * The ID cell of one table row: the number, plus the vanilla name it maps to.
+ *
+ * The three parts of a set can use different ids, so each row owns its own
+ * input. Editing it writes the settings field and redraws, which renames every
+ * file in the tab.
+ */
+function idCell(part) {
+  const cell = document.createElement("td");
+  cell.className = "id-cell";
+
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "0";
+  input.max = "999";
+  input.className = "form-control form-control-sm sheet-id";
+  input.value = String(effectiveIds()[part]);
+  input.setAttribute("aria-label", t("web.table.id"));
+  input.dataset.part = part;
+
+  const name = document.createElement("span");
+  name.className = "id-name";
+  name.textContent = armorName(part, input.value);
+
+  input.addEventListener("input", () => {
+    name.textContent = armorName(part, input.value);
+  });
+  input.addEventListener("change", () => {
+    const field = $(PART_ID[part]);
+    if (field) field.value = input.value;
+    saveConfig();
+    scheduleExport();
+  });
+
+  cell.append(input, name);
+  return cell;
+}
+
+/** The sheets themselves, one column per file, scrolled vertically. */
+function sheetColumns(columns) {
+  const strip = document.createElement("div");
+  strip.className = "sheet-cols";
+  for (const column of columns ?? []) {
+    const figure = document.createElement("figure");
+    figure.className = "sheet-col";
+    const label = document.createElement("figcaption");
+    label.textContent = t(column.labelKey);
+    // hovering the caption names the file: the label alone does not say which
+    label.dataset.tooltip = column.name ?? "";
+    label.classList.add("tip-left");
+    const img = document.createElement("img");
+    img.src = column.url;
+    img.alt = t(column.labelKey);
+    img.className = "pixel";
+    // every sheet is drawn at its own pixel size, so the three parts keep their
+    // real proportions instead of each filling its column
+    img.width = column.width;
+    img.height = column.height;
+    figure.append(label, img);
+    strip.append(figure);
+  }
+  return strip;
+}
+
+function resultCard(result, host = $("#results")) {
+  // the export result is a bare block; the other panels keep their card look
+  const bare = !!result.tabs?.length;
+  const card = document.createElement("div");
+  card.className = bare ? "result-block" : "job";
+
+  if (!bare) {
+    const heading = document.createElement("h3");
+    heading.textContent = result.titleKey
+      ? `${t(result.titleKey, result.titleVars)}${result.titleSuffix ?? ""}`
+      : result.title;
+    card.append(heading);
+  }
 
   const previews = document.createElement("div");
   previews.className = "previews";
   for (const item of result.previews ?? []) {
+    // a template preview is drawn now, so this page's guide switch applies at once
+    if (item.template) {
+      previews.append(
+        previewFigure(
+          keepUrl(magnify(withGuide(item.template, state.config.revGuide !== false), 4)),
+          previewCaption(item),
+          item.alt,
+        ),
+      );
+      continue;
+    }
     previews.append(previewFigure(item.url, previewCaption(item), item.alt));
   }
   if (previews.childElementCount) card.append(previews);
 
-  const list = document.createElement("ul");
-  list.className = "files";
-  for (const file of result.files) {
+  // the 材质包 card: actions, the era tabs, then the active tab's content
+  if (result.tabs?.length) card.append(packCardBody(result.tabs));
+
+  const list = thinScroll(document.createElement("ul"));
+  list.className = "files thin-scroll";
+  for (const file of result.files ?? []) {
     const li = document.createElement("li");
     const link = document.createElement("a");
     link.href = file.url;
     link.download = file.name.split("/").pop();
     link.textContent = file.name;
-    const meta = document.createElement("span");
-    meta.className = "muted";
-    const size = `${Math.round(file.size / 1024)} KB`;
-    meta.textContent = file.width && file.height ? `${file.width}×${file.height} · ${size}` : size;
-    li.append(link, meta);
+    if (file.width && file.height) {
+      const meta = document.createElement("span");
+      meta.className = "text-body-secondary";
+      meta.textContent = `${file.width}×${file.height}px`;
+      li.append(link, meta);
+      // the file's own pixels, shown while the link is hovered
+      for (const type of ["mouseenter", "focus"]) link.addEventListener(type, () => showFilePreview(file.url, link));
+      for (const type of ["mouseleave", "blur"]) link.addEventListener(type, hideFilePreview);
+    } else {
+      li.append(link);
+    }
     list.append(li);
   }
-  if (result.files.length) card.append(list);
+  if (result.files?.length) card.append(list);
 
   const actions = document.createElement("div");
   actions.className = "actions";
   // NB: the locals must not be called `zip` / `save` — that would shadow
   // `result.zip` / `result.save` and make the click handler call the <button>.
-  if (result.zip) {
+  if (result.zip && result.zipInCard !== false) {
     const zipButton = document.createElement("button");
-    zipButton.className = "ghost";
+    zipButton.className = "btn btn-sm btn-secondary";
     zipButton.textContent = t("web.zip");
     zipButton.addEventListener("click", () => result.zip.save());
     actions.append(zipButton);
   }
   if (result.save) {
     const saveButton = document.createElement("button");
-    saveButton.className = "ghost";
+    saveButton.className = "btn btn-sm btn-secondary";
     saveButton.textContent = t("web.saveToOutput");
     saveButton.disabled = !state.folders.output && !canUseFolders;
     saveButton.addEventListener("click", () => result.save.save());
@@ -964,13 +1325,61 @@ function resultCard(result, host = $("#results")) {
 
 /* -------------------------------------------------------------- helpers -- */
 
+/**
+ * One floating preview reused by every result link.
+ *
+ * It is created on demand and kept out of the HTML, so this module never looks
+ * it up by id (the site test treats those lookups as required page elements).
+ */
+let filePreview = null;
+
+function previewBox() {
+  if (filePreview) return filePreview;
+  const box = document.createElement("div");
+  box.className = "file-preview";
+  box.hidden = true;
+  const img = document.createElement("img");
+  img.className = "pixel";
+  img.alt = "";
+  box.append(img);
+  document.body.append(box);
+  filePreview = box;
+  return box;
+}
+
+/** Show `url` next to `anchor`, kept inside the viewport. */
+function showFilePreview(url, anchor) {
+  const box = previewBox();
+  const img = box.firstElementChild;
+  if (img.getAttribute("src") !== url) img.src = url;
+  box.hidden = false;
+  // measure after the image has a size, or the box is placed for a 0x0 box
+  const place = () => {
+    const rect = anchor.getBoundingClientRect();
+    const size = box.getBoundingClientRect();
+    const gap = 8;
+    const left = rect.right + gap + size.width > window.innerWidth
+      ? Math.max(gap, rect.left - size.width - gap)
+      : rect.right + gap;
+    const top = Math.max(gap, Math.min(rect.top, window.innerHeight - size.height - gap));
+    box.style.left = `${Math.round(left)}px`;
+    box.style.top = `${Math.round(top)}px`;
+  };
+  if (img.complete) place();
+  else img.addEventListener("load", place, { once: true });
+}
+
+function hideFilePreview() {
+  if (filePreview) filePreview.hidden = true;
+}
+
 function keepUrl(bitmap) {
   return bitmapToDataURL(bitmap);
 }
 
 /** The template as it should be shown: with the guide layer, when enabled. */
-function withGuide(template) {
-  return state.config.guide ? composeOverlay(template, state.overlay) : template;
+function withGuide(template, enabled) {
+  return enabled ? composeOverlay(template, state.overlay) : template;
 }
 
 /** Load the optional guide layer; missing or broken files are not an error. */
@@ -982,35 +1391,6 @@ async function loadGuideOverlay() {
   } catch {
     return null;
   }
-}
-
-/**
- * The hover/focus popover next to "download the drawing template": it shows the
- * very image the button hands out, guides included.  Loaded lazily, so the page
- * does not pay for it unless someone hovers.
- */
-async function showTemplatePopover() {
-  const figure = $("#template-popover");
-  const image = $("#template-popover-img");
-  if (!figure || !image) return;
-  if (!image.getAttribute("src")) {
-    try {
-      if (!state.templateBitmap) {
-        const response = await fetch("data/ArmorTemplate_v1.png");
-        state.templateBitmap = await decodeBitmap(await response.blob());
-      }
-      image.src = keepUrl(magnify(withGuide(state.templateBitmap), 4));
-    } catch (error) {
-      console.error(error);
-      return;
-    }
-  }
-  figure.hidden = false;
-}
-
-function hideTemplatePopover() {
-  const figure = $("#template-popover");
-  if (figure) figure.hidden = true;
 }
 
 /** Register the offline cache; a static host without HTTPS just skips it. */
@@ -1028,19 +1408,42 @@ function registerServiceWorker() {
     .catch((error) => console.debug("offline cache unavailable", error));
 }
 
-/** Download the drawing template (with the guide, so it can be drawn on). */
-async function downloadTemplate() {
+/**
+ * Download what the drop area shows: the loaded template, with the guide merged
+ * in when the switch is on, and the untouched file when it is off.
+ */
+async function downloadTemplateFile() {
+  const file = state.files[0];
+  if (!file) return;
+  const stem = file.name.replace(/\.[^.]+$/, "") || "template";
+  try {
+    downloadBlob(await pngBlob(shownTemplate(file)), `${stem}.png`);
+  } catch (error) {
+    console.error(error);
+    say(String(error.message || error), "bad");
+  }
+}
+
+/** Load the bundled drawing template as a sample, through the normal path. */
+async function loadDemo() {
   try {
     const response = await fetch("data/ArmorTemplate_v1.png");
-    const raw = await decodeBitmap(await response.blob());
-    downloadBlob(await pngBlob(withGuide(raw)), "ArmorTemplate_v1.png");
+    if (!response.ok) throw new Error(`cannot load data/ArmorTemplate_v1.png: ${response.status}`);
+    const blob = await response.blob();
+    await addFiles([new File([blob], "ArmorTemplate_v1.png", { type: "image/png" })], { preGuided: true });
   } catch (error) {
+    console.error(error);
     say(String(error.message || error), "bad");
   }
 }
 
 /** Build a result object from a list of `{ name, bitmap }` plus previews. */
-async function packResult(title, entries, frames, warnings = [], template = null, gifEntries = []) {
+/**
+ * Result object for the reverse tab: the template PNG, its 4x preview with the
+ * guide, the 20 frame sheet and the animation.
+ */
+async function packResult(title, entries, frames, warnings = [], options = {}) {
+  const { template = null } = options;
   const files = [];
   const blobs = [];
   for (const entry of entries) {
@@ -1058,41 +1461,25 @@ async function packResult(title, entries, frames, warnings = [], template = null
   const previews = [];
   if (template) {
     previews.push({
-      url: keepUrl(magnify(withGuide(template), 4)),
+      url: keepUrl(magnify(withGuide(template, state.config.revGuide !== false), 4)),
       captionKey: "web.previewTemplate",
       alt: "ArmorTemplate",
+      // the drawing template, so a switch flip can redraw without reversing again
+      template,
     });
   }
   if (frames?.length) {
-    previews.push({
-      url: keepUrl(contactSheet(frames)),
-      captionKey: "web.previewFrames",
-    });
+    previews.push({ url: keepUrl(contactSheet(frames)), captionKey: "web.previewFrames" });
     const gif = makeGif(frames);
     // the preview animation is not an output: it is neither zipped nor written
     blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
     previews.push({ url: URL.createObjectURL(gif), captionKey: "web.previewGif", alt: "GIF" });
   }
 
-  // the `gif-full*` targets are real files, exactly like the Python CLI writes
-  for (const item of gifEntries) {
-    const shown = gifFrames(item.frames);
-    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay() });
-    blobs.push({ name: item.name, blob });
-    files.push({
-      name: item.name,
-      width: shown[0].width,
-      height: shown[0].height,
-      size: blob.size,
-      url: URL.createObjectURL(blob),
-    });
-  }
-
-  const result = {
+  return {
     title,
     files,
     previews,
-    preview: previews[0]?.url ?? null,
     warnings,
     zip: {
       save: async () =>
@@ -1115,7 +1502,6 @@ async function packResult(title, entries, frames, warnings = [], template = null
       },
     },
   };
-  return result;
 }
 
 async function ensureOutputFolder() {
@@ -1182,20 +1568,32 @@ async function loadPlayerParts() {
 
 /* --------------------------------------------------------------- export -- */
 
-async function doExport() {
-  if (!state.files.length) {
-    say(t("web.drop"), "warn");
-    return;
-  }
-  const templates = state.files.filter((file) => file.bitmap);
-  if (!templates.length) {
-    say(t("web.dropped", { name: state.files[0].name }), "warn");
-    return;
-  }
+/** A newer change must not be overwritten by a slower, older run. */
+let exportRun = 0;
+let exportTimer = null;
+/** The template whose result is already in the history. */
+let historyFile = null;
 
-  $("#do-export").disabled = true;
-  say(t("web.exporting"), "busy");
-  startJob(templates.length);
+/** Rebuild the export results. Called by a new template and by every option. */
+function scheduleExport(delay = 120) {
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(() => void renderExport(), delay);
+}
+
+/**
+ * Draw the whole export result for the current template and options.
+ *
+ * There is no export button: a valid template plus the current options is the
+ * whole input, so the card is redrawn whenever either changes. History is only
+ * written for a new template, or toggling a checkbox would fill it up.
+ */
+async function renderExport() {
+  const file = state.files[0];
+  if (!file?.bitmap) {
+    clearResult("export");
+    return;
+  }
+  const run = ++exportRun;
   try {
     const female = $("#opt-female").checked;
     const wantsPlayer = $("#opt-player").checked;
@@ -1204,82 +1602,167 @@ async function doExport() {
       state.playerParts = await loadPlayerParts();
     }
 
-    const host = $("#results");
-    host.innerHTML = "";
-    state.results.export = null; // a cancelled run must not resurrect the old card
+    const stem = file.name.replace(/\.[^.]+$/, "") || "template";
+    const names = outputNames();
+    const ids = effectiveIds();
 
-    for (const [step, file] of templates.entries()) {
-      if (jobCancelled()) break;
-      jobProgress(step, file.name);
-      await nextFrame();
-      const stem = file.name.replace(/\.[^.]+$/, "") || "template";
-      const names = outputNames(stem);
-      const entries = [];
+    // every PNG below also goes into the tab zips
+    const sheetBlobs = [];
+    // name -> row: the tabs share the head and legs sheets
+    const rowByName = new Map();
+    // name -> bitmap, for the round trip self check
+    const sheets = new Map();
 
-      if (isTargetOn("head")) entries.push({ name: names.head, bitmap: generateHead(file.bitmap) });
-      if (isTargetOn("legs")) entries.push({ name: names.legs, bitmap: generateLegs(file.bitmap) });
-      if (isTargetOn("body")) {
-        entries.push({
-          name: names.body,
-          bitmap: generateBodyComposite(file.bitmap, { glowRows: state.config.glow ? 4 : 0 }),
-        });
-      }
-      if (isTargetOn("legacy")) {
-        entries.push({ name: names.bodyLegacy, bitmap: generateBodyLegacy(file.bitmap, false) });
-        entries.push({ name: names.bodyLegacyFemale, bitmap: generateBodyLegacy(file.bitmap, true) });
-        entries.push({ name: names.arms, bitmap: generateArms(file.bitmap) });
-      }
+    /** One table row plus its download link, from an encoded blob. */
+    const blobRow = (name, blob, width, height, descKey, labelKey) => {
+      const cached = rowByName.get(name);
+      if (cached) return cached;
+      const row = { name, descKey, labelKey, width, height, url: URL.createObjectURL(blob) };
+      rowByName.set(name, row);
+      sheetBlobs.push({ name, blob });
+      return row;
+    };
+    const sheetRow = async (name, bitmap, descKey) => {
+      const cached = rowByName.get(name);
+      if (cached) return cached;
+      sheets.set(name, bitmap);
+      return blobRow(name, await pngBlob(bitmap), bitmap.width, bitmap.height, descKey);
+    };
+    // a preview column carries the sheet's own size: a tall strip is shown at
+    // its native width, the wide body sheet fills the column
+    const col = (labelKey, row) => ({ ...row, labelKey });
 
-      const maleFrames = fullArmorFrames(file.bitmap, false);
-      const femaleFrames = fullArmorFrames(file.bitmap, true);
-      const withPlayerFor = (list, isFemale) =>
-        wantsPlayer && state.playerParts
-          ? overlay(tintFrames(playerFrames(state.playerParts, isFemale), SKIN_TINT), list)
-          : list;
-      const playerMale = withPlayerFor(maleFrames, false);
-      const playerFemale = withPlayerFor(femaleFrames, true);
-      const previewFrames = female ? femaleFrames : maleFrames;
-      const withPlayer = female ? playerFemale : playerMale;
+    // 1.4.4+ reads head, legs and the composite body from a resource pack
+    const pack144 = {
+      head: generateHead(file.bitmap),
+      legs: generateLegs(file.bitmap),
+      body: generateBodyComposite(file.bitmap, { glowRows: state.config.glow ? 4 : 0 }),
+    };
+    // 1.3 shipped the body as three separate sheets and had no resource packs
+    const pack13 = {
+      head: generateHead(file.bitmap),
+      legs: generateLegs(file.bitmap),
+      body: generateBodyLegacy(file.bitmap, false),
+      female: generateBodyLegacy(file.bitmap, true),
+      arms: generateArms(file.bitmap),
+    };
+    const headRow = await sheetRow(names.head, pack144.head, "web.sheetDesc.head");
+    const legsRow = await sheetRow(names.legs, pack144.legs, "web.sheetDesc.legs");
+    const body144 = await sheetRow(names.body, pack144.body, "web.sheetDesc.body144");
+    const bodyMale = await sheetRow(names.bodyLegacy, pack13.body, "web.sheetDesc.bodyMale");
+    const bodyFemale = await sheetRow(names.bodyLegacyFemale, pack13.female, "web.sheetDesc.bodyFemale");
+    const arms = await sheetRow(names.arms, pack13.arms, "web.sheetDesc.arm");
 
-      if (isTargetOn("full")) entries.push({ name: `${stem}_FullArmor.png`, bitmap: stackFrames(maleFrames) });
-      if (isTargetOn("full-female")) {
-        entries.push({ name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) });
-      }
-      if (isTargetOn("full-player")) {
-        entries.push({ name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(playerMale) });
-      }
-      if (isTargetOn("full-player-female")) {
-        entries.push({ name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) });
-      }
+    const packTabs = [
+      {
+        id: "144",
+        labelKey: "web.tab.pack144",
+        table: [
+          { ...headRow, part: "head" },
+          { ...body144, part: "body" },
+          { ...legsRow, part: "legs" },
+        ],
+        idColumn: true,
+        columns: [
+          col("web.sheetCol.head", headRow),
+          col("web.sheetCol.body", body144),
+          col("web.sheetCol.legs", legsRow),
+        ],
+        pack: {
+          name: `Armor_${ids.body}-pack-pc.zip`,
+          labelKey: "web.packMake",
+          // pack.json is written from the inputs next to the button
+          fields: true,
+          run: () => resourcePackBlob(pack144, ids.body, state.config.pack),
+        },
+      },
+      {
+        id: "13",
+        labelKey: "web.tab.pack13",
+        table: [
+          { ...headRow, part: "head" },
+          { ...bodyMale, part: "body" },
+          { ...bodyFemale, part: "body" },
+          { ...arms, part: "body" },
+          { ...legsRow, part: "legs" },
+        ],
+        columns: [
+          col("web.sheetCol.head", headRow),
+          col("web.sheetCol.bodyMale", bodyMale),
+          col("web.sheetCol.bodyFemale", bodyFemale),
+          col("web.sheetCol.arm", arms),
+          col("web.sheetCol.legs", legsRow),
+        ],
+        pack: {
+          name: `Armor_${ids.body}-legacy.zip`,
+          labelKey: "web.packZip",
+          run: () => legacyPackBlob(pack13, ids.body),
+        },
+      },
+    ];
 
-      const gifEntries = [];
-      if (isTargetOn("gif-full")) gifEntries.push({ name: `${stem}_FullArmor.gif`, frames: maleFrames });
-      if (isTargetOn("gif-full-female")) {
-        gifEntries.push({ name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames });
-      }
-      if (isTargetOn("gif-full-player")) {
-        gifEntries.push({ name: `${stem}_FullArmorPlayer.gif`, frames: playerMale });
-      }
-      if (isTargetOn("gif-full-player-female")) {
-        gifEntries.push({ name: `${stem}_FullArmorPlayerFemale.gif`, frames: playerFemale });
-      }
+    const maleFrames = fullArmorFrames(file.bitmap, false);
+    const femaleFrames = fullArmorFrames(file.bitmap, true);
+    const withPlayerFor = (list, isFemale) =>
+      wantsPlayer && state.playerParts
+        ? overlay(tintFrames(playerFrames(state.playerParts, isFemale), SKIN_TINT), list)
+        : list;
+    const playerMale = withPlayerFor(maleFrames, false);
+    const playerFemale = withPlayerFor(femaleFrames, true);
+    // the 20 frame animation next to the drop area follows the two switches
+    const previewFrames = female ? playerFemale : playerMale;
 
-      const warnings = [];
-      if (state.config.verify) warnings.push(...verifyRoundTrip(file.bitmap, entries));
-
-      const result = await packResult(stem, entries, previewFrames, warnings, file.bitmap, gifEntries);
-      showResult("export", result);
-      addHistory(stem, result.files, keepUrl(file.bitmap));
+    // the full armour outputs are the third tab, always complete
+    const fullRows = [];
+    for (const [name, frames, labelKey] of [
+      ["FullArmor.png", () => maleFrames, "web.gifMale"],
+      ["FullArmorFemale.png", () => femaleFrames, "web.gifFemale"],
+      ["FullArmorPlayer.png", () => playerMale, "web.gifMalePlayer"],
+      ["FullArmorPlayerFemale.png", () => playerFemale, "web.gifFemalePlayer"],
+    ]) {
+      const bitmap = stackFrames(frames());
+      fullRows.push(
+        await blobRow(name, await pngBlob(bitmap), bitmap.width, bitmap.height, "web.sheetDesc.full", labelKey),
+      );
     }
-    const job = endJob();
-    if (job?.cancelled) say(t("web.cancelled", { done: job.done, total: job.total }), "warn");
-    else say(t("status.done"));
+    for (const [name, frames, labelKey] of [
+      ["FullArmor.gif", () => maleFrames, "web.gifMale"],
+      ["FullArmorFemale.gif", () => femaleFrames, "web.gifFemale"],
+      ["FullArmorPlayer.gif", () => playerMale, "web.gifMalePlayer"],
+      ["FullArmorPlayerFemale.gif", () => playerFemale, "web.gifFemalePlayer"],
+    ]) {
+      const shown = gifFrames(frames(), exportGif().size);
+      const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay(exportGif().speed) });
+      fullRows.push(await blobRow(name, blob, shown[0].width, shown[0].height, "web.sheetDesc.gif", labelKey));
+    }
+    const fullNames = new Set(fullRows.map((row) => row.name));
+    packTabs.push({
+      id: "full",
+      labelKey: "web.tab.packFull",
+      table: fullRows,
+      columns: fullRows.map((row) => ({ labelKey: row.labelKey, ...row })),
+      pack: {
+        name: `${sanitizeFilename(stem)}_FullArmor.zip`,
+        labelKey: "web.packZip",
+        // already encoded: zip those bytes as they are
+        run: () => zipBlobAsync(sheetBlobs.filter((item) => fullNames.has(item.name))),
+      },
+    });
+
+    const warnings = [];
+    if (state.config.verify) warnings.push(...verifyRoundTrip(file.bitmap, sheets));
+
+    if (run !== exportRun) return;
+    showResult("export", [{ tabs: packTabs, warnings }]);
+    setPreviewGif(URL.createObjectURL(makeGif(previewFrames, exportGif().speed, exportGif().size)));
+    if (historyFile !== file) {
+      historyFile = file;
+      addHistory(stem, sheetBlobs, keepUrl(file.bitmap));
+    }
   } catch (error) {
-    endJob();
+    if (run !== exportRun) return;
     console.error(error);
     say(String(error.message || error), "bad");
-  } finally {
-    $("#do-export").disabled = false;
   }
 }
 
@@ -1287,18 +1770,21 @@ async function doExport() {
  * Round trip self check: rebuild a template from the generated sheets and
  * compare the regenerated sheets with the originals.  This is the same
  * guarantee the Python test suite asserts.
+ *
+ * `sheets` maps output file names to bitmaps. It is empty unless the 1.4.4
+ * target is on, and there is nothing to verify without those three sheets.
  */
-function verifyRoundTrip(template, entries) {
-  const byName = new Map(entries.map((entry) => [entry.name, entry.bitmap]));
-  const pick = (suffix) => {
-    for (const [name, bitmap] of byName) {
-      if (name.endsWith(suffix)) return bitmap;
+function verifyRoundTrip(template, sheets) {
+  // names come from `outputNames`, so match the prefix rather than the suffix
+  const pick = (prefix) => {
+    for (const [name, bitmap] of sheets) {
+      if (name.startsWith(prefix)) return bitmap;
     }
     return null;
   };
-  const body = pick("_Body.png") ?? pick("Body.png");
-  const legs = pick("_Legs.png") ?? pick("Legs.png");
-  const headSheet = pick("_Head.png") ?? pick("Head.png");
+  const body = pick("Armor/");
+  const legs = pick("Armor_Legs_");
+  const headSheet = pick("Armor_Head_");
   if (!body || !legs || !headSheet) return [];
 
   try {
@@ -1423,13 +1909,7 @@ async function doReverse() {
 
     const frames = fullArmorFrames(template, false);
     const entries = [{ name: `ArmorTemplate_${label}_${body}.png`, bitmap: template }];
-    const result = await packResult(
-      `ArmorTemplate_${label}_${body}`,
-      entries,
-      frames,
-      warnings,
-      template,
-    );
+    const result = await packResult(`ArmorTemplate_${label}_${body}`, entries, frames, warnings, { template });
 
     showResult("reverse", result);
     say(t("reverse.done", { path: result.files[0].name }));
@@ -1524,18 +2004,44 @@ async function doReverseAll() {
 
 /* ------------------------------------------------------------ listeners -- */
 
-async function addFiles(fileList) {
-  for (const file of fileList) {
-    if (!/\.(png|bmp)$/i.test(file.name)) continue;
-    try {
-      const bitmap = await decodeBitmap(file);
-      state.files.push({ name: file.name, bitmap });
-    } catch (error) {
-      console.error(error);
-      say(t("web.dropped", { name: file.name }), "warn");
-    }
+const TEMPLATE_SIZE = { width: 128, height: 80 };
+
+/**
+ * Load the drawing template. The export tab handles one file at a time: a
+ * second file replaces the first. Only png and webp are taken, and the size
+ * must be the 128x80 the generator expects; anything else is refused with a
+ * status line instead of producing a clipped sheet.
+ */
+async function addFiles(fileList, { preGuided = false } = {}) {
+  const files = [...fileList];
+  const file = files.filter((item) => /\.(png|webp)$/i.test(item.name)).pop();
+  if (!file) {
+    if (files.length) say(t("web.wrongFormat", { name: files[0].name }), "warn");
+    return;
   }
+  let bitmap;
+  try {
+    bitmap = await decodeBitmap(file);
+  } catch (error) {
+    console.error(error);
+    say(t("web.dropped", { name: file.name }), "warn");
+    return;
+  }
+  if (bitmap.width !== TEMPLATE_SIZE.width || bitmap.height !== TEMPLATE_SIZE.height) {
+    say(t("web.wrongSize", { name: file.name, width: bitmap.width, height: bitmap.height }), "warn");
+    return;
+  }
+  if (state.files.length) clearResult("export");
+  state.files = [{ name: file.name, bitmap, preGuided }];
   renderFiles();
+  scheduleExport(0);
+}
+
+/** Forget the selected template, and the result that belonged to it. */
+function clearFiles() {
+  state.files = [];
+  renderFiles();
+  clearResult("export");
 }
 
 async function loadSetsIndex(query = "") {
@@ -1575,8 +2081,8 @@ async function pickImagesFolder() {
 function wire() {
   for (const tab of $$(".tab")) {
     tab.addEventListener("click", () => {
-      for (const other of $$(".tab")) other.classList.toggle("is-active", other === tab);
-      for (const panel of $$(".panel")) panel.classList.toggle("is-active", panel.id === `tab-${tab.dataset.tab}`);
+      for (const other of $$(".tab")) other.classList.toggle("active", other === tab);
+      for (const panel of $$(".panel")) panel.classList.toggle("active", panel.id === `tab-${tab.dataset.tab}`);
     });
   }
 
@@ -1612,9 +2118,23 @@ function wire() {
     event.preventDefault();
     addFiles(event.dataTransfer.files);
   });
-  on("#clear-files", "click", () => {
-    state.files = [];
-    renderFiles();
+  on("#upload-file", "click", () => $("#file-input")?.click());
+  on("#load-demo", "click", () => void loadDemo());
+  on("#drop-guide", "click", (event) => {
+    // the icons sit inside the drop zone, which opens the file picker on click
+    event.stopPropagation();
+    state.config.guide = !(state.config.guide !== false);
+    saveConfig();
+    renderGuideToggle();
+    scheduleExport();
+  });
+  on("#drop-download", "click", (event) => {
+    event.stopPropagation();
+    void downloadTemplateFile();
+  });
+  on("#drop-clear", "click", (event) => {
+    event.stopPropagation();
+    clearFiles();
   });
 
   // one drop zone / picker per sheet slot: the user says what each file is,
@@ -1664,39 +2184,72 @@ function wire() {
     state.config.gifPlayer = event.target.checked;
     saveConfig();
   });
+  on("#export-gif-speed", "change", (event) => {
+    state.config.exportGifSpeed = event.target.value;
+    saveConfig();
+    scheduleExport();
+  });
+  on("#export-gif-size", "change", (event) => {
+    state.config.exportGifSize = Number(event.target.value) || 1;
+    saveConfig();
+    scheduleExport();
+  });
   on("#gif-speed", "change", (event) => {
     state.config.gifSpeed = event.target.value;
     saveConfig();
+    scheduleExport();
   });
   on("#gif-size", "change", (event) => {
     state.config.gifSize = Number(event.target.value) || 1;
     saveConfig();
+    scheduleExport();
   });
   on("#clear-history", "click", clearHistory);
   on("#cancel-job", "click", cancelJob);
 
-  const templateButton = $("#download-template");
-  if (templateButton) {
-    for (const type of ["mouseenter", "focus"]) templateButton.addEventListener(type, showTemplatePopover);
-    for (const type of ["mouseleave", "blur"]) templateButton.addEventListener(type, hideTemplatePopover);
+  // The history moved out of the page and behind an icon button, so it opens on
+  // click and closes on a click outside or Escape.
+  const historyToggle = $("#history-toggle");
+  const historyPop = $("#history-pop");
+  if (historyToggle && historyPop) {
+    const closeHistory = () => {
+      historyPop.hidden = true;
+      historyToggle.setAttribute("aria-expanded", "false");
+    };
+    historyToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const open = historyPop.hidden;
+      historyPop.hidden = !open;
+      historyToggle.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", (event) => {
+      if (historyPop.hidden) return;
+      if (historyPop.contains(event.target) || historyToggle.contains(event.target)) return;
+      closeHistory();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || historyPop.hidden) return;
+      closeHistory();
+      historyToggle.focus();
+    });
   }
 
-  on("#do-export", "click", doExport);
-  on("#download-template", "click", downloadTemplate);
-  on("#opt-guide", "change", (event) => {
-    state.config.guide = event.target.checked;
+  on("#rev-guide", "change", (event) => {
+    state.config.revGuide = event.target.checked;
     saveConfig();
-    $("#template-popover-img")?.removeAttribute("src");
-    if (state.results.export) showResult("export", state.results.export);
+    // the preview is baked in the result, so rebuild the card from what it holds
+    if (state.results.reverse) showResult("reverse", state.results.reverse);
   });
   on("#opt-female", "change", (event) => {
     state.config.female = event.target.checked;
     saveConfig();
+    scheduleExport();
   });
   on("#opt-player", "change", (event) => {
     state.config.player = event.target.checked;
     saveConfig();
     renderFolders();
+    scheduleExport();
   });
 
   let timer = null;
@@ -1745,19 +2298,23 @@ function wire() {
     on(selector, "input", () => {
       state.config.ids = { ...state.config.ids, [key]: $(selector).value };
       saveConfig();
+      scheduleExport();
     });
   }
   on("#set-skin", "change", (event) => {
     state.config.skin = Number(event.target.value) || 0;
     saveConfig();
+    scheduleExport();
   });
   on("#set-glow", "change", (event) => {
     state.config.glow = event.target.checked;
     saveConfig();
+    scheduleExport();
   });
   on("#set-verify", "change", (event) => {
     state.config.verify = event.target.checked;
     saveConfig();
+    scheduleExport();
   });
   on("#save-settings", "click", () => {
     state.config.ids = {
@@ -1766,6 +2323,7 @@ function wire() {
       id_legs: $("#set-legs").value,
     };
     saveConfig();
+    scheduleExport();
     say(t("web.saved"));
   });
 }
@@ -1782,7 +2340,7 @@ async function main() {
   try {
     wire();
     loadConfig();
-    const [layout] = await Promise.all([loadLayout(), loadSets()]);
+    const [layout] = await Promise.all([loadLayout(), loadSets(), loadArmorNames()]);
     state.layout = layout;
     state.version = layout.version;
     state.defaults = layout.targets.defaults;
@@ -1791,10 +2349,12 @@ async function main() {
     $("#language").value = state.language;
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
-    $("#opt-guide").checked = state.config.guide !== false;
+    $("#rev-guide").checked = state.config.revGuide !== false;
     $("#gif-player").checked = !!state.config.gifPlayer;
     $("#gif-speed").value = state.config.gifSpeed ?? "fast";
     $("#gif-size").value = String(state.config.gifSize ?? 1);
+    $("#export-gif-speed").value = state.config.exportGifSpeed ?? "fast";
+    $("#export-gif-size").value = String(state.config.exportGifSize ?? 1);
     $("#set-head").value = state.config.ids.id_head ?? "";
     $("#set-body").value = state.config.ids.id_body ?? "";
     $("#set-legs").value = state.config.ids.id_legs ?? "";
@@ -1812,7 +2372,6 @@ async function main() {
       ? ` · 内置原版贴图 ${state.builtin.version}（${state.builtin.count} 张）`
       : "";
     $("#about").textContent = `ArmorHelper ${state.version} · 纯前端，无服务端${builtin}`;
-    $("#download-template").title = t("web.downloadTemplateHint");
     $("#do-pack").title = t("web.packHint");
 
     applyI18n();

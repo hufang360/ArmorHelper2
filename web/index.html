@@ -1,286 +1,397 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#14161c">
 <title>ArmorHelper · Web</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/png" href="data/icon.png">
 <link rel="apple-touch-icon" href="data/icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
 
-<header class="topbar">
-  <div class="brand">
-    <img src="data/icon.png" alt="" width="52" height="52" class="brand-icon">
-    <div>
-      <h1>ArmorHelper</h1>
-      <p class="muted" data-i18n="web.subtitle"></p>
+<header class="topbar border-bottom">
+  <div class="container-xxl d-flex align-items-center flex-wrap gap-2 py-2 px-3">
+
+    <div class="brand d-flex align-items-center gap-2">
+      <img src="data/icon.png" alt="" width="40" height="40" class="brand-icon">
+      <div>
+        <h1 class="h5 mb-0">ArmorHelper</h1>
+        <p class="text-body-secondary small mb-0" data-i18n="web.subtitle"></p>
+      </div>
     </div>
-  </div>
 
-  <nav class="tabs">
-    <button class="tab is-active" data-tab="export" data-i18n="web.tab.export"></button>
-    <button class="tab" data-tab="gifs" data-i18n="web.tab.gifs"></button>
-    <button class="tab" data-tab="reverse" data-i18n="web.tab.reverse"></button>
-    <button class="tab" data-tab="settings" data-i18n="web.tab.settings"></button>
-  </nav>
+    <nav class="tabs nav nav-underline flex-nowrap ms-auto">
+      <button class="tab nav-link active" data-tab="export" data-i18n="web.tab.export"></button>
+      <button class="tab nav-link" data-tab="gifs" data-i18n="web.tab.gifs"></button>
+      <button class="tab nav-link" data-tab="reverse" data-i18n="web.tab.reverse"></button>
+      <button class="tab nav-link" data-tab="settings" data-i18n="web.tab.settings"></button>
+    </nav>
 
-  <div class="lang">
-    <select id="language" title="Language">
-      <option value="zh_CN">中文</option>
-      <option value="en">English</option>
-    </select>
+    <div class="lang">
+      <select id="language" class="form-select form-select-sm" title="Language">
+        <option value="zh_CN">中文</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
   </div>
 </header>
 
-<main>
+<main class="container-xxl flex-grow-1 px-3 py-3">
+  <div class="tab-content">
 
-  <!-- ============================= 导出 ============================= -->
-  <section class="panel is-active" id="tab-export">
-    <div class="split export-split">
+    <!-- ============================= 导出 ============================= -->
+    <section class="panel tab-pane active" id="tab-export">
+      <div class="stack export-stack">
 
-      <!-- left: inputs + options in one card, history underneath -->
-      <div class="stack">
-        <div class="card">
-          <h2 data-i18n="group.inputs"></h2>
-          <div id="drop" class="drop" tabindex="0">
-            <p data-i18n="web.drop"></p>
-            <input type="file" id="file-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
+        <div class="card export-card">
+            <div class="card-body">
+              <div class="input-row">
+                <div id="drop" class="drop" tabindex="0" role="button">
+                  <span class="drop-tools">
+                    <button class="icon-btn" type="button" id="drop-guide" aria-pressed="false">
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M2.5 8h11M8 2.5v11" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.6 1.6"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="drop-download">
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M8 2v7m0 0 3-3m-3 3L5 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        <path d="M2.5 11.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="drop-clear" disabled>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M4.5 4.5l7 7m0-7l-7 7"
+                              fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <span class="popwrap">
+                      <button class="icon-btn" type="button" id="history-toggle" aria-expanded="false">
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                          <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                          <path d="M8 5v3.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                      </button>
+                      <div class="history-pop" id="history-pop" hidden>
+                        <div class="d-flex align-items-baseline justify-content-between gap-2 mb-1">
+                          <h3 class="h6 mb-0 text-uppercase text-body-secondary" data-i18n="web.historyTitle"></h3>
+                          <button class="btn btn-sm btn-secondary" id="clear-history" data-i18n="web.historyClear"></button>
+                        </div>
+                        <ul id="history-list" class="history">
+                          <li class="text-body-secondary small" data-i18n="web.historyEmpty"></li>
+                        </ul>
+                      </div>
+                    </span>
+                  </span>
+                  <img id="template-preview" class="drop-preview pixel" alt="" hidden>
+                  <p id="drop-hint" class="mb-0" data-i18n="web.drop"></p>
+                  <input type="file" id="file-input" accept=".png,.webp,image/png,image/webp" hidden>
+                </div>
+
+                <div class="preview-box">
+                  <div class="preview-stage">
+                    <img id="preview-gif" class="pixel" alt="GIF" hidden>
+                  </div>
+                  <div class="preview-opts">
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" id="opt-female">
+                      <label class="form-check-label" for="opt-female" data-i18n="web.female"></label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" id="opt-player">
+                      <label class="form-check-label" for="opt-player" data-i18n="web.player"></label>
+                      <span class="info-icon" id="player-info" tabindex="0" role="img">
+                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                          <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                          <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                          <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                        </svg>
+                      </span>
+                    </div>
+                    <div class="preview-gif-opts d-flex flex-wrap gap-1 mt-1">
+                      <select id="export-gif-speed" class="form-select form-select-sm" aria-label="GIF speed">
+                        <option value="fast" data-i18n="web.gifSpeedFast"></option>
+                        <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+                        <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+                      </select>
+                      <select id="export-gif-size" class="form-select form-select-sm" aria-label="GIF size">
+                        <option value="1" data-i18n="web.gifSizeNative"></option>
+                        <option value="2" data-i18n="web.gifSizeDouble"></option>
+                        <option value="4" data-i18n="web.gifSizeQuad"></option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="actions">
+                <button class="btn btn-sm btn-primary" id="upload-file" data-i18n="web.upload"></button>
+                <button class="btn btn-sm btn-secondary" id="load-demo" data-i18n="web.demo"></button>
+              </div>
+
+              <!-- the tabs and their content stay inside the card -->
+              <div id="results" class="results export-results">
+                <p class="text-body-secondary mb-0" data-i18n="web.empty"></p>
+              </div>
+
+            </div>
           </div>
-          <p class="muted small" id="file-summary"></p>
-          <ul id="file-list" class="filelist"></ul>
+
+      </div>
+    </section>
+
+    <!-- ============================ 预览贴图 ============================ -->
+    <section class="panel tab-pane" id="tab-gifs">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.gifsTitle"></h2>
+
           <div class="actions">
-            <button class="ghost" id="clear-files" data-i18n="web.clear"></button>
-            <span class="popwrap">
-              <button class="ghost" id="download-template" data-i18n="web.downloadTemplate"></button>
-              <figure class="popover" id="template-popover" hidden>
-                <img id="template-popover-img" alt="" class="pixel">
-                <figcaption data-i18n="web.templatePopover"></figcaption>
-              </figure>
-            </span>
+            <button class="btn btn-sm btn-primary" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
+            <button class="btn btn-sm btn-secondary" id="do-pack" data-i18n="web.packMake" disabled></button>
+            <button class="btn btn-sm btn-secondary" id="clear-sheets" data-i18n="web.clear"></button>
           </div>
 
-          <h2 class="spaced" data-i18n="web.options"></h2>
-          <div id="targets" class="checklist"></div>
-
-          <h2 class="spaced" data-i18n="web.previewOptions"></h2>
-          <label class="check"><input type="checkbox" id="opt-female"><span data-i18n="web.female"></span></label>
-          <label class="check"><input type="checkbox" id="opt-player"><span data-i18n="web.player"></span></label>
-          <label class="check"><input type="checkbox" id="opt-guide"><span data-i18n="web.guideOverlay"></span></label>
-          <p class="muted small" id="player-hint" data-i18n="web.playerHint"></p>
-
-          <button class="primary wide" id="do-export" data-i18n="web.export"></button>
-        </div>
-
-        <div class="card">
-          <div class="cardhead">
-            <h2 data-i18n="web.historyTitle"></h2>
-            <button class="ghost tiny" id="clear-history" data-i18n="web.historyClear"></button>
-          </div>
-          <ul id="history-list" class="history">
-            <li class="muted small" data-i18n="web.historyEmpty"></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- right: half the page, so the 20 frame previews have room -->
-      <div class="card results-card">
-        <h2 data-i18n="web.results"></h2>
-        <div id="results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ============================ 预览贴图 ============================ -->
-  <section class="panel" id="tab-gifs">
-    <div class="split">
-
-      <div class="stack">
-        <div class="card">
-          <h2 data-i18n="web.gifsTitle"></h2>
-
-          <div class="slots">
-            <div class="slot" data-role="head">
-              <div class="slot-head">
-                <span data-i18n="web.slot.headTitle"></span>
-                <button class="ghost tiny" id="sheet-head-clear" data-i18n="web.remove" hidden></button>
-              </div>
-              <div class="slot-drop" id="sheet-head-slot" tabindex="0">
-                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-head-name" data-i18n="web.slotDrop"></span>
-                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-            </div>
-
-            <div class="slot" data-role="body">
-              <div class="slot-head">
-                <span data-i18n="web.slot.bodyTitle"></span>
-                <button class="ghost tiny" id="sheet-body-clear" data-i18n="web.remove" hidden></button>
-              </div>
-              <div class="slot-drop" id="sheet-body-slot" tabindex="0">
-                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-body-name" data-i18n="web.slotDrop"></span>
-                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-            </div>
-
-            <div class="slot" data-role="legs">
-              <div class="slot-head">
-                <span data-i18n="web.slot.legsTitle"></span>
-                <button class="ghost tiny" id="sheet-legs-clear" data-i18n="web.remove" hidden></button>
-              </div>
-              <div class="slot-drop" id="sheet-legs-slot" tabindex="0">
-                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-legs-name" data-i18n="web.slotDrop"></span>
-                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-            </div>
-          </div>
-          <p class="muted small" id="sheet-status"></p>
-
-          <div class="opts-inline">
-            <label class="field">
-              <span data-i18n="web.gifSpeed"></span>
-              <select id="gif-speed">
+          <div class="opts-inline d-flex flex-wrap align-items-end gap-2 mt-2">
+            <div class="field">
+              <label class="form-label small text-body-secondary mb-1" for="gif-speed" data-i18n="web.gifSpeed"></label>
+              <select id="gif-speed" class="form-select form-select-sm">
                 <option value="fast" data-i18n="web.gifSpeedFast"></option>
                 <option value="medium" data-i18n="web.gifSpeedMedium"></option>
                 <option value="slow" data-i18n="web.gifSpeedSlow"></option>
               </select>
-            </label>
-            <label class="field">
-              <span data-i18n="web.gifSize"></span>
-              <select id="gif-size">
+            </div>
+            <div class="field">
+              <label class="form-label small text-body-secondary mb-1" for="gif-size" data-i18n="web.gifSize"></label>
+              <select id="gif-size" class="form-select form-select-sm">
                 <option value="1" data-i18n="web.gifSizeNative"></option>
                 <option value="2" data-i18n="web.gifSizeDouble"></option>
                 <option value="4" data-i18n="web.gifSizeQuad"></option>
               </select>
-            </label>
-            <label class="check"><input type="checkbox" id="gif-player"><span data-i18n="web.player"></span></label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="gif-player">
+              <label class="form-check-label" for="gif-player" data-i18n="web.player"></label>
+            </div>
           </div>
-          <p class="muted small tight" data-i18n="web.gifPlayerHint"></p>
+          <p class="text-body-secondary small mb-0" data-i18n="web.gifPlayerHint"></p>
 
-          <div class="actions">
-            <button class="primary" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
-            <button class="ghost" id="do-pack" data-i18n="web.packMake" disabled></button>
-            <button class="ghost" id="clear-sheets" data-i18n="web.clear"></button>
+          <div class="slots">
+            <div class="slot" data-role="head">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.headTitle"></span>
+                <button class="icon-btn" type="button" id="sheet-head-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="slot-drop" id="sheet-head-slot" tabindex="0" role="button">
+                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-head-hint" class="small" data-i18n="web.slot.headDrop"></span>
+                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-head-name" hidden></p>
+            </div>
+
+            <div class="slot" data-role="body">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.bodyTitle"></span>
+                <button class="icon-btn" type="button" id="sheet-body-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="slot-drop" id="sheet-body-slot" tabindex="0" role="button">
+                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-body-hint" class="small" data-i18n="web.slot.bodyDrop"></span>
+                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-body-name" hidden></p>
+            </div>
+
+            <div class="slot" data-role="legs">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.legsTitle"></span>
+                <button class="icon-btn" type="button" id="sheet-legs-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="slot-drop" id="sheet-legs-slot" tabindex="0" role="button">
+                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-legs-hint" class="small" data-i18n="web.slot.legsDrop"></span>
+                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-legs-name" hidden></p>
+            </div>
+          </div>
+          <p class="text-body-secondary small mb-0" id="sheet-status"></p>
+
+          <h3 class="h6 text-uppercase text-body-secondary mt-3" data-i18n="web.results"></h3>
+          <div id="gif-results" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================== 反向还原 =========================== -->
+    <section class="panel tab-pane" id="tab-reverse">
+      <div class="row g-2">
+
+        <div class="col-12 col-lg-6 stack">
+          <div class="card">
+            <div class="card-body">
+              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
+
+              <div class="field">
+                <span class="form-label d-block small text-body-secondary mb-1" data-i18n="web.textureSource"></span>
+                <div class="inputrow d-flex flex-wrap gap-1">
+                  <button class="btn btn-sm btn-secondary" id="pick-images" data-i18n="web.pickImages"></button>
+                  <input type="file" id="texture-input" accept=".png" multiple hidden>
+                  <button class="btn btn-sm btn-secondary" id="pick-textures" data-i18n="web.pickFiles"></button>
+                </div>
+              </div>
+              <p class="text-body-secondary small mb-1" id="images-status"></p>
+
+              <div class="field">
+                <label class="form-label small text-body-secondary mb-1" for="set-search" data-i18n="web.reverseSearch"></label>
+                <input type="search" id="set-search" class="form-control form-control-sm" data-i18n-placeholder="web.reverseSearch">
+              </div>
+
+              <div class="field">
+                <label class="form-label small text-body-secondary mb-1" for="set-select" data-i18n="web.reverseSet"></label>
+                <select id="set-select" class="form-select form-select-sm" size="8"></select>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-4">
+                  <label class="form-label small text-body-secondary mb-1" for="rev-head" data-i18n="details.idHead"></label>
+                  <input type="number" class="form-control form-control-sm" id="rev-head" min="0" max="999">
+                </div>
+                <div class="col-4">
+                  <label class="form-label small text-body-secondary mb-1" for="rev-body" data-i18n="details.idBody"></label>
+                  <input type="number" class="form-control form-control-sm" id="rev-body" min="0" max="999">
+                </div>
+                <div class="col-4">
+                  <label class="form-label small text-body-secondary mb-1" for="rev-legs" data-i18n="details.idLegs"></label>
+                  <input type="number" class="form-control form-control-sm" id="rev-legs" min="0" max="999">
+                </div>
+              </div>
+              <p class="text-body-secondary small mb-0" data-i18n="web.idsHint"></p>
+
+              <!-- this page owns its own guide switch: the export page has an icon -->
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rev-guide">
+                <label class="form-check-label" for="rev-guide" data-i18n="web.guideOverlay"></label>
+              </div>
+
+              <div class="actions">
+                <button class="btn btn-sm btn-primary" id="do-reverse" data-i18n="web.reverseDo"></button>
+                <button class="btn btn-sm btn-secondary" id="do-reverse-all" data-i18n="web.reverseAll"></button>
+              </div>
+              <p class="text-body-secondary small mb-0" data-i18n="web.reverseAllHint"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card results-card">
+            <div class="card-body">
+              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.previewSheet"></h2>
+              <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================= 设置 ============================= -->
+    <section class="panel tab-pane" id="tab-settings">
+      <div class="row g-2">
+        <div class="col-12 col-lg-8">
+          <div class="card">
+            <div class="card-body">
+              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.settingsTitle"></h2>
+
+              <div class="field">
+                <span class="form-label d-block small text-body-secondary mb-1" data-i18n="web.outputFolder"></span>
+                <div class="inputrow d-flex flex-wrap gap-1">
+                  <button class="btn btn-sm btn-secondary" id="pick-output" data-i18n="web.pickOutput"></button>
+                  <button class="btn btn-sm btn-secondary" id="clear-output" data-i18n="web.clearOutput"></button>
+                </div>
+              </div>
+              <p class="text-body-secondary small mb-1" id="output-status"></p>
+
+              <div class="field">
+                <span class="form-label d-block small text-body-secondary mb-1" data-i18n="details.images"></span>
+                <div class="inputrow d-flex flex-wrap gap-1">
+                  <button class="btn btn-sm btn-secondary" id="pick-images-2" data-i18n="web.pickImages"></button>
+                  <button class="btn btn-sm btn-secondary" id="clear-images" data-i18n="web.clearOutput"></button>
+                </div>
+              </div>
+              <p class="text-body-secondary small mb-1" id="images-status-2"></p>
+
+              <div class="row g-2">
+                <div class="col-6 col-sm-3">
+                  <label class="form-label small text-body-secondary mb-1" for="set-head" data-i18n="details.idHead"></label>
+                  <input type="number" class="form-control form-control-sm" id="set-head" min="0" max="999">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label small text-body-secondary mb-1" for="set-body" data-i18n="details.idBody"></label>
+                  <input type="number" class="form-control form-control-sm" id="set-body" min="0" max="999">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label small text-body-secondary mb-1" for="set-legs" data-i18n="details.idLegs"></label>
+                  <input type="number" class="form-control form-control-sm" id="set-legs" min="0" max="999">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label small text-body-secondary mb-1" for="set-skin" data-i18n="details.skin"></label>
+                  <input type="number" class="form-control form-control-sm" id="set-skin" min="0" max="9">
+                </div>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="set-glow">
+                <label class="form-check-label" for="set-glow" data-i18n="details.glow"></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="set-verify">
+                <label class="form-check-label" for="set-verify" data-i18n="web.verify"></label>
+              </div>
+
+              <div class="actions">
+                <button class="btn btn-sm btn-primary" id="save-settings" data-i18n="web.saveSettings"></button>
+              </div>
+              <p class="text-body-secondary small mb-0" id="about"></p>
+            </div>
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="card sidebar results-card">
-        <h2 data-i18n="web.results"></h2>
-        <div id="gif-results" class="results"><p class="muted" data-i18n="web.empty"></p></div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- =========================== 反向还原 =========================== -->
-  <section class="panel" id="tab-reverse">
-    <div class="row">
-      <div class="card grow">
-        <h2 data-i18n="web.reverseTitle"></h2>
-
-        <label class="field">
-          <span data-i18n="web.textureSource"></span>
-          <div class="inputrow">
-            <button class="ghost" id="pick-images" data-i18n="web.pickImages"></button>
-            <input type="file" id="texture-input" accept=".png" multiple hidden>
-            <button class="ghost" id="pick-textures" data-i18n="web.pickFiles"></button>
-          </div>
-        </label>
-        <p class="muted small" id="images-status"></p>
-
-        <label class="field">
-          <span data-i18n="web.reverseSearch"></span>
-          <input type="search" id="set-search" data-i18n-placeholder="web.reverseSearch">
-        </label>
-
-        <label class="field">
-          <span data-i18n="web.reverseSet"></span>
-          <select id="set-select" size="8"></select>
-        </label>
-
-        <div class="ids">
-          <label class="field"><span data-i18n="details.idHead"></span>
-            <input type="number" id="rev-head" min="0" max="999"></label>
-          <label class="field"><span data-i18n="details.idBody"></span>
-            <input type="number" id="rev-body" min="0" max="999"></label>
-          <label class="field"><span data-i18n="details.idLegs"></span>
-            <input type="number" id="rev-legs" min="0" max="999"></label>
-        </div>
-        <p class="muted small" data-i18n="web.idsHint"></p>
-
-        <div class="actions">
-          <button class="primary" id="do-reverse" data-i18n="web.reverseDo"></button>
-          <button class="ghost" id="do-reverse-all" data-i18n="web.reverseAll"></button>
-        </div>
-        <p class="muted small" data-i18n="web.reverseAllHint"></p>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="web.previewSheet"></h2>
-        <div id="reverse-result" class="results"><p class="muted" data-i18n="web.empty"></p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================= 设置 ============================= -->
-  <section class="panel" id="tab-settings">
-    <div class="card">
-      <h2 data-i18n="web.settingsTitle"></h2>
-
-      <label class="field">
-        <span data-i18n="web.outputFolder"></span>
-        <div class="inputrow">
-          <button class="ghost" id="pick-output" data-i18n="web.pickOutput"></button>
-          <button class="ghost" id="clear-output" data-i18n="web.clearOutput"></button>
-        </div>
-      </label>
-      <p class="muted small" id="output-status"></p>
-
-      <label class="field">
-        <span data-i18n="details.images"></span>
-        <div class="inputrow">
-          <button class="ghost" id="pick-images-2" data-i18n="web.pickImages"></button>
-          <button class="ghost" id="clear-images" data-i18n="web.clearOutput"></button>
-        </div>
-      </label>
-      <p class="muted small" id="images-status-2"></p>
-
-      <div class="ids">
-        <label class="field"><span data-i18n="details.idHead"></span>
-          <input type="number" id="set-head" min="0" max="999"></label>
-        <label class="field"><span data-i18n="details.idBody"></span>
-          <input type="number" id="set-body" min="0" max="999"></label>
-        <label class="field"><span data-i18n="details.idLegs"></span>
-          <input type="number" id="set-legs" min="0" max="999"></label>
-        <label class="field"><span data-i18n="details.skin"></span>
-          <input type="number" id="set-skin" min="0" max="9"></label>
-      </div>
-
-      <label class="check"><input type="checkbox" id="set-glow">
-        <span data-i18n="details.glow"></span></label>
-      <label class="check"><input type="checkbox" id="set-verify">
-        <span data-i18n="web.verify"></span></label>
-
-      <div class="actions">
-        <button class="primary" id="save-settings" data-i18n="web.saveSettings"></button>
-      </div>
-      <p class="muted small" id="about"></p>
-    </div>
-  </section>
-
+  </div>
 </main>
 
-<footer class="statusbar">
-  <span id="status" class="ok">…</span>
-  <progress id="job-bar" max="1" value="0" hidden></progress>
-  <button class="ghost tiny" id="cancel-job" data-i18n="web.cancelJob" hidden></button>
+<footer class="statusbar border-top">
+  <div class="container-xxl d-flex align-items-center gap-2 px-3 py-1">
+    <span id="status" class="ok">…</span>
+    <div id="job-bar" class="progress" role="progressbar" aria-label="progress" aria-valuemin="0" aria-valuemax="100" hidden>
+      <div class="progress-bar" style="width: 0%"></div>
+    </div>
+    <button class="btn btn-sm btn-secondary" id="cancel-job" data-i18n="web.cancelJob" hidden></button>
+  </div>
 </footer>
 
 <script type="module" src="app.js"></script>

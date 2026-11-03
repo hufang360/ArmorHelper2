@@ -11,7 +11,7 @@
  * activate.
  */
 
-const VERSION = "2.2.2";
+const VERSION = "2.4.5";
 const CACHE = `armorhelper-${VERSION}`;
 
 /** Everything needed to start the app; kept in sync by a test. */
@@ -19,6 +19,7 @@ const CORE = [
   "./",
   "index.html",
   "style.css",
+  "vendor/bootstrap.min.css",
   "app.js",
   "manifest.webmanifest",
   "data/icon.png",

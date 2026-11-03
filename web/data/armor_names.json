@@ -1,0 +1,2548 @@
+{
+ "source": "Terraria (rowid 1.4.5.x) — Item.cs slots + ItemID.cs names",
+ "generated": "2026-11-03",
+ "slots": {
+  "head": {
+   "0": {
+    "name": "FamiliarWig",
+    "zh": "便装假发"
+   },
+   "1": {
+    "name": "CopperHelmet",
+    "zh": "铜头盔"
+   },
+   "2": {
+    "name": "IronHelmet",
+    "zh": "铁头盔"
+   },
+   "3": {
+    "name": "SilverHelmet",
+    "zh": "银头盔"
+   },
+   "4": {
+    "name": "GoldHelmet",
+    "zh": "金头盔"
+   },
+   "5": {
+    "name": "ShadowHelmet",
+    "zh": "暗影头盔"
+   },
+   "6": {
+    "name": "MeteorHelmet",
+    "zh": "流星头盔"
+   },
+   "7": {
+    "name": "NecroHelmet",
+    "zh": "死灵头盔"
+   },
+   "8": {
+    "name": "JungleHat",
+    "zh": "丛林帽"
+   },
+   "9": {
+    "name": "MoltenHelmet",
+    "zh": "熔岩头盔"
+   },
+   "10": {
+    "name": "Goggles",
+    "zh": "护目镜"
+   },
+   "11": {
+    "name": "MiningHelmet",
+    "zh": "挖矿头盔"
+   },
+   "12": {
+    "name": "Sunglasses",
+    "zh": "墨镜"
+   },
+   "13": {
+    "name": "EmptyBucket",
+    "zh": "空桶"
+   },
+   "14": {
+    "name": "WizardHat",
+    "zh": "巫师帽"
+   },
+   "15": {
+    "name": "TopHat",
+    "zh": "高顶礼帽"
+   },
+   "16": {
+    "name": "SummerHat",
+    "zh": "夏日草帽"
+   },
+   "17": {
+    "name": "BunnyHood",
+    "zh": "兔兔兜帽"
+   },
+   "18": {
+    "name": "PlumbersHat",
+    "zh": "管道工帽"
+   },
+   "19": {
+    "name": "HerosHat",
+    "zh": "英雄帽"
+   },
+   "20": {
+    "name": "FishBowl",
+    "zh": "鱼缸"
+   },
+   "21": {
+    "name": "ArchaeologistsHat",
+    "zh": "考古帽"
+   },
+   "22": {
+    "name": "NinjaHood",
+    "zh": "忍者兜帽"
+   },
+   "24": {
+    "name": "RedHat",
+    "zh": "红帽"
+   },
+   "25": {
+    "name": "RobotHat",
+    "zh": "机器人帽"
+   },
+   "26": {
+    "name": "GoldCrown",
+    "zh": "金冠"
+   },
+   "27": {
+    "name": "DivingHelmet",
+    "zh": "潜水头盔"
+   },
+   "28": {
+    "name": "MimeMask",
+    "zh": "丑角面具"
+   },
+   "29": {
+    "name": "CobaltHat",
+    "zh": "钴帽"
+   },
+   "30": {
+    "name": "CobaltHelmet",
+    "zh": "钴头盔"
+   },
+   "31": {
+    "name": "CobaltMask",
+    "zh": "钴面具"
+   },
+   "32": {
+    "name": "MythrilHood",
+    "zh": "秘银兜帽"
+   },
+   "33": {
+    "name": "MythrilHelmet",
+    "zh": "秘银头盔"
+   },
+   "34": {
+    "name": "MythrilHat",
+    "zh": "秘银帽"
+   },
+   "35": {
+    "name": "AdamantiteHeadgear",
+    "zh": "精金头饰"
+   },
+   "36": {
+    "name": "AdamantiteHelmet",
+    "zh": "精金头盔"
+   },
+   "37": {
+    "name": "AdamantiteMask",
+    "zh": "精金面具"
+   },
+   "40": {
+    "name": "ClownHat",
+    "zh": "小丑帽"
+   },
+   "41": {
+    "name": "HallowedHelmet",
+    "zh": "神圣头盔"
+   },
+   "42": {
+    "name": "HallowedHeadgear",
+    "zh": "神圣头饰"
+   },
+   "43": {
+    "name": "HallowedMask",
+    "zh": "神圣面具"
+   },
+   "44": {
+    "name": "SantaHat",
+    "zh": "圣诞帽"
+   },
+   "45": {
+    "name": "RedsHelmet",
+    "zh": "Red的头盔"
+   },
+   "46": {
+    "name": "FrostHelmet",
+    "zh": "寒霜头盔"
+   },
+   "47": {
+    "name": "TinHelmet",
+    "zh": "锡头盔"
+   },
+   "48": {
+    "name": "LeadHelmet",
+    "zh": "铅头盔"
+   },
+   "49": {
+    "name": "TungstenHelmet",
+    "zh": "钨头盔"
+   },
+   "50": {
+    "name": "PlatinumHelmet",
+    "zh": "铂金头盔"
+   },
+   "51": {
+    "name": "PlatinumCrown",
+    "zh": "铂金冠"
+   },
+   "52": {
+    "name": "WoodHelmet",
+    "zh": "木头盔"
+   },
+   "53": {
+    "name": "EbonwoodHelmet",
+    "zh": "乌木头盔"
+   },
+   "54": {
+    "name": "RichMahoganyHelmet",
+    "zh": "红木头盔"
+   },
+   "55": {
+    "name": "PearlwoodHelmet",
+    "zh": "珍珠木头盔"
+   },
+   "56": {
+    "name": "RuneHat",
+    "zh": "符文帽"
+   },
+   "57": {
+    "name": "CrimsonHelmet",
+    "zh": "猩红头盔"
+   },
+   "58": {
+    "name": "EskimoHood",
+    "zh": "防雪兜帽"
+   },
+   "59": {
+    "name": "SteampunkHat",
+    "zh": "蒸汽朋克帽"
+   },
+   "60": {
+    "name": "BeeHat",
+    "zh": "蜜蜂帽"
+   },
+   "61": {
+    "name": "PharaohsMask",
+    "zh": "法老面具"
+   },
+   "62": {
+    "name": "Tiara",
+    "zh": "头冠"
+   },
+   "63": {
+    "name": "GreenCap",
+    "zh": "绿帽"
+   },
+   "64": {
+    "name": "MushroomCap",
+    "zh": "蘑菇帽"
+   },
+   "65": {
+    "name": "TamOShanter",
+    "zh": "苏格兰便帽"
+   },
+   "66": {
+    "name": "MummyMask",
+    "zh": "木乃伊面具"
+   },
+   "67": {
+    "name": "CowboyHat",
+    "zh": "牛仔帽"
+   },
+   "68": {
+    "name": "PirateHat",
+    "zh": "海盗帽"
+   },
+   "69": {
+    "name": "VikingHelmet",
+    "zh": "维京海盗头盔"
+   },
+   "70": {
+    "name": "CactusHelmet",
+    "zh": "仙人掌头盔"
+   },
+   "71": {
+    "name": "ShadewoodHelmet",
+    "zh": "暗影木头盔"
+   },
+   "72": {
+    "name": "AncientIronHelmet",
+    "zh": "远古铁头盔"
+   },
+   "73": {
+    "name": "AncientGoldHelmet",
+    "zh": "远古金头盔"
+   },
+   "74": {
+    "name": "AncientShadowHelmet",
+    "zh": "远古暗影头盔"
+   },
+   "75": {
+    "name": "AncientNecroHelmet",
+    "zh": "远古死灵头盔"
+   },
+   "76": {
+    "name": "AncientCobaltHelmet",
+    "zh": "远古钴头盔"
+   },
+   "77": {
+    "name": "PinkEskimoHood",
+    "zh": "粉色防雪兜帽"
+   },
+   "78": {
+    "name": "ChlorophyteMask",
+    "zh": "叶绿面具"
+   },
+   "79": {
+    "name": "ChlorophyteHelmet",
+    "zh": "叶绿头盔"
+   },
+   "80": {
+    "name": "ChlorophyteHeadgear",
+    "zh": "叶绿头饰"
+   },
+   "81": {
+    "name": "RainHat",
+    "zh": "雨帽"
+   },
+   "82": {
+    "name": "TikiMask",
+    "zh": "提基面具"
+   },
+   "83": {
+    "name": "PalladiumMask",
+    "zh": "钯金面具"
+   },
+   "84": {
+    "name": "PalladiumHelmet",
+    "zh": "钯金头盔"
+   },
+   "85": {
+    "name": "PalladiumHeadgear",
+    "zh": "钯金头饰"
+   },
+   "86": {
+    "name": "OrichalcumMask",
+    "zh": "山铜面具"
+   },
+   "87": {
+    "name": "OrichalcumHelmet",
+    "zh": "山铜头盔"
+   },
+   "88": {
+    "name": "OrichalcumHeadgear",
+    "zh": "山铜头饰"
+   },
+   "89": {
+    "name": "TitaniumMask",
+    "zh": "钛金面具"
+   },
+   "90": {
+    "name": "TitaniumHelmet",
+    "zh": "钛金头盔"
+   },
+   "91": {
+    "name": "TitaniumHeadgear",
+    "zh": "钛金头饰"
+   },
+   "92": {
+    "name": "UmbrellaHat",
+    "zh": "伞帽"
+   },
+   "93": {
+    "name": "Skull",
+    "zh": "骷髅头"
+   },
+   "94": {
+    "name": "BallaHat",
+    "zh": "巴拉帽"
+   },
+   "95": {
+    "name": "GangstaHat",
+    "zh": "黑帮帽"
+   },
+   "96": {
+    "name": "SailorHat",
+    "zh": "水手帽"
+   },
+   "97": {
+    "name": "EyePatch",
+    "zh": "眼罩"
+   },
+   "98": {
+    "name": "SkeletronMask",
+    "zh": "骷髅王面具"
+   },
+   "99": {
+    "name": "TurtleHelmet",
+    "zh": "海龟头盔"
+   },
+   "100": {
+    "name": "Beanie",
+    "zh": "小便帽"
+   },
+   "101": {
+    "name": "SpectreHood",
+    "zh": "幽灵兜帽"
+   },
+   "102": {
+    "name": "SWATHelmet",
+    "zh": "特战头盔"
+   },
+   "103": {
+    "name": "ShroomiteHeadgear",
+    "zh": "蘑菇矿头饰"
+   },
+   "104": {
+    "name": "ShroomiteMask",
+    "zh": "蘑菇矿面具"
+   },
+   "105": {
+    "name": "ShroomiteHelmet",
+    "zh": "蘑菇矿头盔"
+   },
+   "106": {
+    "name": "CenxsTiara",
+    "zh": "Cenx的头冠"
+   },
+   "107": {
+    "name": "CrownosMask",
+    "zh": "Crowno的面具"
+   },
+   "108": {
+    "name": "WillsHelmet",
+    "zh": "Will的头盔"
+   },
+   "109": {
+    "name": "JimsHelmet",
+    "zh": "Jim的头盔"
+   },
+   "110": {
+    "name": "AaronsHelmet",
+    "zh": "Aaron的头盔"
+   },
+   "111": {
+    "name": "DTownsHelmet",
+    "zh": "D-Town的头盔"
+   },
+   "112": {
+    "name": "PumpkinHelmet",
+    "zh": "南瓜头盔"
+   },
+   "113": {
+    "name": "NurseHat",
+    "zh": "护士帽"
+   },
+   "114": {
+    "name": "WizardsHat",
+    "zh": "巫师之帽"
+   },
+   "115": {
+    "name": "GuyFawkesMask",
+    "zh": "盖伊·福克斯面具"
+   },
+   "116": {
+    "name": "SteampunkGoggles",
+    "zh": "蒸汽朋克护目镜"
+   },
+   "117": {
+    "name": "CyborgHelmet",
+    "zh": "机器侠头盔"
+   },
+   "118": {
+    "name": "CreeperMask",
+    "zh": "苦力怕面具"
+   },
+   "119": {
+    "name": "CatMask",
+    "zh": "猫咪面具"
+   },
+   "120": {
+    "name": "GhostMask",
+    "zh": "鬼魂面具"
+   },
+   "121": {
+    "name": "PumpkinMask",
+    "zh": "南瓜面具"
+   },
+   "122": {
+    "name": "RobotMask",
+    "zh": "机器人面具"
+   },
+   "123": {
+    "name": "UnicornMask",
+    "zh": "独角兽面具"
+   },
+   "124": {
+    "name": "VampireMask",
+    "zh": "吸血鬼面具"
+   },
+   "125": {
+    "name": "WitchHat",
+    "zh": "女巫帽"
+   },
+   "126": {
+    "name": "LeprechaunHat",
+    "zh": "矮妖帽"
+   },
+   "127": {
+    "name": "PrincessHat",
+    "zh": "公主帽"
+   },
+   "128": {
+    "name": "BrideofFrankensteinMask",
+    "zh": "科学怪人新娘面具"
+   },
+   "129": {
+    "name": "KarateTortoiseMask",
+    "zh": "空手道陆龟面具"
+   },
+   "130": {
+    "name": "ScarecrowHat",
+    "zh": "稻草人帽"
+   },
+   "131": {
+    "name": "ReaperHood",
+    "zh": "死神兜帽"
+   },
+   "132": {
+    "name": "FoxMask",
+    "zh": "狐狸面具"
+   },
+   "133": {
+    "name": "CatEars",
+    "zh": "猫耳"
+   },
+   "134": {
+    "name": "SpookyHelmet",
+    "zh": "阴森头盔"
+   },
+   "135": {
+    "name": "SpaceCreatureMask",
+    "zh": "太空生物面具"
+   },
+   "136": {
+    "name": "WolfMask",
+    "zh": "狼面具"
+   },
+   "137": {
+    "name": "JackOLanternMask",
+    "zh": "杰克南瓜灯面具"
+   },
+   "138": {
+    "name": "GiantBow",
+    "zh": "巨型蝴蝶结"
+   },
+   "139": {
+    "name": "ReindeerAntlers",
+    "zh": "驯鹿角"
+   },
+   "140": {
+    "name": "MrsClauseHat",
+    "zh": "圣诞夫人帽"
+   },
+   "141": {
+    "name": "TreeMask",
+    "zh": "树面具"
+   },
+   "142": {
+    "name": "ParkaHood",
+    "zh": "派克兜帽"
+   },
+   "143": {
+    "name": "SnowHat",
+    "zh": "雪帽"
+   },
+   "144": {
+    "name": "ElfHat",
+    "zh": "精灵帽"
+   },
+   "145": {
+    "name": "Fez",
+    "zh": "菲斯帽"
+   },
+   "156": {
+    "name": "SpectreMask",
+    "zh": "幽灵面具"
+   },
+   "157": {
+    "name": "BeetleHelmet",
+    "zh": "甲虫头盔"
+   },
+   "158": {
+    "name": "PeddlersHat",
+    "zh": "商贩帽"
+   },
+   "159": {
+    "name": "MagicHat",
+    "zh": "魔法帽"
+   },
+   "160": {
+    "name": "BeeHeadgear",
+    "zh": "蜜蜂头饰"
+   },
+   "161": {
+    "name": "AnglerHat",
+    "zh": "渔夫帽"
+   },
+   "162": {
+    "name": "SpiderMask",
+    "zh": "蜘蛛面具"
+   },
+   "163": {
+    "name": "SeashellHairpin",
+    "zh": "贝壳发夹"
+   },
+   "164": {
+    "name": "KingSlimeMask",
+    "zh": "史莱姆王面具"
+   },
+   "165": {
+    "name": "FishCostumeMask",
+    "zh": "鱼装面具"
+   },
+   "166": {
+    "name": "BorealWoodHelmet",
+    "zh": "针叶木头盔"
+   },
+   "167": {
+    "name": "PalmWoodHelmet",
+    "zh": "棕榈木头盔"
+   },
+   "168": {
+    "name": "DukeFishronMask",
+    "zh": "猪龙鱼公爵面具"
+   },
+   "169": {
+    "name": "VortexHelmet",
+    "zh": "星旋头盔"
+   },
+   "170": {
+    "name": "NebulaHelmet",
+    "zh": "星云头盔"
+   },
+   "171": {
+    "name": "SolarFlareHelmet",
+    "zh": "耀斑头盔"
+   },
+   "172": {
+    "name": "MoonMask",
+    "zh": "月亮面具"
+   },
+   "173": {
+    "name": "SunMask",
+    "zh": "太阳面具"
+   },
+   "174": {
+    "name": "MartianCostumeMask",
+    "zh": "火星装面具"
+   },
+   "175": {
+    "name": "MartianUniformHelmet",
+    "zh": "火星制服头盔"
+   },
+   "176": {
+    "name": "WhiteLunaticHood",
+    "zh": "日耀邪教徒兜帽"
+   },
+   "177": {
+    "name": "BlueLunaticHood",
+    "zh": "月亮邪教徒兜帽"
+   },
+   "178": {
+    "name": "HiTekSunglasses",
+    "zh": "高科技墨镜"
+   },
+   "179": {
+    "name": "NightVisionHelmet",
+    "zh": "夜视头盔"
+   },
+   "180": {
+    "name": "GladiatorHelmet",
+    "zh": "角斗士头盔"
+   },
+   "181": {
+    "name": "BejeweledValkyrieHead",
+    "zh": "Lazure的女武神头环"
+   },
+   "182": {
+    "name": "TaxCollectorHat",
+    "zh": "税收官帽"
+   },
+   "183": {
+    "name": "DyeTraderTurban",
+    "zh": "染料商头巾"
+   },
+   "184": {
+    "name": "BuccaneerBandana",
+    "zh": "西域海盗头巾"
+   },
+   "185": {
+    "name": "ObsidianHelm",
+    "zh": "黑曜石逃犯帽"
+   },
+   "188": {
+    "name": "FossilHelm",
+    "zh": "化石头盔"
+   },
+   "189": {
+    "name": "StardustHelmet",
+    "zh": "星尘头盔"
+   },
+   "190": {
+    "name": "TheBrideHat",
+    "zh": "面纱"
+   },
+   "191": {
+    "name": "Yoraiz0rHead",
+    "zh": "Yoraiz0r的染色护目镜"
+   },
+   "192": {
+    "name": "SkiphsHelm",
+    "zh": "Skiphs的面具"
+   },
+   "193": {
+    "name": "LokisHelm",
+    "zh": "Loki的头盔"
+   },
+   "194": {
+    "name": "EngineeringHelmet",
+    "zh": "工程头盔"
+   },
+   "195": {
+    "name": "PartyHat",
+    "zh": "派对帽"
+   },
+   "196": {
+    "name": "FlowerBoyHat",
+    "zh": "呆萌向日葵花瓣头盔"
+   },
+   "197": {
+    "name": "PedguinHat",
+    "zh": "Pedguin的兜帽"
+   },
+   "198": {
+    "name": "AviatorSunglasses",
+    "zh": "0x33的飞行员风镜"
+   },
+   "199": {
+    "name": "AncientArmorHat",
+    "zh": "远古头饰"
+   },
+   "200": {
+    "name": "AncientBattleArmorHat",
+    "zh": "禁戒面具"
+   },
+   "201": {
+    "name": "LamiaHat",
+    "zh": "拉弥亚面具"
+   },
+   "203": {
+    "name": "ApprenticeHat",
+    "zh": "学徒帽"
+   },
+   "204": {
+    "name": "SquireGreatHelm",
+    "zh": "侍卫大头盔"
+   },
+   "205": {
+    "name": "HuntressWig",
+    "zh": "女猎人假发"
+   },
+   "206": {
+    "name": "MonkBrows",
+    "zh": "武僧浓眉秃头帽"
+   },
+   "207": {
+    "name": "BossMaskBetsy",
+    "zh": "双足翼龙面具"
+   },
+   "208": {
+    "name": "BossMaskDarkMage",
+    "zh": "暗黑魔法师面具"
+   },
+   "209": {
+    "name": "BossMaskOgre",
+    "zh": "食人魔面具"
+   },
+   "210": {
+    "name": "SquireAltHead",
+    "zh": "英灵殿骑士头盔"
+   },
+   "211": {
+    "name": "ApprenticeAltHead",
+    "zh": "暗黑艺术家帽子"
+   },
+   "212": {
+    "name": "HuntressAltHead",
+    "zh": "红色骑术兜帽"
+   },
+   "213": {
+    "name": "MonkAltHead",
+    "zh": "渗透忍者头盔"
+   },
+   "214": {
+    "name": "ArkhalisHat",
+    "zh": "Arkhalis的兜帽"
+   },
+   "215": {
+    "name": "LeinforsHat",
+    "zh": "Leinfors的护发器"
+   },
+   "217": {
+    "name": "MaidHead",
+    "zh": "女仆帽"
+   },
+   "218": {
+    "name": "MaidHead2",
+    "zh": "粉女仆帽"
+   },
+   "219": {
+    "name": "GolfHat",
+    "zh": "乡村俱乐部帽"
+   },
+   "220": {
+    "name": "GolfVisor",
+    "zh": "乡村俱乐部帽舌"
+   },
+   "221": {
+    "name": "GoldGoldfishBowl",
+    "zh": "金鱼缸"
+   },
+   "222": {
+    "name": "StarPrincessCrown",
+    "zh": "星星公主王冠"
+   },
+   "223": {
+    "name": "DemonHorns",
+    "zh": "恶魔角"
+   },
+   "224": {
+    "name": "BunnyEars",
+    "zh": "兔兔耳朵"
+   },
+   "225": {
+    "name": "DevilHorns",
+    "zh": "魔鬼角"
+   },
+   "226": {
+    "name": "Fedora",
+    "zh": "软呢帽"
+   },
+   "227": {
+    "name": "ChefHat",
+    "zh": "厨师帽"
+   },
+   "228": {
+    "name": "StarHairpin",
+    "zh": "星星发夹"
+   },
+   "229": {
+    "name": "HeartHairpin",
+    "zh": "心形发夹"
+   },
+   "230": {
+    "name": "SuperHeroMask",
+    "zh": "超级英雄面具"
+   },
+   "231": {
+    "name": "UndertakerHat",
+    "zh": "掘墓者帽"
+   },
+   "232": {
+    "name": "PrettyPinkRibbon",
+    "zh": "漂亮粉丝带"
+   },
+   "233": {
+    "name": "FuneralHat",
+    "zh": "葬礼帽"
+   },
+   "234": {
+    "name": "VictorianGothHat",
+    "zh": "维多利亚哥特帽"
+   },
+   "235": {
+    "name": "GhostarSkullPin",
+    "zh": "Ghostar的魂罐"
+   },
+   "236": {
+    "name": "DrManFlyMask",
+    "zh": "苍蝇人博士面具"
+   },
+   "237": {
+    "name": "ButcherMask",
+    "zh": "屠夫面具"
+   },
+   "238": {
+    "name": "SafemanSunHair",
+    "zh": "Safeman的晴天"
+   },
+   "239": {
+    "name": "FoodBarbarianHelm",
+    "zh": "FoodBarbarian的角盔"
+   },
+   "240": {
+    "name": "GroxTheGreatHelm",
+    "zh": "Grox The Great的有角风帽"
+   },
+   "241": {
+    "name": "RockGolemHead",
+    "zh": "岩石巨人头"
+   },
+   "242": {
+    "name": "DogEars",
+    "zh": "狗耳朵"
+   },
+   "243": {
+    "name": "FoxEars",
+    "zh": "狐狸耳朵"
+   },
+   "244": {
+    "name": "LizardEars",
+    "zh": "蜥蜴耳朵"
+   },
+   "245": {
+    "name": "PandaEars",
+    "zh": "熊猫耳朵"
+   },
+   "250": {
+    "name": "MushroomHat",
+    "zh": "蘑菇帽"
+   },
+   "251": {
+    "name": "FairyQueenMask",
+    "zh": "光之女皇面具"
+   },
+   "254": {
+    "name": "HallowedHood",
+    "zh": "神圣兜帽"
+   },
+   "255": {
+    "name": "AncientHallowedMask",
+    "zh": "远古神圣面具"
+   },
+   "256": {
+    "name": "AncientHallowedHelmet",
+    "zh": "远古神圣头盔"
+   },
+   "257": {
+    "name": "AncientHallowedHeadgear",
+    "zh": "远古神圣头饰"
+   },
+   "258": {
+    "name": "AncientHallowedHood",
+    "zh": "远古神圣兜帽"
+   },
+   "259": {
+    "name": "RabbitOrder",
+    "zh": "兔子头盔"
+   },
+   "260": {
+    "name": "QueenSlimeMask",
+    "zh": "史莱姆皇后面具"
+   },
+   "261": {
+    "name": "CrystalNinjaHelmet",
+    "zh": "水晶刺客兜帽"
+   },
+   "262": {
+    "name": "GraduationCapBlue",
+    "zh": "蓝毕业帽"
+   },
+   "263": {
+    "name": "GraduationCapMaroon",
+    "zh": "褐红毕业帽"
+   },
+   "264": {
+    "name": "GraduationCapBlack",
+    "zh": "黑毕业帽"
+   },
+   "265": {
+    "name": "BadgersHat",
+    "zh": "Badger的帽子"
+   },
+   "266": {
+    "name": "PlaguebringerHelmet",
+    "zh": "瘟疫使者骷髅头"
+   },
+   "267": {
+    "name": "RoninHat",
+    "zh": "浪人阵笠"
+   },
+   "268": {
+    "name": "TimelessTravelerHood",
+    "zh": "永恒旅人兜帽"
+   },
+   "269": {
+    "name": "FloretProtectorHelmet",
+    "zh": "护花者头盔"
+   },
+   "270": {
+    "name": "CapricornMask",
+    "zh": "摩羯座头盔"
+   },
+   "271": {
+    "name": "TVHeadMask",
+    "zh": "视频脸"
+   },
+   "272": {
+    "name": "RoyalTiara",
+    "zh": "皇家头冠"
+   },
+   "273": {
+    "name": "GarlandHat",
+    "zh": "花环"
+   },
+   "274": {
+    "name": "VulkelfEar",
+    "zh": "瓦尔克精灵耳朵"
+   },
+   "275": {
+    "name": "Eyebrella",
+    "zh": "眼球伞"
+   },
+   "276": {
+    "name": "DeerclopsMask",
+    "zh": "独眼巨鹿面具"
+   },
+   "277": {
+    "name": "GoblorcEar",
+    "zh": "哥布魔耳朵"
+   },
+   "278": {
+    "name": "AshWoodHelmet",
+    "zh": "灰烬木头盔"
+   },
+   "279": {
+    "name": "JimsCap",
+    "zh": "Jim的帽子"
+   },
+   "280": {
+    "name": "DizzyHat",
+    "zh": "Dizzy的稀有壁虎帽"
+   },
+   "281": {
+    "name": "LincolnsHood",
+    "zh": "Raynebro的兜帽"
+   },
+   "282": {
+    "name": "DeadCellsBeheadedHead",
+    "zh": "枭首者的头部"
+   },
+   "283": {
+    "name": "ChlorophyteVisor",
+    "zh": "叶绿面罩"
+   },
+   "284": {
+    "name": "ChickenBonesHead",
+    "zh": "鸡骨面罩"
+   },
+   "287": {
+    "name": "ChippysHead",
+    "zh": "花栗鼠头盔"
+   },
+   "288": {
+    "name": "HeroicisHead",
+    "zh": "英雄帽子"
+   },
+   "289": {
+    "name": "HallowedCrown",
+    "zh": "神圣王冠"
+   },
+   "290": {
+    "name": "LilacDuskHead",
+    "zh": "丁香薄暮发夹"
+   },
+   "291": {
+    "name": "KazzymodusHood",
+    "zh": "卡兹默德斯兜帽"
+   },
+   "292": {
+    "name": "LunasHead",
+    "zh": "露娜的符文妖精兜帽"
+   }
+  },
+  "body": {
+   "0": {
+    "name": "FamiliarShirt",
+    "zh": "便装衣"
+   },
+   "1": {
+    "name": "CopperChainmail",
+    "zh": "铜链甲"
+   },
+   "2": {
+    "name": "IronChainmail",
+    "zh": "铁链甲"
+   },
+   "3": {
+    "name": "SilverChainmail",
+    "zh": "银链甲"
+   },
+   "4": {
+    "name": "GoldChainmail",
+    "zh": "金链甲"
+   },
+   "5": {
+    "name": "ShadowScalemail",
+    "zh": "暗影鳞甲"
+   },
+   "6": {
+    "name": "MeteorSuit",
+    "zh": "流星护甲"
+   },
+   "7": {
+    "name": "NecroBreastplate",
+    "zh": "死灵胸甲"
+   },
+   "8": {
+    "name": "JungleShirt",
+    "zh": "丛林衣"
+   },
+   "9": {
+    "name": "MoltenBreastplate",
+    "zh": "熔岩胸甲"
+   },
+   "10": {
+    "name": "TuxedoShirt",
+    "zh": "西装衣"
+   },
+   "11": {
+    "name": "PlumbersShirt",
+    "zh": "管道工衣"
+   },
+   "12": {
+    "name": "HerosShirt",
+    "zh": "英雄衣"
+   },
+   "13": {
+    "name": "ArchaeologistsJacket",
+    "zh": "考古夹克"
+   },
+   "14": {
+    "name": "NinjaShirt",
+    "zh": "忍者衣"
+   },
+   "15": {
+    "name": "Robe",
+    "zh": "长袍"
+   },
+   "16": {
+    "name": "TheDoctorsShirt",
+    "zh": "博士衣"
+   },
+   "17": {
+    "name": "CobaltBreastplate",
+    "zh": "钴胸甲"
+   },
+   "18": {
+    "name": "MythrilChainmail",
+    "zh": "秘银链甲"
+   },
+   "19": {
+    "name": "AdamantiteBreastplate",
+    "zh": "精金胸甲"
+   },
+   "20": {
+    "name": "MiningShirt",
+    "zh": "挖矿衣"
+   },
+   "23": {
+    "name": "ClownShirt",
+    "zh": "小丑衣"
+   },
+   "24": {
+    "name": "HallowedPlateMail",
+    "zh": "神圣板甲"
+   },
+   "25": {
+    "name": "SantaShirt",
+    "zh": "圣诞衣"
+   },
+   "26": {
+    "name": "RedsBreastplate",
+    "zh": "Red的胸甲"
+   },
+   "27": {
+    "name": "FrostBreastplate",
+    "zh": "寒霜胸甲"
+   },
+   "28": {
+    "name": "TinChainmail",
+    "zh": "锡链甲"
+   },
+   "29": {
+    "name": "LeadChainmail",
+    "zh": "铅链甲"
+   },
+   "30": {
+    "name": "TungstenChainmail",
+    "zh": "钨链甲"
+   },
+   "31": {
+    "name": "PlatinumChainmail",
+    "zh": "铂金链甲"
+   },
+   "32": {
+    "name": "WoodBreastplate",
+    "zh": "木胸甲"
+   },
+   "33": {
+    "name": "EbonwoodBreastplate",
+    "zh": "乌木胸甲"
+   },
+   "34": {
+    "name": "RichMahoganyBreastplate",
+    "zh": "红木胸甲"
+   },
+   "35": {
+    "name": "PearlwoodBreastplate",
+    "zh": "珍珠木胸甲"
+   },
+   "36": {
+    "name": "RuneRobe",
+    "zh": "符文长袍"
+   },
+   "37": {
+    "name": "CrimsonScalemail",
+    "zh": "猩红鳞甲"
+   },
+   "38": {
+    "name": "EskimoCoat",
+    "zh": "防雪大衣"
+   },
+   "39": {
+    "name": "SteampunkShirt",
+    "zh": "蒸汽朋克衣"
+   },
+   "40": {
+    "name": "BeeShirt",
+    "zh": "蜜蜂衣"
+   },
+   "41": {
+    "name": "PrincessDress",
+    "zh": "公主裙"
+   },
+   "42": {
+    "name": "PharaohsRobe",
+    "zh": "法老长袍"
+   },
+   "43": {
+    "name": "MummyShirt",
+    "zh": "木乃伊衣"
+   },
+   "44": {
+    "name": "CowboyJacket",
+    "zh": "牛仔夹克"
+   },
+   "45": {
+    "name": "PirateShirt",
+    "zh": "海盗衣"
+   },
+   "46": {
+    "name": "CactusBreastplate",
+    "zh": "仙人掌胸甲"
+   },
+   "47": {
+    "name": "ShadewoodBreastplate",
+    "zh": "暗影木胸甲"
+   },
+   "48": {
+    "name": "AncientShadowScalemail",
+    "zh": "远古暗影鳞甲"
+   },
+   "49": {
+    "name": "AncientCobaltBreastplate",
+    "zh": "远古钴胸甲"
+   },
+   "50": {
+    "name": "PinkEskimoCoat",
+    "zh": "粉色防雪大衣"
+   },
+   "51": {
+    "name": "ChlorophytePlateMail",
+    "zh": "叶绿板甲"
+   },
+   "52": {
+    "name": "RainCoat",
+    "zh": "雨衣"
+   },
+   "53": {
+    "name": "TikiShirt",
+    "zh": "提基衣"
+   },
+   "54": {
+    "name": "PalladiumBreastplate",
+    "zh": "钯金胸甲"
+   },
+   "55": {
+    "name": "OrichalcumBreastplate",
+    "zh": "山铜胸甲"
+   },
+   "56": {
+    "name": "TitaniumBreastplate",
+    "zh": "钛金胸甲"
+   },
+   "57": {
+    "name": "SailorShirt",
+    "zh": "水手衣"
+   },
+   "58": {
+    "name": "AmethystRobe",
+    "zh": "紫晶长袍"
+   },
+   "59": {
+    "name": "TopazRobe",
+    "zh": "黄玉长袍"
+   },
+   "60": {
+    "name": "SapphireRobe",
+    "zh": "蓝玉长袍"
+   },
+   "61": {
+    "name": "EmeraldRobe",
+    "zh": "翡翠长袍"
+   },
+   "62": {
+    "name": "RubyRobe",
+    "zh": "红玉长袍"
+   },
+   "63": {
+    "name": "DiamondRobe",
+    "zh": "钻石长袍"
+   },
+   "64": {
+    "name": "WhiteTuxedoShirt",
+    "zh": "白西装衣"
+   },
+   "65": {
+    "name": "TurtleScaleMail",
+    "zh": "海龟铠甲"
+   },
+   "66": {
+    "name": "SpectreRobe",
+    "zh": "幽灵长袍"
+   },
+   "67": {
+    "name": "ShroomiteBreastplate",
+    "zh": "蘑菇矿胸甲"
+   },
+   "68": {
+    "name": "CenxsBreastplate",
+    "zh": "Cenx的胸甲"
+   },
+   "69": {
+    "name": "CrownosBreastplate",
+    "zh": "Crowno的胸甲"
+   },
+   "70": {
+    "name": "WillsBreastplate",
+    "zh": "Will的胸甲"
+   },
+   "71": {
+    "name": "JimsBreastplate",
+    "zh": "Jim的胸甲"
+   },
+   "72": {
+    "name": "AaronsBreastplate",
+    "zh": "Aaron的胸甲"
+   },
+   "73": {
+    "name": "DTownsBreastplate",
+    "zh": "D-Town的胸甲"
+   },
+   "74": {
+    "name": "CenxsDress",
+    "zh": "Cenx的上衣"
+   },
+   "75": {
+    "name": "PumpkinBreastplate",
+    "zh": "南瓜胸甲"
+   },
+   "76": {
+    "name": "NurseShirt",
+    "zh": "护士衣"
+   },
+   "77": {
+    "name": "DyeTraderRobe",
+    "zh": "染料商长袍"
+   },
+   "78": {
+    "name": "CyborgShirt",
+    "zh": "机器侠衣"
+   },
+   "79": {
+    "name": "CreeperShirt",
+    "zh": "苦力怕衣"
+   },
+   "80": {
+    "name": "CatShirt",
+    "zh": "猫咪衣"
+   },
+   "81": {
+    "name": "GhostShirt",
+    "zh": "鬼魂衣"
+   },
+   "82": {
+    "name": "PumpkinShirt",
+    "zh": "南瓜衣"
+   },
+   "83": {
+    "name": "RobotShirt",
+    "zh": "机器人衣"
+   },
+   "84": {
+    "name": "UnicornShirt",
+    "zh": "独角兽衣"
+   },
+   "85": {
+    "name": "VampireShirt",
+    "zh": "吸血鬼衣"
+   },
+   "86": {
+    "name": "LeprechaunShirt",
+    "zh": "矮妖衣"
+   },
+   "87": {
+    "name": "PixieShirt",
+    "zh": "妖精衣"
+   },
+   "88": {
+    "name": "PrincessDressNew",
+    "zh": "公主裙"
+   },
+   "89": {
+    "name": "WitchDress",
+    "zh": "女巫服"
+   },
+   "90": {
+    "name": "BrideofFrankensteinDress",
+    "zh": "科学怪人新娘服"
+   },
+   "91": {
+    "name": "KarateTortoiseShirt",
+    "zh": "空手道陆龟衣"
+   },
+   "92": {
+    "name": "ScarecrowShirt",
+    "zh": "稻草人衣"
+   },
+   "93": {
+    "name": "ReaperRobe",
+    "zh": "死神长袍"
+   },
+   "94": {
+    "name": "FoxShirt",
+    "zh": "狐狸衣"
+   },
+   "95": {
+    "name": "SpookyBreastplate",
+    "zh": "阴森胸甲"
+   },
+   "96": {
+    "name": "SpaceCreatureShirt",
+    "zh": "太空生物衣"
+   },
+   "97": {
+    "name": "WolfShirt",
+    "zh": "狼衣"
+   },
+   "98": {
+    "name": "TreasureHunterShirt",
+    "zh": "寻宝人衣"
+   },
+   "99": {
+    "name": "DryadCoverings",
+    "zh": "树妖遮体服"
+   },
+   "100": {
+    "name": "MrsClauseShirt",
+    "zh": "圣诞夫人衣"
+   },
+   "101": {
+    "name": "TreeShirt",
+    "zh": "树衣"
+   },
+   "102": {
+    "name": "ParkaCoat",
+    "zh": "派克大衣"
+   },
+   "103": {
+    "name": "UglySweater",
+    "zh": "丑毛衣"
+   },
+   "104": {
+    "name": "ElfShirt",
+    "zh": "精灵衣"
+   },
+   "105": {
+    "name": "BeetleScaleMail",
+    "zh": "甲虫铠甲"
+   },
+   "106": {
+    "name": "BeetleShell",
+    "zh": "甲虫壳"
+   },
+   "165": {
+    "name": "Gi",
+    "zh": "稽古衣"
+   },
+   "166": {
+    "name": "Kimono",
+    "zh": "和服"
+   },
+   "167": {
+    "name": "GypsyRobe",
+    "zh": "神秘长袍"
+   },
+   "168": {
+    "name": "BeeBreastplate",
+    "zh": "蜜蜂胸甲"
+   },
+   "169": {
+    "name": "AnglerVest",
+    "zh": "渔夫背心"
+   },
+   "170": {
+    "name": "SpiderBreastplate",
+    "zh": "蜘蛛胸甲"
+   },
+   "171": {
+    "name": "MermaidAdornment",
+    "zh": "美人鱼饰品"
+   },
+   "172": {
+    "name": "FishCostumeShirt",
+    "zh": "鱼装衣"
+   },
+   "173": {
+    "name": "BorealWoodBreastplate",
+    "zh": "针叶木胸甲"
+   },
+   "174": {
+    "name": "PalmWoodBreastplate",
+    "zh": "棕榈木胸甲"
+   },
+   "175": {
+    "name": "VortexBreastplate",
+    "zh": "星旋胸甲"
+   },
+   "176": {
+    "name": "NebulaBreastplate",
+    "zh": "星云胸甲"
+   },
+   "177": {
+    "name": "SolarFlareBreastplate",
+    "zh": "耀斑胸甲"
+   },
+   "178": {
+    "name": "MartianCostumeShirt",
+    "zh": "火星装衣"
+   },
+   "179": {
+    "name": "MartianUniformTorso",
+    "zh": "火星制服上衣"
+   },
+   "180": {
+    "name": "WhiteLunaticRobe",
+    "zh": "日耀邪教徒长袍"
+   },
+   "181": {
+    "name": "BlueLunaticRobe",
+    "zh": "月亮邪教徒长袍"
+   },
+   "182": {
+    "name": "GladiatorBreastplate",
+    "zh": "角斗士胸甲"
+   },
+   "183": {
+    "name": "BejeweledValkyrieBody",
+    "zh": "Lazure的女武神斗蓬"
+   },
+   "184": {
+    "name": "TaxCollectorSuit",
+    "zh": "税收官衣服"
+   },
+   "185": {
+    "name": "ClothierJacket",
+    "zh": "服装商夹克"
+   },
+   "186": {
+    "name": "BuccaneerShirt",
+    "zh": "西域海盗上装"
+   },
+   "187": {
+    "name": "ObsidianShirt",
+    "zh": "黑曜石风衣"
+   },
+   "188": {
+    "name": "FallenTuxedoShirt",
+    "zh": "堕落西装衣"
+   },
+   "189": {
+    "name": "FossilShirt",
+    "zh": "化石板甲"
+   },
+   "190": {
+    "name": "StardustBreastplate",
+    "zh": "星尘板甲"
+   },
+   "191": {
+    "name": "TheBrideDress",
+    "zh": "婚裙"
+   },
+   "192": {
+    "name": "Yoraiz0rShirt",
+    "zh": "Yoraiz0r的制服"
+   },
+   "193": {
+    "name": "SkiphsShirt",
+    "zh": "Skiphs的皮肤"
+   },
+   "194": {
+    "name": "LokisShirt",
+    "zh": "Loki的胸甲"
+   },
+   "195": {
+    "name": "FlowerBoyShirt",
+    "zh": "呆萌向日葵上衣"
+   },
+   "196": {
+    "name": "PedguinShirt",
+    "zh": "Pedguin的夹克"
+   },
+   "197": {
+    "name": "AncientArmorShirt",
+    "zh": "远古上衣"
+   },
+   "198": {
+    "name": "AncientBattleArmorShirt",
+    "zh": "禁戒长袍"
+   },
+   "199": {
+    "name": "LamiaShirt",
+    "zh": "拉弥亚披肩"
+   },
+   "200": {
+    "name": "ApprenticeRobe",
+    "zh": "学徒长袍"
+   },
+   "201": {
+    "name": "SquirePlating",
+    "zh": "侍卫板甲"
+   },
+   "202": {
+    "name": "HuntressJerkin",
+    "zh": "女猎人上衣"
+   },
+   "203": {
+    "name": "MonkShirt",
+    "zh": "武僧衣"
+   },
+   "204": {
+    "name": "SquireAltShirt",
+    "zh": "英灵殿骑士胸甲"
+   },
+   "205": {
+    "name": "ApprenticeAltShirt",
+    "zh": "暗黑艺术家长袍"
+   },
+   "206": {
+    "name": "HuntressAltShirt",
+    "zh": "红色骑术服"
+   },
+   "207": {
+    "name": "MonkAltShirt",
+    "zh": "渗透忍者上衣"
+   },
+   "208": {
+    "name": "ArkhalisShirt",
+    "zh": "Arkhalis的紧身衣"
+   },
+   "209": {
+    "name": "LeinforsShirt",
+    "zh": "Leinfors的奇异风"
+   },
+   "210": {
+    "name": "MaidShirt",
+    "zh": "女仆裙"
+   },
+   "211": {
+    "name": "MaidShirt2",
+    "zh": "粉女仆裙"
+   },
+   "212": {
+    "name": "GolfShirt",
+    "zh": "乡村俱乐部背心"
+   },
+   "213": {
+    "name": "AmberRobe",
+    "zh": "琥珀长袍"
+   },
+   "214": {
+    "name": "GameMasterShirt",
+    "zh": "大师级玩家夹克"
+   },
+   "215": {
+    "name": "StarPrincessDress",
+    "zh": "星星公主裙"
+   },
+   "216": {
+    "name": "ChefShirt",
+    "zh": "厨师服"
+   },
+   "217": {
+    "name": "SuperHeroCostume",
+    "zh": "超级英雄服装"
+   },
+   "218": {
+    "name": "PrettyPinkDressSkirt",
+    "zh": "漂亮粉连衣裙"
+   },
+   "219": {
+    "name": "UndertakerCoat",
+    "zh": "掘墓者外套"
+   },
+   "220": {
+    "name": "FuneralCoat",
+    "zh": "葬礼外套"
+   },
+   "221": {
+    "name": "VictorianGothDress",
+    "zh": "维多利亚哥特裙"
+   },
+   "222": {
+    "name": "GhostarShirt",
+    "zh": "Ghostar的上衣"
+   },
+   "223": {
+    "name": "DrManFlyLabCoat",
+    "zh": "苍蝇人博士实验服"
+   },
+   "224": {
+    "name": "ButcherApron",
+    "zh": "屠夫的染血围裙"
+   },
+   "225": {
+    "name": "SafemanSunDress",
+    "zh": "Safeman的太阳裙"
+   },
+   "226": {
+    "name": "FoodBarbarianArmor",
+    "zh": "FoodBarbarian的野狼护肩"
+   },
+   "227": {
+    "name": "GroxTheGreatArmor",
+    "zh": "Grox The Great的护胸"
+   },
+   "228": {
+    "name": "MushroomVest",
+    "zh": "蘑菇背心"
+   },
+   "229": {
+    "name": "AncientHallowedPlateMail",
+    "zh": "远古神圣板甲"
+   },
+   "230": {
+    "name": "CrystalNinjaChestplate",
+    "zh": "水晶刺客上衣"
+   },
+   "231": {
+    "name": "GraduationGownBlue",
+    "zh": "蓝毕业礼服"
+   },
+   "232": {
+    "name": "GraduationGownMaroon",
+    "zh": "褐红毕业礼服"
+   },
+   "233": {
+    "name": "GraduationGownBlack",
+    "zh": "黑毕业礼服"
+   },
+   "234": {
+    "name": "DeadMansSweater",
+    "zh": "死人毛衣"
+   },
+   "235": {
+    "name": "PlaguebringerChestplate",
+    "zh": "瘟疫使者斗篷"
+   },
+   "236": {
+    "name": "RoninShirt",
+    "zh": "浪人浴衣"
+   },
+   "237": {
+    "name": "TimelessTravelerRobe",
+    "zh": "永恒旅人斗篷"
+   },
+   "238": {
+    "name": "FloretProtectorChestplate",
+    "zh": "护花者衬衫"
+   },
+   "239": {
+    "name": "CapricornChestplate",
+    "zh": "摩羯座护胸"
+   },
+   "240": {
+    "name": "TVHeadSuit",
+    "zh": "激光外套"
+   },
+   "241": {
+    "name": "FlinxFurCoat",
+    "zh": "小雪怪皮毛外套"
+   },
+   "242": {
+    "name": "RoyalDressTop",
+    "zh": "皇家女衫"
+   },
+   "243": {
+    "name": "PrinceUniform",
+    "zh": "王子制服"
+   },
+   "244": {
+    "name": "WilsonShirt",
+    "zh": "绅士马甲"
+   },
+   "245": {
+    "name": "WillowShirt",
+    "zh": "纵火者毛衣"
+   },
+   "246": {
+    "name": "AshWoodBreastplate",
+    "zh": "灰烬木胸甲"
+   },
+   "247": {
+    "name": "LincolnsHoodie",
+    "zh": "Raynebro的连帽衫"
+   },
+   "248": {
+    "name": "DeadCellsBeheadedBody",
+    "zh": "枭首者的胸甲"
+   },
+   "249": {
+    "name": "MoonLordBody",
+    "zh": "月亮领主上衣"
+   },
+   "250": {
+    "name": "ChickenBonesBody",
+    "zh": "鸡骨背心"
+   },
+   "254": {
+    "name": "ChippysBody",
+    "zh": "花栗鼠护胸"
+   },
+   "255": {
+    "name": "BlueBikiniBody",
+    "zh": "蓝比基尼上衣"
+   },
+   "256": {
+    "name": "RedSwimsuit",
+    "zh": "红色泳装"
+   },
+   "257": {
+    "name": "HeroicisBody",
+    "zh": "英雄外套"
+   },
+   "258": {
+    "name": "LilacDuskBody",
+    "zh": "丁香薄暮连衣裙"
+   },
+   "259": {
+    "name": "KazzymodusChestpiece",
+    "zh": "卡兹默德斯胸甲"
+   },
+   "260": {
+    "name": "PalworldPalMetalArmorBody",
+    "zh": "帕鲁金属胸甲"
+   },
+   "261": {
+    "name": "LunasBody",
+    "zh": "露娜的符文妖精上衣"
+   }
+  },
+  "legs": {
+   "0": {
+    "name": "FamiliarPants",
+    "zh": "便装裤"
+   },
+   "1": {
+    "name": "CopperGreaves",
+    "zh": "铜护胫"
+   },
+   "2": {
+    "name": "IronGreaves",
+    "zh": "铁护胫"
+   },
+   "3": {
+    "name": "SilverGreaves",
+    "zh": "银护胫"
+   },
+   "4": {
+    "name": "GoldGreaves",
+    "zh": "金护胫"
+   },
+   "5": {
+    "name": "ShadowGreaves",
+    "zh": "暗影护胫"
+   },
+   "6": {
+    "name": "MeteorLeggings",
+    "zh": "流星护腿"
+   },
+   "7": {
+    "name": "NecroGreaves",
+    "zh": "死灵护胫"
+   },
+   "8": {
+    "name": "JunglePants",
+    "zh": "丛林裤"
+   },
+   "9": {
+    "name": "MoltenGreaves",
+    "zh": "熔岩护胫"
+   },
+   "10": {
+    "name": "TuxedoPants",
+    "zh": "西装裤"
+   },
+   "11": {
+    "name": "PlumbersPants",
+    "zh": "管道工背带裤"
+   },
+   "12": {
+    "name": "HerosPants",
+    "zh": "英雄裤"
+   },
+   "13": {
+    "name": "ArchaeologistsPants",
+    "zh": "考古裤"
+   },
+   "14": {
+    "name": "NinjaPants",
+    "zh": "忍者裤"
+   },
+   "15": {
+    "name": "TheDoctorsPants",
+    "zh": "博士裤"
+   },
+   "16": {
+    "name": "CobaltLeggings",
+    "zh": "钴护腿"
+   },
+   "17": {
+    "name": "MythrilGreaves",
+    "zh": "秘银护胫"
+   },
+   "18": {
+    "name": "AdamantiteLeggings",
+    "zh": "精金护腿"
+   },
+   "19": {
+    "name": "MiningPants",
+    "zh": "挖矿裤"
+   },
+   "22": {
+    "name": "ClownPants",
+    "zh": "小丑裤"
+   },
+   "23": {
+    "name": "HallowedGreaves",
+    "zh": "神圣护胫"
+   },
+   "24": {
+    "name": "SantaPants",
+    "zh": "圣诞裤"
+   },
+   "25": {
+    "name": "RedsLeggings",
+    "zh": "Red的护腿"
+   },
+   "26": {
+    "name": "FrostLeggings",
+    "zh": "寒霜护腿"
+   },
+   "27": {
+    "name": "TinGreaves",
+    "zh": "锡护胫"
+   },
+   "28": {
+    "name": "LeadGreaves",
+    "zh": "铅护胫"
+   },
+   "29": {
+    "name": "TungstenGreaves",
+    "zh": "钨护胫"
+   },
+   "30": {
+    "name": "PlatinumGreaves",
+    "zh": "铂金护胫"
+   },
+   "31": {
+    "name": "WoodGreaves",
+    "zh": "木护胫"
+   },
+   "32": {
+    "name": "EbonwoodGreaves",
+    "zh": "乌木护胫"
+   },
+   "33": {
+    "name": "RichMahoganyGreaves",
+    "zh": "红木护胫"
+   },
+   "34": {
+    "name": "PearlwoodGreaves",
+    "zh": "珍珠木护胫"
+   },
+   "35": {
+    "name": "CrimsonGreaves",
+    "zh": "猩红护胫"
+   },
+   "36": {
+    "name": "EskimoPants",
+    "zh": "防雪裤"
+   },
+   "37": {
+    "name": "SteampunkPants",
+    "zh": "蒸汽朋克裤"
+   },
+   "38": {
+    "name": "BeePants",
+    "zh": "蜜蜂裤"
+   },
+   "39": {
+    "name": "MummyPants",
+    "zh": "木乃伊裤"
+   },
+   "40": {
+    "name": "CowboyPants",
+    "zh": "牛仔裤"
+   },
+   "41": {
+    "name": "PiratePants",
+    "zh": "海盗裤"
+   },
+   "42": {
+    "name": "CactusLeggings",
+    "zh": "仙人掌护腿"
+   },
+   "43": {
+    "name": "ShadewoodGreaves",
+    "zh": "暗影木护胫"
+   },
+   "44": {
+    "name": "AncientShadowGreaves",
+    "zh": "远古暗影护胫"
+   },
+   "45": {
+    "name": "AncientCobaltLeggings",
+    "zh": "远古钴护腿"
+   },
+   "46": {
+    "name": "PinkEskimoPants",
+    "zh": "粉色防雪裤"
+   },
+   "47": {
+    "name": "ChlorophyteGreaves",
+    "zh": "叶绿护胫"
+   },
+   "48": {
+    "name": "TikiPants",
+    "zh": "提基裤"
+   },
+   "49": {
+    "name": "PalladiumLeggings",
+    "zh": "钯金护腿"
+   },
+   "50": {
+    "name": "OrichalcumLeggings",
+    "zh": "山铜护腿"
+   },
+   "51": {
+    "name": "TitaniumLeggings",
+    "zh": "钛金护腿"
+   },
+   "52": {
+    "name": "SailorPants",
+    "zh": "水手裤"
+   },
+   "53": {
+    "name": "WhiteTuxedoPants",
+    "zh": "白西装裤"
+   },
+   "54": {
+    "name": "TurtleLeggings",
+    "zh": "海龟护腿"
+   },
+   "55": {
+    "name": "SpectrePants",
+    "zh": "幽灵裤"
+   },
+   "56": {
+    "name": "ShroomiteLeggings",
+    "zh": "蘑菇矿护腿"
+   },
+   "57": {
+    "name": "CenxsLeggings",
+    "zh": "Cenx的护腿"
+   },
+   "58": {
+    "name": "CrownosLeggings",
+    "zh": "Crowno的护腿"
+   },
+   "59": {
+    "name": "WillsLeggings",
+    "zh": "Will的护腿"
+   },
+   "60": {
+    "name": "JimsLeggings",
+    "zh": "Jim的护腿"
+   },
+   "61": {
+    "name": "AaronsLeggings",
+    "zh": "Aaron的护腿"
+   },
+   "62": {
+    "name": "DTownsLeggings",
+    "zh": "D-Town的护腿"
+   },
+   "63": {
+    "name": "CenxsDressPants",
+    "zh": "Cenx的裤装"
+   },
+   "64": {
+    "name": "PumpkinLeggings",
+    "zh": "南瓜护腿"
+   },
+   "65": {
+    "name": "NursePants",
+    "zh": "护士裤"
+   },
+   "66": {
+    "name": "CyborgPants",
+    "zh": "机器侠裤"
+   },
+   "67": {
+    "name": "CreeperPants",
+    "zh": "苦力怕裤"
+   },
+   "68": {
+    "name": "CatPants",
+    "zh": "猫咪裤"
+   },
+   "69": {
+    "name": "PumpkinPants",
+    "zh": "南瓜裤"
+   },
+   "70": {
+    "name": "RobotPants",
+    "zh": "机器人裤"
+   },
+   "71": {
+    "name": "UnicornPants",
+    "zh": "独角兽裤"
+   },
+   "72": {
+    "name": "VampirePants",
+    "zh": "吸血鬼裤"
+   },
+   "73": {
+    "name": "LeprechaunPants",
+    "zh": "矮妖裤"
+   },
+   "74": {
+    "name": "PixiePants",
+    "zh": "妖精裤"
+   },
+   "75": {
+    "name": "WitchBoots",
+    "zh": "女巫靴"
+   },
+   "76": {
+    "name": "KarateTortoisePants",
+    "zh": "空手道陆龟裤"
+   },
+   "77": {
+    "name": "ScarecrowPants",
+    "zh": "稻草人裤"
+   },
+   "78": {
+    "name": "FoxPants",
+    "zh": "狐狸裤"
+   },
+   "79": {
+    "name": "SpookyLeggings",
+    "zh": "阴森护腿"
+   },
+   "80": {
+    "name": "SpaceCreaturePants",
+    "zh": "太空生物裤"
+   },
+   "81": {
+    "name": "WolfPants",
+    "zh": "狼裤"
+   },
+   "82": {
+    "name": "TreasureHunterPants",
+    "zh": "寻宝人裤"
+   },
+   "83": {
+    "name": "DryadLoincloth",
+    "zh": "树妖腰布"
+   },
+   "84": {
+    "name": "MrsClauseHeels",
+    "zh": "圣诞夫人高跟鞋"
+   },
+   "85": {
+    "name": "TreeTrunks",
+    "zh": "树干"
+   },
+   "86": {
+    "name": "ParkaPants",
+    "zh": "派克裤"
+   },
+   "87": {
+    "name": "ElfPants",
+    "zh": "精灵裤"
+   },
+   "98": {
+    "name": "BeetleLeggings",
+    "zh": "甲虫护腿"
+   },
+   "103": {
+    "name": "BeeGreaves",
+    "zh": "蜜蜂护胫"
+   },
+   "104": {
+    "name": "AnglerPants",
+    "zh": "渔夫裤"
+   },
+   "105": {
+    "name": "SpiderGreaves",
+    "zh": "蜘蛛护胫"
+   },
+   "106": {
+    "name": "MermaidTail",
+    "zh": "美人鱼鱼尾裤"
+   },
+   "107": {
+    "name": "FishCostumeFinskirt",
+    "zh": "鱼装鳍裙"
+   },
+   "108": {
+    "name": "BorealWoodGreaves",
+    "zh": "针叶木护胫"
+   },
+   "109": {
+    "name": "PalmWoodGreaves",
+    "zh": "棕榈木护胫"
+   },
+   "110": {
+    "name": "VortexLeggings",
+    "zh": "星旋护腿"
+   },
+   "111": {
+    "name": "NebulaLeggings",
+    "zh": "星云护腿"
+   },
+   "112": {
+    "name": "SolarFlareLeggings",
+    "zh": "耀斑护腿"
+   },
+   "113": {
+    "name": "MartianCostumePants",
+    "zh": "火星装裤"
+   },
+   "114": {
+    "name": "MartianUniformPants",
+    "zh": "火星制服裤"
+   },
+   "122": {
+    "name": "GladiatorLeggings",
+    "zh": "角斗士护腿"
+   },
+   "124": {
+    "name": "TaxCollectorPants",
+    "zh": "税收官裤"
+   },
+   "125": {
+    "name": "ClothierPants",
+    "zh": "服装商裤"
+   },
+   "126": {
+    "name": "BuccaneerPants",
+    "zh": "西域海盗马裤"
+   },
+   "127": {
+    "name": "ObsidianPants",
+    "zh": "黑曜石裤"
+   },
+   "128": {
+    "name": "FallenTuxedoPants",
+    "zh": "堕落西装裤"
+   },
+   "129": {
+    "name": "FossilPants",
+    "zh": "化石护胫"
+   },
+   "130": {
+    "name": "StardustLeggings",
+    "zh": "星尘护腿"
+   },
+   "132": {
+    "name": "Yoraiz0rPants",
+    "zh": "Yoraiz0r的裙"
+   },
+   "133": {
+    "name": "SkiphsPants",
+    "zh": "Skiphs的熊裤"
+   },
+   "134": {
+    "name": "LokisPants",
+    "zh": "Loki的护胫"
+   },
+   "138": {
+    "name": "FlowerBoyPants",
+    "zh": "呆萌向日葵裤装"
+   },
+   "139": {
+    "name": "PedguinPants",
+    "zh": "Pedguin的裤子"
+   },
+   "140": {
+    "name": "DjinnsCurse",
+    "zh": "神灵诅咒"
+   },
+   "141": {
+    "name": "AncientArmorPants",
+    "zh": "远古裤"
+   },
+   "142": {
+    "name": "AncientBattleArmorPants",
+    "zh": "禁戒裤"
+   },
+   "143": {
+    "name": "LamiaPants",
+    "zh": "拉弥亚蛇尾裤"
+   },
+   "144": {
+    "name": "ApprenticeTrousers",
+    "zh": "学徒裤"
+   },
+   "145": {
+    "name": "SquireGreaves",
+    "zh": "侍卫护胫"
+   },
+   "146": {
+    "name": "HuntressPants",
+    "zh": "女猎人裤"
+   },
+   "148": {
+    "name": "MonkPants",
+    "zh": "武僧裤"
+   },
+   "152": {
+    "name": "SquireAltPants",
+    "zh": "英灵殿骑士护胫"
+   },
+   "153": {
+    "name": "ApprenticeAltPants",
+    "zh": "暗黑艺术家护腿"
+   },
+   "154": {
+    "name": "HuntressAltPants",
+    "zh": "红色骑术护腿"
+   },
+   "156": {
+    "name": "MonkAltPants",
+    "zh": "渗透忍者裤装"
+   },
+   "158": {
+    "name": "ArkhalisPants",
+    "zh": "Arkhalis的紧身服"
+   },
+   "159": {
+    "name": "LeinforsPants",
+    "zh": "Leinfors的潮裤"
+   },
+   "180": {
+    "name": "MaidPants",
+    "zh": "女仆鞋"
+   },
+   "184": {
+    "name": "MaidPants2",
+    "zh": "粉女仆鞋"
+   },
+   "185": {
+    "name": "GolfPants",
+    "zh": "乡村俱乐部长裤"
+   },
+   "188": {
+    "name": "GameMasterPants",
+    "zh": "大师级玩家裤"
+   },
+   "190": {
+    "name": "ChefPants",
+    "zh": "厨师裤"
+   },
+   "191": {
+    "name": "SuperHeroTights",
+    "zh": "超级英雄紧身裤"
+   },
+   "193": {
+    "name": "PrettyPinkDressPants",
+    "zh": "漂亮粉长袜"
+   },
+   "197": {
+    "name": "FuneralPants",
+    "zh": "葬礼裤"
+   },
+   "203": {
+    "name": "GhostarPants",
+    "zh": "Ghostar的紧身裤"
+   },
+   "205": {
+    "name": "ButcherPants",
+    "zh": "屠夫的染血裤"
+   },
+   "208": {
+    "name": "SafemanDressLeggings",
+    "zh": "Safeman的粉色护腿"
+   },
+   "209": {
+    "name": "FoodBarbarianGreaves",
+    "zh": "FoodBarbarian的野猪护胫"
+   },
+   "210": {
+    "name": "GroxTheGreatGreaves",
+    "zh": "Grox The Great的护胫"
+   },
+   "211": {
+    "name": "MushroomPants",
+    "zh": "蘑菇裤"
+   },
+   "212": {
+    "name": "AncientHallowedGreaves",
+    "zh": "远古神圣护胫"
+   },
+   "213": {
+    "name": "CrystalNinjaLeggings",
+    "zh": "水晶刺客裤"
+   },
+   "217": {
+    "name": "MoonLordLegs",
+    "zh": "月亮领主腿"
+   },
+   "218": {
+    "name": "PlaguebringerGreaves",
+    "zh": "瘟疫使者便鞋"
+   },
+   "219": {
+    "name": "RoninPants",
+    "zh": "浪人木屐"
+   },
+   "222": {
+    "name": "TimelessTravelerBottom",
+    "zh": "永恒旅人鞋履"
+   },
+   "224": {
+    "name": "FloretProtectorLegs",
+    "zh": "护花者裤子"
+   },
+   "225": {
+    "name": "CapricornLegs",
+    "zh": "摩羯座兽蹄"
+   },
+   "226": {
+    "name": "CapricornTail",
+    "zh": "摩羯座尾巴"
+   },
+   "227": {
+    "name": "TVHeadPants",
+    "zh": "细条纹裤"
+   },
+   "228": {
+    "name": "RoyalDressBottom",
+    "zh": "皇家礼服裙"
+   },
+   "230": {
+    "name": "PrincePants",
+    "zh": "王子裤"
+   },
+   "231": {
+    "name": "WilsonPants",
+    "zh": "绅士裤子"
+   },
+   "232": {
+    "name": "WillowSkirt",
+    "zh": "纵火者裙"
+   },
+   "234": {
+    "name": "AshWoodGreaves",
+    "zh": "灰烬木护胫"
+   },
+   "235": {
+    "name": "LincolnsPants",
+    "zh": "Raynebro的裤子"
+   },
+   "236": {
+    "name": "DeadCellsBeheadedLegs",
+    "zh": "枭首者的长裤"
+   },
+   "237": {
+    "name": "ChickenBonesLegs",
+    "zh": "鸡骨裤装"
+   },
+   "242": {
+    "name": "ChippysLegs",
+    "zh": "花栗鼠护胫"
+   },
+   "243": {
+    "name": "BlueBikiniLegs",
+    "zh": "蓝比基尼泳裤"
+   },
+   "245": {
+    "name": "GreenSwimshorts",
+    "zh": "绿色泳裤"
+   },
+   "246": {
+    "name": "GraySwimshorts",
+    "zh": "灰色泳裤"
+   },
+   "247": {
+    "name": "HeroicisLegs",
+    "zh": "英雄裤装"
+   },
+   "249": {
+    "name": "LilacDuskLegs",
+    "zh": "丁香薄暮短裙"
+   },
+   "251": {
+    "name": "KazzymodusLeggings",
+    "zh": "卡兹默德斯护腿"
+   },
+   "252": {
+    "name": "PalworldPalMetalArmorLegs",
+    "zh": "帕鲁金属护腿"
+   },
+   "253": {
+    "name": "LunasLegs",
+    "zh": "露娜的符文妖精裤子"
+   }
+  }
+ }
+}

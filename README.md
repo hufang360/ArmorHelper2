@@ -12,11 +12,11 @@ ArmorHelper 2 是 ArmorHelper 的重写版，纯静态网页，支持泰拉瑞�
 
 泰拉瑞亚 1.4.4 把玩家渲染重写成 *composite* 体系，身体与双臂合并为一张 9 × 4 网格，旧输出不再可用。本重写版保持模板格式与绘制流程完全不变，只是产出新格式。
 
-原版作者是 Mirsario，工具开发于 2018 年，技术栈是 .NET Framework / WinForms。最早发布在泰拉瑞亚论坛（TCF），见[原帖](https://forums.terraria.org/index.php?threads/armorhelper-sprite-armor-sets-30x-times-faster.68744/)。
+「原版作者是 Mirsario，工具开发于 2018 年」，技术栈是 .NET Framework / WinForms。最早发布在泰拉瑞亚论坛（TCF），见[原帖](https://forums.terraria.org/index.php?threads/armorhelper-sprite-armor-sets-30x-times-faster.68744/)。
 
 `v1/` 目录保留原版工具的压缩包与模板。
 
-## 快速开始
+## 开发和部署
 
 网页本身在 `web/` 目录，没有构建步骤，交给任意静态服务器即可。浏览器不允许在 `file://` 下加载 ES 模块，所以要经 HTTP 打开：
 
@@ -26,8 +26,6 @@ npm start        # 仓库自带的 node tools/serve.mjs，需要 Node 20+
 ```
 
 放在哪个目录都能跑：所有资源、Service Worker 的注册与缓存都用相对路径，所以 `https://example.com/任何/子目录/`、`https://user.github.io/<仓库名>/` 都能直接访问，不需要改配置（`tests/node/subpath.test.mjs` 会把它挂到 `/some/deep/directory/` 下跑一遍）。
-
-## 部署
 
 推一次 `main` 分支即可。在仓库设置里把 Pages 的 Source 选为 **GitHub Actions**，`.github/workflows/pages.yml` 会跑全部测试，然后把 `web/` 发布出去。
 

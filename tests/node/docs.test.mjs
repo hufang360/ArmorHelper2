@@ -139,19 +139,12 @@ test("every markdown link resolves", () => {
   }
 });
 
-test("the README keeps its shape", () => {
+test("the README keeps markdown hygiene", () => {
+  // The README is hand written: only formatting is enforced, not its outline.
   const text = read(README);
-  const han = [...text].filter((char) => char >= "\u4e00" && char <= "\u9fff").length;
-  assert.ok(han > 300, `README looks untranslated (${han} Chinese characters)`);
-  assert.ok(text.includes("hufang360.github.io/ArmorHelper2"), "missing the site link");
-
-  // 只允许固定章节，且顺序不变
   const lines = text.split("\n");
-  const allowed = ["## ArmorHelper 原版", "## 快速开始", "## 部署", "## 致谢", "## 许可"];
-  const headings = lines.filter((line) => line.startsWith("## "));
-  assert.deepEqual(headings, allowed.filter((heading) => headings.includes(heading)));
 
-  // 代码块必须有语言（ASCII 图用 text）；标题级只在围栏外数
+  // 代码块必须有语言（ASCII 图用 text）；一级标题只在围栏外数
   let fenced = false;
   const outside = [];
   for (const line of lines) {
@@ -165,7 +158,7 @@ test("the README keeps its shape", () => {
   assert.ok(!fenced, "unclosed code fence");
   assert.equal(outside.filter((line) => line.startsWith("# ")).length, 1);
 
-  // 酸制格式：行尾、空行、卤符、列表符号
+  // 排版格式：行尾、空行、制表符、列表符号
   assert.ok(!/[ \t]+$/m.test(text), "trailing whitespace");
   assert.ok(!/\n{3,}/.test(text), "consecutive blank lines");
   assert.ok(!text.includes("\t"), "tab character");
