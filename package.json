@@ -1,6 +1,6 @@
 {
   "name": "armorhelper",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "description": "Terraria armor sheet generator — static web app, with Node tooling and tests",

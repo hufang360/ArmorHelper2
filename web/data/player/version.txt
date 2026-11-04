@@ -1,4 +1,4 @@
-# Player body textures bundled for the web preview
+# Player textures bundled for the web preview
 version=1.4.5.8
-count=3
-bytes=3453
+count=5
+bytes=6628

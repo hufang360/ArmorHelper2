@@ -291,7 +291,8 @@ overlayFrames(tintFrames(playerMale, SKIN_TINT), playerArmorMale).forEach((frame
   writeBitmap(`js_player_overlay${index}.rgba`, frame),
 );
 
-// Role detection and duplicate handling, including the dimension fallback.
+// Role detection and duplicate handling, including the dimension fallback and
+// the file-size rule that tells the head from the legs.
 const blank = (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) });
 const classified = classifySheets([
   { name: "Armor_32.png", bitmap: blank(360, 224) },
@@ -301,6 +302,14 @@ const classified = classifySheets([
   { name: "unknown_tall.png", bitmap: blank(40, 1120) },
   { name: "Armor_Head_99.png", bitmap: blank(40, 1120) },
 ]);
+// names that say nothing: the shapes pick body/head/legs, the bigger file is
+// the legs.  One tall file alone stays unclassified.
+const sized = classifySheets([
+  { name: "1.png", bitmap: blank(360, 224), size: 900 },
+  { name: "2.png", bitmap: blank(40, 1120), size: 400 },
+  { name: "3.png", bitmap: blank(40, 1120), size: 700 },
+]);
+const lonely = classifySheets([{ name: "4.png", bitmap: blank(40, 1120), size: 700 }]);
 writeFileSync(
   join(workdir, "js_sheet_classify.json"),
   JSON.stringify({
@@ -310,6 +319,14 @@ writeFileSync(
     ids: classified.ids,
     names: classified.names,
     warnings: classified.warnings,
+    sized: {
+      names: sized.names,
+      warnings: sized.warnings,
+    },
+    lonely: {
+      names: lonely.names,
+      warnings: lonely.warnings,
+    },
     detect: [
       "Armor_Head_52.png",
       "Armor_Legs_31.png",

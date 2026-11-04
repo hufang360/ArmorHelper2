@@ -204,12 +204,18 @@ export function stackFrames(frames) {
 }
 
 /**
- * Split uploaded files into the three slots, guessing each role from its name.
+ * Split uploaded files into the three slots.
  *
- * `items` is `[{ name, bitmap }]`.  Returns the slots plus `warnings` for
- * duplicates and files that could not be classified.  A warning is
- * `{ key, vars }` — an i18n key plus its placeholders, so the browser can show
- * it in the user's language (`role` in `vars` is a raw role name: head/body/legs).
+ * `items` is `[{ name, bitmap, size }]`, where `size` is the file size in bytes
+ * and may be missing.  A role comes from the file name first.  Without a usable
+ * name it comes from the shape: a wide sheet is the body grid, a tall one is
+ * either the head or the legs.  Head and legs have the same shape, so the
+ * bigger file is taken as the legs.
+ *
+ * Returns the slots plus `warnings` for duplicates and for files that could not
+ * be classified.  A warning is `{ key, vars }` — an i18n key plus its
+ * placeholders, so the browser can show it in the user's language (`role` in
+ * `vars` is a raw role name: head/body/legs).
  */
 export function classifySheets(items) {
   const slots = { head: null, body: null, legs: null };
@@ -217,22 +223,11 @@ export function classifySheets(items) {
   const names = { head: null, body: null, legs: null };
   const warnings = [];
 
-  for (const item of items) {
-    let role = detectRole(item.name);
-    if (role === null) {
-      // Fall back to the dimensions: the body grid is wide, head/legs are tall.
-      if (item.bitmap.width > item.bitmap.height) role = "body";
-    }
-    if (role === null) {
-      warnings.push({ key: "web.sheetWarnUnknown", vars: { name: item.name } });
-      continue;
-    }
+  /** Validate `item` for `role` and record it; a bad sheet only warns. */
+  const take = (role, item) => {
     if (slots[role]) {
-      warnings.push({
-        key: "web.sheetWarnDuplicate",
-        vars: { role, name: item.name },
-      });
-      continue;
+      warnings.push({ key: "web.sheetWarnDuplicate", vars: { role, name: item.name } });
+      return;
     }
     try {
       cellSize(role, item.bitmap);
@@ -241,11 +236,44 @@ export function classifySheets(items) {
         key: error.key ?? "web.sheetWarnBadRatio",
         vars: { name: item.name, ...(error.vars ?? {}) },
       });
-      continue;
+      return;
     }
     slots[role] = item.bitmap;
     ids[role] = detectId(item.name);
     names[role] = item.name;
+  };
+
+  // head and legs cannot be told apart by shape: collect them for the size rule
+  const tall = [];
+  for (const item of items) {
+    let role = detectRole(item.name);
+    if (role === null) {
+      if (item.bitmap.width > item.bitmap.height) role = "body";
+      else if (item.bitmap.height > item.bitmap.width) {
+        tall.push(item);
+        continue;
+      }
+    }
+    if (role === null) {
+      warnings.push({ key: "web.sheetWarnUnknown", vars: { name: item.name } });
+      continue;
+    }
+    take(role, item);
+  }
+
+  // One tall sheet alone could be either part: only two of them can be split.
+  if (tall.length === 2) {
+    const [first, second] = tall;
+    const firstSize = Number(first.size) || 0;
+    const secondSize = Number(second.size) || 0;
+    const legs = secondSize >= firstSize ? second : first;
+    const head = legs === first ? second : first;
+    take("legs", legs);
+    take("head", head);
+  } else {
+    for (const item of tall) {
+      warnings.push({ key: "web.sheetWarnUnknown", vars: { name: item.name } });
+    }
   }
 
   return { ...slots, ids, names, warnings };

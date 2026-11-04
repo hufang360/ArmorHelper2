@@ -91,6 +91,16 @@ test("sheet classification", () => {
   assert.equal(keys.filter((key) => key === "web.sheetWarnDuplicate").length, 2, JSON.stringify(lookup.warnings));
   assert.equal(keys.filter((key) => key === "web.sheetWarnUnknown").length, 1, JSON.stringify(lookup.warnings));
 
+  // without useful names the shapes decide, and the bigger tall file is the legs
+  assert.deepEqual(lookup.sized.names, { head: "2.png", body: "1.png", legs: "3.png" });
+  assert.deepEqual(lookup.sized.warnings, []);
+  // one tall sheet alone cannot be split: the user is asked to place it
+  assert.deepEqual(lookup.lonely.names, { head: null, body: null, legs: null });
+  assert.deepEqual(
+    lookup.lonely.warnings.map((warning) => warning.key),
+    ["web.sheetWarnUnknown"],
+  );
+
   const expected = {
     // the tool's own output, a vanilla legs sheet, the vanilla body grid and the
     // `Armor/` sub folder it lives in, a player skin (never armor) and a name

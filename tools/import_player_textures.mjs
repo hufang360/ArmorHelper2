@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 /**
- * Bundle the three player textures the web app needs for "overlay player".
+ * Bundle the five player textures the web app needs for "overlay player".
  *
- * The preview features draw the player's body under the armor, which needs
+ * The preview draws the player under the armor, which needs
  *
+ *     Player_0_0.png     40 x 1118    head
+ *     Player_0_1.png     40 x 1118    eyes
  *     Player_0_3.png    360 x 224    torso
  *     Player_0_7.png    360 x 224    arms
  *     Player_0_10.png    40 x 1120   legs
+ *
+ * The head matters for the same reason it matters in the game: an open faced
+ * helmet leaves the face area transparent, so without it the helmet looks
+ * hollow.
  *
  * Browsers can only read a game folder on Chromium, so the site ships a copy as
  * well: on a phone (or Firefox / Safari) the overlay then works with no folder.
@@ -22,7 +28,13 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = resolve(here, "..", "web", "data", "player");
-const PARTS = ["Player_0_3.png", "Player_0_7.png", "Player_0_10.png"];
+const PARTS = [
+  "Player_0_0.png",
+  "Player_0_1.png",
+  "Player_0_3.png",
+  "Player_0_7.png",
+  "Player_0_10.png",
+];
 
 function parseArgs(argv) {
   const args = { source: null, output: DEFAULT_OUT, version: "" };
@@ -63,7 +75,7 @@ function main(argv) {
   const version = args.version || "terraria";
   writeFileSync(
     join(args.output, "version.txt"),
-    "# Player body textures bundled for the web preview\n" +
+    "# Player textures bundled for the web preview\n" +
       `version=${version}\n` +
       `count=${PARTS.length}\n` +
       `bytes=${total}\n`,

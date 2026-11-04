@@ -141,6 +141,29 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "载入内置绘制模板作为示例",
     ]);
     assert.deepEqual(dropTools.pressed, ["true", "false"]);
+    // the tools read top to bottom: clear, guide, history, download
+    assert.deepEqual(dropTools.beforeLoad.tools, [
+      "drop-clear",
+      "drop-guide",
+      "history-toggle",
+      "drop-download",
+    ]);
+    // they only appear on hover now, so they no longer need to be faint;
+    // the guide button is disabled on the demo template, and a disabled
+    // button keeps its own dimmed value
+    assert.ok(
+      dropTools.toolOpacity.every((value) => value === 0.25 || value > 0.6),
+      JSON.stringify(dropTools.toolOpacity),
+    );
+    // the animation box and the "nothing here yet" line wait for a template
+    assert.equal(dropTools.beforeLoad.boxShown, false);
+    assert.equal(dropTools.beforeLoad.resultText, "");
+    assert.equal(dropTools.boxShownAfterLoad, true);
+    assert.equal(dropTools.afterClear.boxShown, false);
+    assert.equal(dropTools.afterClear.resultText, "");
+    // the two GIF selects are a size below .form-select-sm
+    assert.ok(dropTools.selectStyle.font < 14, JSON.stringify(dropTools.selectStyle));
+    assert.ok(dropTools.selectStyle.height < 26, JSON.stringify(dropTools.selectStyle));
     // the demo picture is already annotated, so the toggle is disabled for it
     assert.equal(dropTools.guideDisabledOnDemo, true);
     assert.equal(dropTools.guideEnabledOnFlat, true);
@@ -154,6 +177,21 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(exported.files.length > 0);
     // the animation sits beside the drop area, not in the result card
     assert.equal(exported.previewVisible, true);
+    // the transport plays, pauses, and steps one frame at a time
+    const transport = exported.transport;
+    assert.equal(transport.playingAtStart, true);
+    assert.equal(transport.advanced, true);
+    assert.equal(transport.pausedNow, true);
+    assert.equal(transport.stayedPut, true);
+    assert.equal(transport.nextDelta, 1);
+    assert.equal(transport.prevDelta, 0);
+    // the GIF's own frame order: 5 passes over the 20 frames, 52 steps
+    assert.equal(transport.total, 52);
+    // 2x by default, so the canvas is 80x112 instead of the native 40x56
+    assert.deepEqual(transport.canvasSize, [80, 112]);
+    assert.equal(transport.sizeValue, "2");
+    // both selects keep one fixed width
+    assert.equal(transport.selectWidths[0], transport.selectWidths[1]);
     // dimensions carry their unit, and the size in KB is gone
     // the material pack table drops the px unit; the file list keeps it
     assert.ok(exported.sizes.includes("40×1120"), exported.sizes);
@@ -166,6 +204,23 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // the history counts every generated file: 6 sheets + 4 PNG + 4 GIF
     assert.equal(exported.stored[0].files, 14);
     assert.ok(exported.stored[0].thumb.startsWith("data:image/png"), exported.stored[0].thumb);
+
+    // the corner links: the wiki follows the language, the source does not
+    const links = exported.links;
+    assert.equal(links.zh.wiki.href, "https://terraria.wiki.gg/zh/wiki/Armor_IDs");
+    assert.equal(links.en.wiki.href, "https://terraria.wiki.gg/wiki/Armor_IDs");
+    assert.equal(links.zh.wiki.tooltip, "wiki:盔甲ID");
+    assert.equal(links.en.wiki.tooltip, "wiki: armor IDs");
+    assert.equal(links.zh.repo.href, "https://github.com/hufang360/ArmorHelper2");
+    assert.equal(links.en.repo.href, links.zh.repo.href);
+    assert.equal(links.zh.repo.tooltip, "开源仓库（GitHub）");
+    for (const link of [links.zh.wiki, links.zh.repo]) {
+      assert.equal(link.target, "_blank");
+      assert.equal(link.rel, "noopener");
+      assert.equal(link.icon, true);
+      // the tooltip doubles as the accessible name
+      assert.ok(link.label.length > 0, JSON.stringify(link));
+    }
 
     // the results are not a card any more: no forced height, content decides
     const before = exported.heightsBefore;
@@ -253,10 +308,13 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(tab144.button, "下载材质包");
     assert.equal(tab13.button, "打包下载");
     assert.deepEqual(tab144.rows, [
-      ["Armor_Head_0.png", "40×1120", "头部，20 帧"],
-      ["Armor/Armor_0.png", "360×224", "身体，包括男身和女身"],
-      ["Armor_Legs_0.png", "40×1120", "腿部，20 帧"],
+      ["Armor_Head_0.png", "40×1120", "便装假发", "头部，20 帧"],
+      ["Armor/Armor_0.png", "360×224", "便装衣", "身体，包括男身和女身"],
+      ["Armor_Legs_0.png", "40×1120", "便装裤", "腿部，20 帧"],
     ]);
+    // the ID sits between the size and the description
+    assert.deepEqual(tab144.headers, ["文件名", "尺寸", "盔甲 ID", "说明"]);
+    assert.deepEqual(tab13.headers, ["文件名", "尺寸", "说明"]);
     assert.deepEqual(tab144.columns, ["头", "身", "腿"]);
     // the 1.4 table carries one editable ID per part, with its vanilla name
     assert.deepEqual(tab144.ids, [
@@ -346,9 +404,38 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(gifs.error, undefined, gifs.error);
     // a body sheet in the head slot is refused, in the user's language
     assert.equal(gifs.wrongSlotFilled, false);
+    // the "still missing" line is gone: only the reason is reported
     assert.ok(gifs.wrongSlotStatus.includes("Armor_190.png"), gifs.wrongSlotStatus);
-    assert.ok(gifs.wrongSlotStatus.includes("还缺"), gifs.wrongSlotStatus);
+    assert.ok(!gifs.wrongSlotStatus.includes("还缺"), gifs.wrongSlotStatus);
     assert.equal(gifs.disabled, false);
+    // the demo button builds the gold set out of the bundled atlas
+    assert.deepEqual(gifs.demo.slots, ["Armor_Head_26.png", "Armor_4.png", "Armor_Legs_4.png"]);
+    assert.deepEqual(gifs.demo.sizes, ["40×1118", "360×224", "40×1120"]);
+    assert.equal(gifs.demo.enabled, true);
+    // upload, demo, then the pack button: the pack is hidden until it can run
+    assert.deepEqual(gifs.demo.buttonOrder, ["upload-sheets", "load-sheets-demo", "do-pack"]);
+    assert.equal(gifs.demo.packHiddenAtStart, true);
+    // the release version shows in the header
+    assert.equal(gifs.demo.version, "v2.2.0");
+    // one upload button feeds all three slots; the clear button is gone
+    assert.equal(gifs.buttons.hasClear, false);
+    assert.equal(gifs.buttons.hasUploadInput, true);
+    // upload is primary until the sheets are in, then the pack button takes over
+    assert.equal(gifs.buttons.uploadPrimary, false);
+    assert.equal(gifs.buttons.uploadSecondary, true);
+    assert.equal(gifs.buttons.packPrimary, true);
+    assert.equal(gifs.buttons.packSecondary, false);
+    // the player note is a tooltip now, not a paragraph
+    assert.equal(gifs.buttons.playerInfo, "勾选后会先画上玩家本体（已内置原版玩家贴图，手机上也能用）。");
+    assert.equal(gifs.buttons.hintParagraph, false);
+    // names that say nothing are matched by shape, then by file size
+    assert.deepEqual(gifs.buttons.bulkNames, ["3.png", "1.png", "2.png"]);
+    // a single tall sheet alone is reported, and the reader is told to drag it
+    assert.ok(gifs.buttons.lonelyStatus.includes("4.png"), gifs.buttons.lonelyStatus);
+    assert.ok(gifs.buttons.lonelyStatus.includes("拖到"), gifs.buttons.lonelyStatus);
+    // the swap icon really trades the two sheets, both ways
+    assert.equal(gifs.buttons.swapped, true);
+    assert.equal(gifs.buttons.swappedBack, true);
     assert.deepEqual(gifs.filled, [true, true, true]);
     assert.deepEqual(gifs.titles, ["头", "身体", "腿"]);
     assert.deepEqual(gifs.thumbs.map((thumb) => thumb.hidden), [false, false, false]);
@@ -364,6 +451,18 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // "remove" is an icon button with no label text
     assert.deepEqual(gifs.clearIcons.map((icon) => icon.svg), [true, true, true]);
     assert.deepEqual(gifs.clearIcons.map((icon) => icon.text), ["", "", ""]);
+    assert.deepEqual(gifs.clearIcons.map((icon) => icon.visible), [true, true, true]);
+    // only the head and the legs offer the swap, and it names itself
+    assert.deepEqual(gifs.swapIcons.map((icon) => icon.id), ["sheet-head-swap", "sheet-legs-swap"]);
+    assert.deepEqual(gifs.swapIcons.map((icon) => icon.visible), [true, true]);
+    assert.deepEqual(gifs.swapIcons.map((icon) => icon.tooltip), ["交换头部与腿部的贴图", "交换头部与腿部的贴图"]);
+    // the file name and the size sit on separate lines
+    assert.deepEqual(
+      gifs.slotInfo.map((info) => info.lines.length),
+      [2, 2, 2],
+    );
+    assert.ok(gifs.slotInfo[0].lines[0].startsWith("Armor_Head"), JSON.stringify(gifs.slotInfo));
+    assert.ok(/^\d+×\d+$/.test(gifs.slotInfo[0].lines[1]), JSON.stringify(gifs.slotInfo));
     // a filled slot shows its own tick, so the status line is empty
     assert.equal(gifs.sheetStatus, "");
     assert.deepEqual(gifs.files, [
@@ -375,7 +474,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(gifs.previews, 3);
     assert.deepEqual(gifs.captions.slice(0, 2), ["全身盔甲（男）", "全身盔甲（女）"]);
     assert.deepEqual(gifs.sources.slice(0, 3), ["blob:", "blob:", "data:"]);
-    assert.ok(gifs.status.includes("已生成"), gifs.status);
+    // no generate button: filling the three slots is what draws the card
+    assert.equal(gifs.drewItself, true);
     // 2x was chosen, so the GIFs (and their preview) are twice as wide
     assert.deepEqual(gifs.widths.slice(0, 2), [80, 80]);
     assert.ok(gifs.widths[2] > 800, String(gifs.widths[2])); // the 20 frame contact sheet
@@ -436,6 +536,10 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "Armor_190_FullArmorPlayerFemale.gif",
     ]);
     assert.equal(player.previews, 5);
+    // clearing the slots empties the card again, still without a button
+    assert.equal(player.clearedPreviews, 0);
+    // no placeholder text and no heading once the slots are empty
+    assert.equal(player.clearedText, "");
     assert.deepEqual(player.warnings, []);
 
     // nothing the page did may have thrown on the way (this is what caught the

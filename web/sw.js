@@ -11,7 +11,7 @@
  * activate.
  */
 
-const VERSION = "2.4.5";
+const VERSION = "2.5.0";
 const CACHE = `armorhelper-${VERSION}`;
 
 /** Everything needed to start the app; kept in sync by a test. */
@@ -26,9 +26,12 @@ const CORE = [
   "data/layout.json",
   "data/armor_sets.json",
   "data/i18n.json",
+  "data/version.json",
   "data/ArmorTemplate_v1.png",
   "data/ArmorTemplate_overlay.png",
   "data/player/version.txt",
+  "data/player/Player_0_0.png",
+  "data/player/Player_0_1.png",
   "data/player/Player_0_3.png",
   "data/player/Player_0_7.png",
   "data/player/Player_0_10.png",

@@ -19,7 +19,7 @@
     <div class="brand d-flex align-items-center gap-2">
       <img src="data/icon.png" alt="" width="40" height="40" class="brand-icon">
       <div>
-        <h1 class="h5 mb-0">ArmorHelper</h1>
+        <h1 class="h5 mb-0">ArmorHelper <span class="app-version" id="app-version"></span></h1>
         <p class="text-body-secondary small mb-0" data-i18n="web.subtitle"></p>
       </div>
     </div>
@@ -38,6 +38,29 @@
       </select>
     </div>
 
+    <!-- Where the armor IDs come from: the wiki page, in the reader's language.
+         `app.js` swaps the href when the language changes. -->
+    <a class="icon-btn wiki-link" id="wiki-link"
+       href="https://terraria.wiki.gg/zh/wiki/Armor_IDs" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M8 1.4 4.4 6.2h7.2z" fill="none" stroke="currentColor" stroke-width="1.3"
+              stroke-linejoin="round"/>
+        <path d="M8 4.6 3.2 10.4h9.6z" fill="none" stroke="currentColor" stroke-width="1.3"
+              stroke-linejoin="round"/>
+        <path d="M8 10.4v4.2" fill="none" stroke="currentColor" stroke-width="1.4"
+              stroke-linecap="round"/>
+      </svg>
+    </a>
+
+    <!-- the source: the site is nothing but these static files.
+         Icon: the GitHub mark, from GitHub's Octicons (MIT). -->
+    <a class="icon-btn repo-link" id="repo-link"
+       href="https://github.com/hufang360/ArmorHelper2" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+
   </div>
 </header>
 
@@ -53,29 +76,25 @@
               <div class="input-row">
                 <div id="drop" class="drop" tabindex="0" role="button">
                   <span class="drop-tools">
-                    <button class="icon-btn" type="button" id="drop-guide" aria-pressed="false">
-                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                        <rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                        <path d="M2.5 8h11M8 2.5v11" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.6 1.6"/>
-                      </svg>
-                    </button>
-                    <button class="icon-btn" type="button" id="drop-download">
-                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                        <path d="M8 2v7m0 0 3-3m-3 3L5 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                        <path d="M2.5 11.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                      </svg>
-                    </button>
                     <button class="icon-btn" type="button" id="drop-clear" disabled>
                       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                         <path d="M4.5 4.5l7 7m0-7l-7 7"
                               fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
                       </svg>
                     </button>
+                    <button class="icon-btn" type="button" id="drop-guide" aria-pressed="false">
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <rect x="2.5" y="2.5" width="11" height="11" rx="1"
+                              fill="none" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M2.5 8h11M8 2.5v11" fill="none" stroke="currentColor"
+                              stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2 2"/>
+                      </svg>
+                    </button>
                     <span class="popwrap">
                       <button class="icon-btn" type="button" id="history-toggle" aria-expanded="false">
                         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                          <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                          <path d="M8 5v3.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                          <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                          <path d="M8 5v3.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                         </svg>
                       </button>
                       <div class="history-pop" id="history-pop" hidden>
@@ -88,15 +107,45 @@
                         </ul>
                       </div>
                     </span>
+                    <button class="icon-btn" type="button" id="drop-download">
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M8 2v7m0 0 3-3m-3 3L5 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        <path d="M2.5 11.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                      </svg>
+                    </button>
                   </span>
                   <img id="template-preview" class="drop-preview pixel" alt="" hidden>
                   <p id="drop-hint" class="mb-0" data-i18n="web.drop"></p>
                   <input type="file" id="file-input" accept=".png,.webp,image/png,image/webp" hidden>
                 </div>
 
-                <div class="preview-box">
+                <!-- hidden until a template is loaded: with no picture the box
+                     has nothing to show and would only take up the row -->
+                <div class="preview-box" hidden>
                   <div class="preview-stage">
-                    <img id="preview-gif" class="pixel" alt="GIF" hidden>
+                    <!-- a canvas, not an <img>: the transport below steps the
+                         frames one by one, which a playing GIF cannot do -->
+                    <canvas id="preview-gif" class="pixel" width="40" height="56" hidden></canvas>
+                    <div class="preview-frames">
+                      <button class="icon-btn" type="button" id="gif-play" aria-pressed="true">
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                          <path id="gif-play-icon" d="M5 3.5v9l7-4.5z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <button class="icon-btn" type="button" id="gif-prev">
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                          <path d="M4 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                          <path d="M12 3.5v9L5.5 8z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <button class="icon-btn" type="button" id="gif-next">
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                          <path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                          <path d="M4 3.5v9l6.5-4.5z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <span class="preview-count" id="gif-count">0/0</span>
+                    </div>
                   </div>
                   <div class="preview-opts">
                     <div class="form-check form-check-inline">
@@ -114,7 +163,7 @@
                         </svg>
                       </span>
                     </div>
-                    <div class="preview-gif-opts d-flex flex-wrap gap-1 mt-1">
+                    <div class="preview-gif-opts">
                       <select id="export-gif-speed" class="form-select form-select-sm" aria-label="GIF speed">
                         <option value="fast" data-i18n="web.gifSpeedFast"></option>
                         <option value="medium" data-i18n="web.gifSpeedMedium"></option>
@@ -136,12 +185,17 @@
               </div>
 
               <!-- the tabs and their content stay inside the card -->
-              <div id="results" class="results export-results">
-                <p class="text-body-secondary mb-0" data-i18n="web.empty"></p>
-              </div>
+              <div id="results" class="results export-results"></div>
 
             </div>
           </div>
+
+        <div class="card help-card">
+          <div class="card-body">
+            <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.helpExportTitle"></h2>
+            <p class="mb-0 small help-text" data-i18n="web.helpExport"></p>
+          </div>
+        </div>
 
       </div>
     </section>
@@ -152,11 +206,79 @@
         <div class="card-body">
           <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.gifsTitle"></h2>
 
-          <div class="actions">
-            <button class="btn btn-sm btn-primary" id="do-gifs" data-i18n="web.gifsDo" disabled></button>
-            <button class="btn btn-sm btn-secondary" id="do-pack" data-i18n="web.packMake" disabled></button>
-            <button class="btn btn-sm btn-secondary" id="clear-sheets" data-i18n="web.clear"></button>
+          <div class="slots">
+            <div class="slot" data-role="head">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.headTitle"></span>
+              </div>
+              <div class="slot-drop" id="sheet-head-slot" tabindex="0" role="button">
+                <button class="icon-btn slot-clear" type="button" id="sheet-head-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+                <button class="icon-btn slot-swap" type="button" id="sheet-head-swap" hidden>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
+                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
+                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-head-hint" class="small" data-i18n="web.slot.headDrop"></span>
+                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-head-name" hidden></p>
+            </div>
+
+            <div class="slot" data-role="body">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.bodyTitle"></span>
+              </div>
+              <div class="slot-drop" id="sheet-body-slot" tabindex="0" role="button">
+                <button class="icon-btn slot-clear" type="button" id="sheet-body-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-body-hint" class="small" data-i18n="web.slot.bodyDrop"></span>
+                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-body-name" hidden></p>
+            </div>
+
+            <div class="slot" data-role="legs">
+              <div class="slot-head">
+                <span class="small text-body-secondary" data-i18n="web.slot.legsTitle"></span>
+              </div>
+              <div class="slot-drop" id="sheet-legs-slot" tabindex="0" role="button">
+                <button class="icon-btn slot-clear" type="button" id="sheet-legs-clear" hidden>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M4.5 4.5l7 7m0-7l-7 7"
+                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                </button>
+                <button class="icon-btn slot-swap" type="button" id="sheet-legs-swap" hidden>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
+                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
+                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
+                <span id="sheet-legs-hint" class="small" data-i18n="web.slot.legsDrop"></span>
+                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+              </div>
+              <p class="slot-info small mb-0" id="sheet-legs-name" hidden></p>
+            </div>
           </div>
+          <p class="text-body-secondary small mb-0" id="sheet-status"></p>
+
 
           <div class="opts-inline d-flex flex-wrap align-items-end gap-2 mt-2">
             <div class="field">
@@ -178,69 +300,35 @@
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="gif-player">
               <label class="form-check-label" for="gif-player" data-i18n="web.player"></label>
+              <span class="info-icon" id="gif-player-info" tabindex="0" role="img">
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                </svg>
+              </span>
             </div>
           </div>
-          <p class="text-body-secondary small mb-0" data-i18n="web.gifPlayerHint"></p>
 
-          <div class="slots">
-            <div class="slot" data-role="head">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.headTitle"></span>
-                <button class="icon-btn" type="button" id="sheet-head-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="slot-drop" id="sheet-head-slot" tabindex="0" role="button">
-                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-head-hint" class="small" data-i18n="web.slot.headDrop"></span>
-                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-              <p class="slot-info small mb-0" id="sheet-head-name" hidden></p>
-            </div>
-
-            <div class="slot" data-role="body">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.bodyTitle"></span>
-                <button class="icon-btn" type="button" id="sheet-body-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="slot-drop" id="sheet-body-slot" tabindex="0" role="button">
-                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-body-hint" class="small" data-i18n="web.slot.bodyDrop"></span>
-                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-              <p class="slot-info small mb-0" id="sheet-body-name" hidden></p>
-            </div>
-
-            <div class="slot" data-role="legs">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.legsTitle"></span>
-                <button class="icon-btn" type="button" id="sheet-legs-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="slot-drop" id="sheet-legs-slot" tabindex="0" role="button">
-                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-legs-hint" class="small" data-i18n="web.slot.legsDrop"></span>
-                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-              <p class="slot-info small mb-0" id="sheet-legs-name" hidden></p>
-            </div>
+          <div class="actions">
+            <button class="btn btn-sm btn-primary" id="upload-sheets" data-i18n="web.upload"></button>
+            <button class="btn btn-sm btn-secondary" id="load-sheets-demo" data-i18n="web.demo"></button>
+            <!-- only offered once the three sheets are in: it makes the pack -->
+            <button class="btn btn-sm btn-primary" id="do-pack" data-i18n="web.packMake" disabled hidden></button>
+            <input type="file" id="sheet-bulk-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
           </div>
-          <p class="text-body-secondary small mb-0" id="sheet-status"></p>
 
-          <h3 class="h6 text-uppercase text-body-secondary mt-3" data-i18n="web.results"></h3>
-          <div id="gif-results" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
+          <!-- the heading only exists once there is something to show -->
+          <h3 class="h6 text-uppercase text-body-secondary mt-3" id="gif-results-title"
+              data-i18n="web.results" hidden></h3>
+          <div id="gif-results" class="results"></div>
+        </div>
+      </div>
+
+      <div class="card help-card">
+        <div class="card-body">
+          <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.helpSheetsTitle"></h2>
+          <p class="mb-0 small help-text" data-i18n="web.helpSheets"></p>
         </div>
       </div>
     </section>

@@ -60,10 +60,11 @@ const HISTORY_KEY = "armorhelper.history";
 const HISTORY_LIMIT = 20;
 const HANDLE_OUTPUT = "output";
 const HANDLE_IMAGES = "images";
-/** Part numbers of ``TextureAssets.Players[skin, n]``, like the Python version. */
-const PLAYER_PART_NUMBERS = { torso: 3, arm: 7, legs: 10 };
+/** Part numbers of ``TextureAssets.Players[skin, n]``, like the Python version.
+ *  The head and the eyes are the two the face area of a helmet shows. */
+const PLAYER_PART_NUMBERS = { head: 0, eyes: 1, torso: 3, arm: 7, legs: 10 };
 
-/** The three texture names for one skin (`Player_<skin>_<part>.png`). */
+/** The texture names for one skin (`Player_<skin>_<part>.png`). */
 function playerPartNames(skin) {
   const names = {};
   for (const [part, number] of Object.entries(PLAYER_PART_NUMBERS)) {
@@ -84,6 +85,8 @@ const REVERSE_SUBDIR = "ArmorTemplate";
 const BUILTIN_DIR = "data/vanilla";
 /** Page rects for `BUILTIN_DIR`; the pages themselves are WebP (see js/atlas.js). */
 const BUILTIN_INDEX = "index.json";
+/** The release version shown in the header; one file, so the build has none. */
+const VERSION_FILE = "data/version.json";
 /** Per-frame delay of the three GIF speeds offered in the UI. */
 const GIF_SPEEDS = { fast: 100, medium: 500, slow: 1000 };
 /** The three sheet slots of the preview tab, in display order. */
@@ -124,6 +127,7 @@ const state = {
   results: { export: null, gif: null, reverse: null }, // last result per panel
   job: null, // {cancelled, done, total} while a long task runs
   version: "",
+  release: "",
 };
 
 /* ---------------------------------------------------------------- i18n -- */
@@ -148,10 +152,19 @@ function say(message, kind = "ok") {
   el.className = kind;
 }
 
+/** The wiki page that lists every armor ID, per interface language. */
+const WIKI_ARMOR_IDS = {
+  zh_CN: "https://terraria.wiki.gg/zh/wiki/Armor_IDs",
+  en: "https://terraria.wiki.gg/wiki/Armor_IDs",
+};
+
 function applyI18n() {
   document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
   for (const el of $$("[data-i18n]")) el.textContent = t(el.dataset.i18n);
   for (const el of $$("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
+  // the wiki exists in both languages: send the reader to his own
+  const wiki = $("#wiki-link");
+  if (wiki) wiki.href = WIKI_ARMOR_IDS[state.language] ?? WIKI_ARMOR_IDS.zh_CN;
   renderTooltips();
   renderGuideToggle();
   renderFiles();
@@ -181,7 +194,8 @@ function defaultConfig() {
     gifSize: 1,
     // the export page keeps its own copy: the two pages never share these
     exportGifSpeed: "fast",
-    exportGifSize: 1,
+    // 2x shows the 40x56 art at a readable size; 1x stays one click away
+    exportGifSize: 2,
     verify: false,
     guide: true,
     // the reverse page owns its own guide switch: the two pages never share one
@@ -274,7 +288,15 @@ const TOOLTIPS = [
   ["#drop-clear", "web.clearTooltip"],
   ["#history-toggle", "web.historyTitle"],
   ["#load-demo", "web.demoTooltip"],
+  ["#load-sheets-demo", "web.demoSheetsTooltip"],
+  ["#wiki-link", "web.wikiHint"],
+  ["#repo-link", "web.repoHint"],
   ["#player-info", "web.playerHint"],
+  ["#gif-player-info", "web.gifPlayerHint"],
+  ...["head", "legs"].map((role) => [`#sheet-${role}-swap`, "web.swapHeadLegs"]),
+  ["#gif-play", "web.gifPlay"],
+  ["#gif-prev", "web.gifPrev"],
+  ["#gif-next", "web.gifNext"],
   ...SHEET_ROLES.map((role) => [`#sheet-${role}-clear`, "web.remove"]),
 ];
 
@@ -527,7 +549,7 @@ function makeGif(frames, speed = state.config.gifSpeed, size = state.config.gifS
  */
 const exportGif = () => ({
   speed: state.config.exportGifSpeed ?? "fast",
-  size: state.config.exportGifSize ?? 1,
+  size: state.config.exportGifSize ?? 2,
 });
 
 /* ------------------------------------------------------- preview sheets -- */
@@ -559,26 +581,39 @@ function renderSlots() {
     hint.hidden = !!entry;
     if (!entry) hint.textContent = t(SLOT_HINT[role]);
     info.hidden = !entry;
-    if (entry) info.textContent = `${entry.name} · ${entry.bitmap.width}×${entry.bitmap.height}`;
+    if (entry) {
+      // name on one line, size on the next: a slot is 180px wide
+      info.textContent = `${entry.name}\n${entry.bitmap.width}×${entry.bitmap.height}`;
+    }
     clear.hidden = !entry;
+  }
+
+  // the head and the legs have the same shape, so they can be swapped
+  for (const role of ["head", "legs"]) {
+    const swap = $(`#sheet-${role}-swap`);
+    if (!swap) continue;
+    swap.hidden = !state.sheetSlots[role] || !state.sheetSlots[role === "head" ? "legs" : "head"];
   }
 
   const status = $("#sheet-status");
   if (status) {
-    // a filled slot shows its own tick, so only the gaps and the warnings go here
-    const lines = [];
-    if (missing.length) {
-      lines.push(
-        t("web.gifsMissing", { roles: missing.map((role) => t(SLOT_LABEL[role])).join(" / ") }),
-      );
-    }
-    if (state.sheetIssues?.length) lines.push(...state.sheetIssues.map(warnText));
-    status.textContent = lines.join("\n");
+    // a filled slot shows its own tick, so only the warnings go here
+    status.textContent = (state.sheetIssues ?? []).map(warnText).join("\n");
   }
-  for (const selector of ["#do-gifs", "#do-pack"]) {
-    const button = $(selector);
-    if (button) button.disabled = missing.length > 0;
+  const pack = $("#do-pack");
+  if (pack) {
+    // the button only exists once there is a pack to make
+    pack.hidden = missing.length > 0;
+    pack.disabled = missing.length > 0;
   }
+  // uploading is the main action until the three sheets are in
+  const upload = $("#upload-sheets");
+  if (upload) {
+    upload.classList.toggle("btn-primary", missing.length > 0);
+    upload.classList.toggle("btn-secondary", missing.length === 0);
+  }
+  // the card redraws itself, so every slot change is also a redraw
+  scheduleGifs();
 }
 
 /** Put one decoded file in a slot, validating it against that role. */
@@ -601,6 +636,36 @@ function setSlot(role, entry, issues = []) {
 }
 
 /**
+ * Fill the three slots from a bundled armor set.
+ *
+ * The gold set is read out of the vanilla atlas on demand, so the demo needs no
+ * extra images of its own: the three sheets are generated from the same
+ * textures the reverse conversion uses.
+ */
+const SHEET_DEMO_IDS = { head: 26, body: 4, legs: 4 };
+
+async function loadSheetDemo() {
+  say(t("web.working"), "busy");
+  try {
+    const { textures, missing } = await loadTextures(SHEET_DEMO_IDS, textureReader());
+    if (missing.length) {
+      say(t("web.needTextures"), "warn");
+      return;
+    }
+    state.sheetIssues = [];
+    for (const role of SHEET_ROLES) {
+      const number = SHEET_DEMO_IDS[role];
+      const name = role === "body" ? `Armor_${number}.png` : `Armor_${role === "head" ? "Head" : "Legs"}_${number}.png`;
+      setSlot(role, { name, bitmap: textures[role] });
+    }
+    say(t("web.demoLoaded", { name: t("web.demoGold") }));
+  } catch (error) {
+    console.error(error);
+    say(String(error.message || error), "bad");
+  }
+}
+
+/**
  * Files dropped on a slot: one file fills that slot, several are sorted by
  * name/dimensions (which is what makes "any order" uploads work).
  */
@@ -609,7 +674,7 @@ async function addSheetFiles(fileList, role = null) {
   for (const file of fileList) {
     if (!/\.(png|bmp)$/i.test(file.name)) continue;
     try {
-      items.push({ name: file.name, bitmap: await decodeBitmap(file) });
+      items.push({ name: file.name, bitmap: await decodeBitmap(file), size: file.size });
     } catch (error) {
       console.error(error);
       say(t("web.dropped", { name: file.name }), "warn");
@@ -811,15 +876,26 @@ async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames 
   };
 }
 
-async function doGifs() {
+/** A change must not be overwritten by a slower, earlier run. */
+let gifsRun = 0;
+let gifsTimer = null;
+/** The sheets already written to the history; speed and size changes keep it. */
+let gifsHistoryKey = null;
+
+/**
+ * Redraw the preview-sheets card.
+ *
+ * There is no button: the three sheets plus the two selects are the whole
+ * input, so the card redraws whenever any of them changes.  History is only
+ * written for a new set of sheets, or moving a select would fill it up.
+ */
+async function renderGifs() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   if (missing.length) {
-    say(t("web.gifsNeed"), "warn");
+    clearResult("gif");
     return;
   }
-
-  $("#do-gifs").disabled = true;
-  say(t("web.working"), "busy");
+  const run = ++gifsRun;
   try {
     const input = {
       head: state.sheetSlots.head.bitmap,
@@ -870,15 +946,24 @@ async function doGifs() {
     }
 
     const result = await packSheetGifs(stem, entries, gifs, warnings, frames);
+    if (run !== gifsRun) return;
     showResult("gif", result);
-    addHistory(stem, result.files, keepUrl(frames[0]));
-    say(t("web.gifsDone", { count: gifs.length }));
+    const key = SHEET_ROLES.map((role) => state.sheetSlots[role].name).join("|");
+    if (gifsHistoryKey !== key) {
+      gifsHistoryKey = key;
+      addHistory(stem, result.files, keepUrl(frames[0]));
+    }
   } catch (error) {
+    if (run !== gifsRun) return;
     console.error(error);
     say(String(error.message || error), "bad");
-  } finally {
-    $("#do-gifs").disabled = SHEET_ROLES.some((role) => !state.sheetSlots[role]);
   }
+}
+
+/** Redraw the preview-sheets card after a short pause. */
+function scheduleGifs(delay = 120) {
+  clearTimeout(gifsTimer);
+  gifsTimer = setTimeout(() => void renderGifs(), delay);
 }
 
 /** Which vanilla textures the reverse conversion will use, in words. */
@@ -946,6 +1031,10 @@ function showResult(panel, results) {
   state.results[panel] = list;
   host.innerHTML = "";
   for (const item of list) host.append(resultCard(item, host));
+  if (panel === "gif") {
+    const title = $("#gif-results-title");
+    if (title) title.hidden = list.length === 0;
+  }
   syncResultHeights();
 }
 
@@ -955,12 +1044,19 @@ function clearResult(panel) {
   const host = $(RESULT_HOSTS[panel]);
   if (host) {
     host.innerHTML = "";
-    const empty = document.createElement("p");
-    empty.className = "text-body-secondary mb-0";
-    empty.textContent = t("web.empty");
-    host.append(empty);
+    // neither the export nor the preview-sheets card writes an empty line
+    if (panel !== "export" && panel !== "gif") {
+      const empty = document.createElement("p");
+      empty.className = "text-body-secondary mb-0";
+      empty.textContent = t("web.empty");
+      host.append(empty);
+    }
   }
   if (panel === "export") setPreviewGif(null);
+  if (panel === "gif") {
+    const title = $("#gif-results-title");
+    if (title) title.hidden = true;
+  }
   syncResultHeights();
 }
 
@@ -969,13 +1065,91 @@ function clearResult(panel) {
  * card, so it keeps a reference to the current result instead of being redrawn
  * with it.
  */
-/** The 20 frame animation that sits next to the drop area. */
-function setPreviewGif(url) {
-  const image = $("#preview-gif");
-  if (!image) return;
-  image.hidden = !url;
-  if (url) image.src = url;
-  else image.removeAttribute("src");
+/**
+ * The 20 frame animation that sits next to the drop area.
+ *
+ * It is drawn on a canvas rather than shown as a GIF, because the transport
+ * buttons have to stop it on one frame.  The order and the delay are the ones
+ * the exported GIF uses, so the two run in step.
+ */
+const previewPlayer = { frames: [], order: [], delay: 100, step: 0, timer: null, run: 0 };
+
+function drawPreviewFrame() {
+  const canvas = $("#preview-gif");
+  const frame = previewPlayer.frames[previewPlayer.order[previewPlayer.step]];
+  if (!canvas || !frame) return;
+  if (canvas.width !== frame.width) canvas.width = frame.width;
+  if (canvas.height !== frame.height) canvas.height = frame.height;
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(frame.width, frame.height);
+  image.data.set(frame.data);
+  context.putImageData(image, 0, 0);
+  const count = $("#gif-count");
+  if (count) count.textContent = `${previewPlayer.step + 1}/${previewPlayer.order.length}`;
+  const play = $("#gif-play");
+  if (play) play.setAttribute("aria-pressed", previewPlayer.timer ? "true" : "false");
+  const icon = $("#gif-play-icon");
+  if (icon) {
+    icon.setAttribute(
+      "d",
+      previewPlayer.timer ? "M5 3.5h2.5v9H5zm3.5 0H11v9H8.5z" : "M5 3.5v9l7-4.5z",
+    );
+  }
+}
+
+/** Restart the loop from the current step, with the current delay. */
+function schedulePreview() {
+  clearTimeout(previewPlayer.timer);
+  previewPlayer.timer = null;
+  if (!previewPlayer.order.length) return;
+  previewPlayer.timer = setTimeout(function tick() {
+    previewPlayer.step = (previewPlayer.step + 1) % previewPlayer.order.length;
+    drawPreviewFrame();
+    previewPlayer.timer = setTimeout(tick, previewPlayer.delay);
+  }, previewPlayer.delay);
+  drawPreviewFrame();
+}
+
+function playPreview(on) {
+  if (on === !!previewPlayer.timer) return;
+  if (on) schedulePreview();
+  else {
+    clearTimeout(previewPlayer.timer);
+    previewPlayer.timer = null;
+    drawPreviewFrame();
+  }
+}
+
+function stepPreview(delta) {
+  const total = previewPlayer.order.length;
+  if (!total) return;
+  playPreview(false);
+  previewPlayer.step = (previewPlayer.step + delta + total) % total;
+  drawPreviewFrame();
+}
+
+/** Show 20 frames of `frames` at the chosen size and speed; `null` clears it. */
+function setPreviewGif(frames, speed, size) {
+  const canvas = $("#preview-gif");
+  if (!canvas) return;
+  clearTimeout(previewPlayer.timer);
+  previewPlayer.timer = null;
+  previewPlayer.frames = frames ? gifFrames(frames, size) : [];
+  previewPlayer.order = frames ? gifFrameOrder() : [];
+  previewPlayer.delay = gifDelay(speed);
+  previewPlayer.step = 0;
+  previewPlayer.run += 1;
+  canvas.dataset.render = String(previewPlayer.run);
+  canvas.hidden = !frames;
+  // the box and its options only exist while there is an animation to show
+  const box = canvas.closest(".preview-box");
+  if (box) box.hidden = !frames;
+  if (!frames) {
+    const count = $("#gif-count");
+    if (count) count.textContent = "0/0";
+    return;
+  }
+  playPreview(true);
 }
 
 /** One captioned preview: a checkerboard tile with the label underneath. */
@@ -1131,11 +1305,12 @@ function packCardBody(tabs) {
 /** Name, size and purpose of every file in a material pack. */
 function sheetTable(rows = [], options = {}) {
   const table = document.createElement("table");
-  table.className = "sheet-table";
+  table.className = options.idColumn ? "sheet-table has-id" : "sheet-table";
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
-  const headings = ["web.table.file", "web.table.size", "web.table.content"];
+  const headings = ["web.table.file", "web.table.size"];
   if (options.idColumn) headings.push("web.table.id");
+  headings.push("web.table.content");
   for (const key of headings) {
     const cell = document.createElement("th");
     cell.textContent = t(key);
@@ -1160,8 +1335,9 @@ function sheetTable(rows = [], options = {}) {
     sizeCell.textContent = `${row.width}×${row.height}`;
     const descCell = document.createElement("td");
     descCell.textContent = t(row.descKey);
-    tr.append(nameCell, sizeCell, descCell);
+    tr.append(nameCell, sizeCell);
     if (options.idColumn) tr.append(idCell(row.part));
+    tr.append(descCell);
     body.append(tr);
   }
   table.append(body);
@@ -1523,19 +1699,29 @@ async function ensureOutputFolder() {
   return state.folders.output;
 }
 
+/** Every player part for one skin, decoded by `read(name)` into a bitmap. */
+async function loadPlayerSheets(skin, read) {
+  const parts = {};
+  const names = Object.entries(playerPartNames(skin));
+  await Promise.all(
+    names.map(async ([part, name]) => {
+      parts[part] = await decodeBitmap(await read(name));
+    }),
+  );
+  return parts;
+}
+
 /** The player textures bundled with the site (works on any browser, offline too). */
 async function loadBundledPlayerParts() {
   // only skin 0 is bundled; another skin falls back to it
   for (const skin of [currentSkin(), 0]) {
     try {
-      const [torso, arm, legs] = await Promise.all(
-        Object.values(playerPartNames(skin)).map(async (name) => {
-          const response = await fetch(`${PLAYER_DIR}/${name}`);
-          if (!response.ok) throw new Error(name);
-          return decodeBitmap(await response.blob());
-        }),
-      );
-      return { torso, arm, legs, skin };
+      const parts = await loadPlayerSheets(skin, async (name) => {
+        const response = await fetch(`${PLAYER_DIR}/${name}`);
+        if (!response.ok) throw new Error(name);
+        return response.blob();
+      });
+      return { ...parts, skin };
     } catch {
       /* try the next skin */
     }
@@ -1553,12 +1739,8 @@ async function loadPlayerParts() {
   const skin = currentSkin();
   if (images && (await ensurePermission(images, "read"))) {
     try {
-      const [torso, arm, legs] = await Promise.all(
-        Object.values(playerPartNames(skin)).map(async (name) =>
-          decodeBitmap(await readFromFolder(images, name)),
-        ),
-      );
-      return { torso, arm, legs, skin };
+      const parts = await loadPlayerSheets(skin, (name) => readFromFolder(images, name));
+      return { ...parts, skin };
     } catch {
       /* fall through to the bundled copies */
     }
@@ -1754,7 +1936,7 @@ async function renderExport() {
 
     if (run !== exportRun) return;
     showResult("export", [{ tabs: packTabs, warnings }]);
-    setPreviewGif(URL.createObjectURL(makeGif(previewFrames, exportGif().speed, exportGif().size)));
+    setPreviewGif(previewFrames, exportGif().speed, exportGif().size);
     if (historyFile !== file) {
       historyFile = file;
       addHistory(stem, sheetBlobs, keepUrl(file.bitmap));
@@ -2173,16 +2355,30 @@ function wire() {
     });
     on(`#sheet-${role}-clear`, "click", () => setSlot(role, null));
   }
-  on("#clear-sheets", "click", () => {
-    state.sheetSlots = { head: null, body: null, legs: null };
-    state.sheetIssues = [];
-    renderSlots();
+  on("#upload-sheets", "click", () => $("#sheet-bulk-input")?.click());
+  on("#load-sheets-demo", "click", () => void loadSheetDemo());
+  on("#sheet-bulk-input", "change", (event) => {
+    const files = [...event.target.files];
+    // the same file may be picked again after a swap or a clear
+    event.target.value = "";
+    if (files.length) void addSheetFiles(files);
   });
-  on("#do-gifs", "click", doGifs);
+  // the head and the legs have the same shape: this trades their places
+  for (const role of ["head", "legs"]) {
+    on(`#sheet-${role}-swap`, "click", (event) => {
+      event.stopPropagation();
+      const other = role === "head" ? "legs" : "head";
+      const mine = state.sheetSlots[role];
+      state.sheetSlots[role] = state.sheetSlots[other];
+      state.sheetSlots[other] = mine;
+      renderSlots();
+    });
+  }
   on("#do-pack", "click", doResourcePack);
   on("#gif-player", "change", (event) => {
     state.config.gifPlayer = event.target.checked;
     saveConfig();
+    scheduleGifs();
   });
   on("#export-gif-speed", "change", (event) => {
     state.config.exportGifSpeed = event.target.value;
@@ -2194,15 +2390,20 @@ function wire() {
     saveConfig();
     scheduleExport();
   });
+  on("#gif-play", "click", () => playPreview(!previewPlayer.timer));
+  on("#gif-prev", "click", () => stepPreview(-1));
+  on("#gif-next", "click", () => stepPreview(1));
   on("#gif-speed", "change", (event) => {
     state.config.gifSpeed = event.target.value;
     saveConfig();
     scheduleExport();
+    scheduleGifs();
   });
   on("#gif-size", "change", (event) => {
     state.config.gifSize = Number(event.target.value) || 1;
     saveConfig();
     scheduleExport();
+    scheduleGifs();
   });
   on("#clear-history", "click", clearHistory);
   on("#cancel-job", "click", cancelJob);
@@ -2336,6 +2537,23 @@ async function loadMessages(language) {
 
 /* ----------------------------------------------------------------- boot -- */
 
+/** Show the release version from `data/version.json` in the header. */
+async function showAppVersion() {
+  const badge = $("#app-version");
+  if (!badge) return;
+  try {
+    const response = await fetch(VERSION_FILE);
+    if (!response.ok) throw new Error(`cannot load ${VERSION_FILE}: ${response.status}`);
+    const info = await response.json();
+    state.release = info.version ?? "";
+    badge.textContent = state.release ? `v${state.release}` : "";
+    badge.title = `${info.name ?? "ArmorHelper"} ${state.release}`.trim();
+  } catch (error) {
+    // a missing version file must not stop the page
+    console.error(error);
+  }
+}
+
 async function main() {
   try {
     wire();
@@ -2345,6 +2563,7 @@ async function main() {
     state.version = layout.version;
     state.defaults = layout.targets.defaults;
     state.messages = await loadMessages(state.language);
+    await showAppVersion();
 
     $("#language").value = state.language;
     $("#opt-female").checked = !!state.config.female;
@@ -2354,7 +2573,7 @@ async function main() {
     $("#gif-speed").value = state.config.gifSpeed ?? "fast";
     $("#gif-size").value = String(state.config.gifSize ?? 1);
     $("#export-gif-speed").value = state.config.exportGifSpeed ?? "fast";
-    $("#export-gif-size").value = String(state.config.exportGifSize ?? 1);
+    $("#export-gif-size").value = String(state.config.exportGifSize ?? 2);
     $("#set-head").value = state.config.ids.id_head ?? "";
     $("#set-body").value = state.config.ids.id_body ?? "";
     $("#set-legs").value = state.config.ids.id_legs ?? "";

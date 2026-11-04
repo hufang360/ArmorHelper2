@@ -77,7 +77,10 @@ export function tintFrames(frames, tint = SKIN_TINT) {
  * Compose the player's own skin into 20 native frames.
  *
  * `parts` holds the native 40x56-cell textures
- * (`torso` = Player_0_3, `arm` = Player_0_7, `legs` = Player_0_10).
+ * (`torso` = Player_0_3, `arm` = Player_0_7, `legs` = Player_0_10).  The two
+ * optional parts `head` = Player_0_0 and `eyes` = Player_0_1 are drawn last.
+ * They matter when the helmet leaves the face area transparent: without them
+ * the helmet has a hole the background shows through.
  */
 export function playerFrames(parts, female = false) {
   const layout = L();
@@ -103,6 +106,9 @@ export function playerFrames(parts, female = false) {
           : layout.cells.torso;
     pasteBitmap(canvas, cell(parts.torso, torso));
     pasteBitmap(canvas, cell(parts.arm, cellOf(layout.cells.frontArm, frame)));
+    // The head replaces nothing: it sits where the helmet's face opening is.
+    if (parts.head) pasteBitmap(canvas, long(parts.head, frame));
+    if (parts.eyes) pasteBitmap(canvas, long(parts.eyes, frame));
     frames.push(canvas);
   }
   return frames;

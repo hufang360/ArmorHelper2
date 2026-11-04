@@ -15,5 +15,9 @@
 | `template-rebuilt.png` | 由上面三张贴图反推回来的模板（应与 `web/data/ArmorTemplate_v1.png` 一致） |
 | `sheets-frames-male.png` / `sheets-frames-female.png` | 由成品贴图直接合成的 20 帧（预览贴图页） |
 
+**玩家头与眼睛不在参考里。** `player-frames-*` 与 `frames-player-*` 只含躯干、手臂、腿，
+这是 Python 参考实现的行为。网页版额外叠上 `Player_0_0`（头）与 `Player_0_1`（眼），
+否则开脸头盔会露出空洞。这一层不进金标准，`web/tests/run.mjs` 也不传这两个部位。
+
 **不要手改。** `test_golden_manifest_matches_the_files` 会核对 sha256；确实需要更新
 （例如故意改变输出）时，重新生成后同步改 `manifest.json`，并在提交信息里说明原因。

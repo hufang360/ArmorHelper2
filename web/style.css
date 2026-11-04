@@ -47,11 +47,14 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 /* ---------------------------------------------------------------- topbar */
 .topbar { background: var(--panel); position: sticky; top: 0; z-index: 30; }
 .brand-icon { width: 40px; height: 40px; object-fit: contain; flex: none; }
+.app-version { font-size: .7rem; font-weight: 400; color: var(--muted); vertical-align: .15em; }
 /* Underline tabs: a filled pill read as a button. Active = bold text + underline. */
 .tabs { --bs-nav-underline-gap: 1rem; --bs-nav-underline-link-active-color: var(--accent); }
 .tabs .nav-link { font-size: .875rem; padding: 0 0 .2rem; color: var(--muted); }
 .tabs .nav-link.active { color: var(--accent); }
 .lang .form-select { width: auto; }
+/* The source link sits in the corner, as tall as the language select. */
+.repo-link, .wiki-link { width: 1.9rem; height: 1.9rem; border-color: var(--line); text-decoration: none; }
 
 /* --------------------------------------------------------------- panels */
 .tab-content > .panel { display: none; }
@@ -78,26 +81,47 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 /* the hint is two lines: the drop text carries a newline of its own */
 #drop-hint { white-space: pre-line; }
 
-/* The drop area and the animation beside it are one row of equal height. */
+/* The drop area and the animation beside it are one row of equal height.
+   The preview keeps a fixed width: it only has to hold a 40x56 frame at a
+   glance, so it does not grow with the window. */
 .input-row { display: flex; align-items: stretch; gap: .5rem; flex-wrap: wrap; }
 .input-row .drop { margin-right: 0; }
 .preview-box {
-  flex: 1 1 12rem; min-width: 11rem; min-height: 0;
+  flex: 0 0 12.5rem; min-height: 0;
   display: flex; flex-direction: column; gap: .35rem;
   padding: .35rem; border: 1px solid var(--line); border-radius: .5rem;
   background: var(--panel-2);
 }
+/* `hidden` must win over the flex display above. */
+.preview-box[hidden] { display: none; }
 .preview-stage {
-  flex: 1 1 auto; min-height: 3rem; display: grid; place-items: center;
+  flex: 1 1 auto; min-height: 3rem; display: flex; align-items: center;
+  justify-content: center; gap: .3rem;
   overflow: hidden; border-radius: .25rem;
 }
-.preview-stage img {
+.preview-stage canvas {
   max-width: 100%; max-height: 100%; image-rendering: pixelated;
   background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 0 0 / 12px 12px;
 }
+/* The transport sits to the right of the picture, the counter under it. */
+.preview-frames {
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: .2rem;
+}
+.preview-frames .icon-btn { width: 1.35rem; height: 1.35rem; }
+.preview-count { font-size: .62rem; color: var(--muted); line-height: 1; white-space: nowrap; }
 .preview-opts { flex: none; font-size: .75rem; }
 .preview-opts .form-check { margin-right: .5rem; margin-bottom: 0; }
 .preview-opts .form-check-label { font-size: .75rem; }
+/* Two selects stacked, each as wide as the box: side by side they would clip
+   the labels at this width.  Both are a size below `.form-select-sm`, which
+   keeps them readable without filling the box. */
+.preview-gif-opts { display: flex; flex-direction: column; gap: .25rem; margin-top: .25rem; }
+/* A fixed width, so the two do not change size when the labels do. */
+.preview-gif-opts .form-select {
+  width: 11.2rem; max-width: 100%; font-size: .7rem;
+  padding: .1rem 1.2rem .1rem .4rem;
+  background-position: right .4rem center; background-size: 12px 9px;
+}
 /* once a template is in, the area still accepts a replacement but no longer
    competes with the picture */
 .drop.is-filled { border-style: solid; border-color: #3d5a45; padding: 0; }
@@ -120,7 +144,7 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
   display: grid; place-items: center; width: 1.6rem; height: 1.6rem; padding: 0;
   border: 1px solid transparent; border-radius: .3rem;
   background: rgba(28, 31, 40, .6); color: var(--muted);
-  opacity: .55; cursor: pointer; transition: .15s;
+  opacity: .8; cursor: pointer; transition: .15s;
 }
 .icon-btn:hover:not(:disabled), .icon-btn:focus-visible {
   color: var(--text); border-color: var(--accent); outline: none; opacity: 1;
@@ -166,13 +190,23 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 }
 .slot-drop > span { white-space: pre-line; line-height: 1.4; max-width: 100%; }
 .slot-info { margin-top: .25rem; color: var(--text); word-break: break-all; }
+/* the file name and its size read as two lines: the name alone is long enough */
+.slot-info { white-space: pre-line; }
 .slot-drop:hover, .slot-drop:focus { border-color: var(--accent); color: var(--text); outline: none; }
 .slot-drop.is-over { border-color: var(--accent); background: #1e2740; }
 .slot.is-filled .slot-drop { color: var(--text); border-style: solid; border-color: #3d5a45; }
 .slot.is-filled .slot-drop::before {
-  content: "\2713"; position: absolute; top: 2px; right: 5px;
+  content: "\2713"; position: absolute; top: 2px; left: 5px;
   color: var(--ok); font-size: .75rem; line-height: 1;
 }
+/* The slot's own buttons sit in the top right corner of the drop area: clear
+   on top, the head/legs swap right below it. */
+.slot-clear, .slot-swap {
+  position: absolute; right: .25rem; z-index: 2;
+  width: 1.5rem; height: 1.5rem;
+}
+.slot-clear { top: .25rem; }
+.slot-swap { top: 2rem; }
 .opts-inline .field { margin-bottom: 0; }
 
 /* Bootstrap's select padding, arrow and border-box height are for one row. On a
@@ -184,6 +218,11 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
   height: calc(8 * .875rem * 1.5 + 2px);
 }
 .opts-inline .form-select { min-width: 8.25rem; }
+/* The two GIF selects hold short labels, so they stay narrow: a size below
+   `.form-select-sm` and just enough padding for the arrow. */
+#gif-speed, #gif-size { font-size: .8rem; padding-right: 1.5rem; }
+#gif-speed { width: 8.6rem; }
+#gif-size { width: 5.6rem; }
 
 /* A hover/focus popover with the template that the button downloads. */
 .popwrap { position: relative; display: inline-block; }
@@ -305,7 +344,9 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 /* the widest file name is FullArmorPlayerFemale.png: 23 characters */
 .sheet-table th:nth-child(1) { width: 14rem; }
 .sheet-table th:nth-child(2) { width: 5.5rem; }
-.sheet-table th:nth-child(4) { width: 13rem; }
+/* the ID column is only there when there is one; the tabs without it give the
+   free width to the last column */
+.sheet-table.has-id th:nth-child(3) { width: 13rem; }
 .sheet-table tbody td:nth-child(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .id-cell { display: flex; align-items: baseline; gap: .4rem; }
 .id-cell .sheet-id { width: 4.5rem; flex: none; }
@@ -317,6 +358,9 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 }
 .sheet-table th:last-child, .sheet-table td:last-child { border-right: 0; }
 .sheet-table th { border-bottom: 1px solid var(--line); }
+/* one rule per row, so a long name cannot run into the row below */
+.sheet-table tbody td { border-bottom: 1px solid var(--line); }
+.sheet-table tbody tr:last-child td { border-bottom: 0; }
 .sheet-table th {
   text-align: left; font-weight: 500; color: var(--muted);
 }
@@ -334,6 +378,10 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .export-card { flex: 1 1 auto; min-height: 26rem; display: flex; flex-direction: column; }
 .export-card > .card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
 .export-results { margin-top: 1.25rem; }
+/* The help card sits under the working card and explains the flow. */
+.help-card { margin-top: .5rem; }
+.help-card .card-body { padding: .75rem 1rem; }
+.help-text { color: var(--muted); line-height: 1.7; white-space: pre-line; }
 .pack { display: flex; flex-direction: column; }
 .result-block { padding: 0; }
 

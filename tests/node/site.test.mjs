@@ -46,10 +46,18 @@ test("the front end files exist and are wired", () => {
   const refs = new Set();
   for (const match of APP.matchAll(/\$\("#([\w-]+)"\)/g)) refs.add(match[1]);
   for (const match of APP.matchAll(/on\("#([\w-]+)"/g)) refs.add(match[1]);
-  // `$("#sheet-${role}-thumb")` style lookups
+  // `$("#sheet-${role}-thumb")` style lookups.  The page has all three slots,
+  // but a loop may cover fewer of them: `for (const role of ["head", "legs"])`.
   const templated = [...APP.matchAll(/`#([\w-]+)-\$\{(?:role|kind)\}-([\w-]+)`/g)];
-  for (const [, prefix, suffix] of templated) {
-    for (const role of ["head", "body", "legs"]) refs.add(`${prefix}-${role}-${suffix}`);
+  for (const [statement, prefix, suffix] of templated) {
+    const at = statement.index;
+    // a loop may cover only some of the slots: `for (const role of ["head", "legs"])`
+    const before = APP.slice(Math.max(0, at - 400), at);
+    const loops = [...before.matchAll(/for \(const (?:role|kind) of \[([^\]]*)\]\)/g)];
+    const roles = loops.length
+      ? loops.at(-1)[1].split(",").map((part) => part.trim().replace(/^["']|["']$/g, "")).filter(Boolean)
+      : ["head", "body", "legs"];
+    for (const role of roles) refs.add(`${prefix}-${role}-${suffix}`);
   }
   for (const tab of ["export", "gifs", "reverse", "settings"]) refs.add(`tab-${tab}`);
 
@@ -70,11 +78,20 @@ test("the front end files exist and are wired", () => {
     assert.deepEqual(missingKeys, [], `${language} is missing ${missingKeys}`);
   }
 
-  // no external requests: the page must work offline / on Pages
+  // No external requests: the page must work offline and on Pages.  A link
+  // (an `href`, or a URL kept in a constant) is not a request, so only the
+  // places that would fetch something are checked.
+  const requestPatterns = [
+    /src="https?:/,
+    /\bfetch\(\s*["']https?:/,
+    /\bimport\(\s*["']https?:/,
+    /url\(\s*["']?https?:/,
+    /@import\s+(?:url\()?["']?https?:/,
+  ];
   for (const name of ["index.html", "style.css", "app.js"]) {
     const text = read(join(WEB, name));
-    assert.ok(!text.includes("https://"), name);
-    assert.ok(!text.includes("http://"), name);
+    const found = requestPatterns.filter((pattern) => pattern.test(text)).map(String);
+    assert.deepEqual(found, [], `${name} requests something external: ${found}`);
   }
 });
 
@@ -122,6 +139,21 @@ test("every translation the app uses exists", () => {
   }
 });
 
+test("the release version is one number everywhere", () => {
+  const root = readJson(join(ROOT, "package.json"));
+  const web = readJson(join(WEB, "package.json"));
+  const shown = readJson(join(WEB, "data", "version.json"));
+  assert.match(shown.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(shown.name, "ArmorHelper");
+  assert.equal(web.version, shown.version, "web/package.json drifted");
+  assert.equal(root.version, shown.version, "package.json drifted");
+
+  // the page shows it, and the worker caches the file it comes from
+  assert.ok(HTML.includes('id="app-version"'), "the header has no version badge");
+  assert.ok(APP.includes("data/version.json"), "the app never reads the version");
+  assert.ok(read(join(WEB, "sw.js")).includes('"data/version.json"'), "not precached");
+});
+
 test("the site icon is used", () => {
   const icon = join(WEB, "data", "icon.png");
   const [width, height] = pngSize(icon);
@@ -136,6 +168,8 @@ test("the site icon is used", () => {
 
 test("the player textures are bundled", () => {
   const expected = {
+    "Player_0_0.png": [40, 1118],
+    "Player_0_1.png": [40, 1118],
     "Player_0_3.png": [360, 224],
     "Player_0_7.png": [360, 224],
     "Player_0_10.png": [40, 1120],
@@ -146,7 +180,7 @@ test("the player textures are bundled", () => {
     assert.deepEqual(pngSize(path), size, name);
   }
   const info = read(join(WEB, "data", "player", "version.txt"));
-  assert.ok(info.includes("count=3"));
+  assert.ok(info.includes("count=5"));
   assert.ok(info.includes("version="));
   // the page loads them by name and the service worker caches them
   assert.ok(APP.includes("data/player"));

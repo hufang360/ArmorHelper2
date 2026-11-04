@@ -36,7 +36,7 @@ async function waitRender(doc) {
   let stable = 0;
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
-    const now = doc.querySelector("#preview-gif")?.getAttribute("src") ?? "";
+    const now = doc.querySelector("#preview-gif")?.dataset.render ?? "";
     if (now && now === last) stable += 1;
     else stable = 0;
     last = now;
@@ -69,6 +69,8 @@ async function runDropTools(doc) {
   const preview = doc.querySelector("#template-preview");
   const guideButton = doc.querySelector("#drop-guide");
   const downloadButton = doc.querySelector("#drop-download");
+  const box = doc.querySelector(".preview-box");
+  const shown = (el) => !!el && getComputedStyle(el).display !== "none";
   const waitPreview = async (test) => {
     for (let tick = 0; tick < 200; tick += 1) {
       await sleep(25);
@@ -76,10 +78,33 @@ async function runDropTools(doc) {
     }
   };
 
+  // nothing is loaded yet: no box beside the drop area, no empty line below it
+  // the buttons fade in, so their opacity only means something once it settles
+  await sleep(300);
+  const beforeLoad = {
+    boxShown: shown(box),
+    resultText: doc.querySelector("#results").textContent.trim(),
+    tools: [...doc.querySelectorAll(".drop-tools .icon-btn")].map((button) => button.id),
+  };
+
   doc.querySelector("#load-demo").click();
   for (let tick = 0; tick < 200 && preview.hidden; tick += 1) await sleep(25);
+  for (let tick = 0; tick < 200 && !shown(box); tick += 1) await sleep(25);
+  // the buttons are only enabled with a template in, and they fade in
+  await sleep(300);
+  const select = doc.querySelector("#export-gif-speed");
   const report = {
     loaded: !doc.querySelector("#template-preview").hidden,
+    beforeLoad,
+    boxShownAfterLoad: shown(box),
+    toolOpacity: [...doc.querySelectorAll(".drop-tools .icon-btn")].map((button) =>
+      Number(getComputedStyle(button).opacity),
+    ),
+    // the two selects are one size below .form-select-sm (14px)
+    selectStyle: {
+      height: Math.round(select.getBoundingClientRect().height),
+      font: parseFloat(getComputedStyle(select).fontSize),
+    },
     titles: [guideButton, downloadButton, doc.querySelector("#load-demo")].map((el) => el.getAttribute("title")),
     // the demo template already carries the guide lines
     guideDisabledOnDemo: guideButton.disabled,
@@ -156,6 +181,7 @@ async function runDropTools(doc) {
 
   doc.querySelector("#drop-clear").click();
   for (let tick = 0; tick < 200 && !preview.hidden; tick += 1) await sleep(25);
+  for (let tick = 0; tick < 200 && shown(box); tick += 1) await sleep(25);
   await sleep(150);
 
   return {
@@ -165,6 +191,11 @@ async function runDropTools(doc) {
     changed,
     plainMatchesFlat: equalBytes(plainBitmap.data, flat.data),
     artOpaque: [artPlain, artMerged],
+    // clearing the drop area hides the box again and leaves no empty line
+    afterClear: {
+      boxShown: shown(box),
+      resultText: doc.querySelector("#results").textContent.trim(),
+    },
   };
 }
 
@@ -281,6 +312,26 @@ async function runSheetGifs(doc) {
   await sleep(60);
   const sheets = await makeSheets();
 
+  // the demo button fills all three slots from the bundled vanilla atlas
+  const packHidden = doc.querySelector("#do-pack").hidden;
+  doc.querySelector("#load-sheets-demo").click();
+  for (let tick = 0; tick < 400 && doc.querySelector("#do-pack").disabled; tick += 1) {
+    await sleep(25);
+  }
+  const demo = {
+    buttonOrder: [...doc.querySelectorAll("#tab-gifs .actions .btn")].map((el) => el.id),
+    packHiddenAtStart: packHidden,
+    version: doc.querySelector("#app-version").textContent.trim(),
+    slots: [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[0]),
+    sizes: [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[1]),
+    enabled: !doc.querySelector("#do-pack").disabled,
+  };
+  for (const role of ["head", "body", "legs"]) {
+    doc.querySelector(`#sheet-${role}-clear`).click();
+    await sleep(40);
+  }
+  await sleep(150);
+
   // wrong slot first: the body grid is not a valid head sheet
   await putFiles(doc, "#sheet-head-input", [sheets.body]);
   await sleep(60);
@@ -293,11 +344,84 @@ async function runSheetGifs(doc) {
   for (const role of ["head", "body", "legs"]) {
     await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
   }
+  // no generate button any more: the card draws itself once the three are in
+  const waitResults = async () => {
+    for (let tick = 0; tick < 400; tick += 1) {
+      await sleep(25);
+      if (doc.querySelectorAll("#gif-results .preview img").length) return true;
+    }
+    return false;
+  };
+  const drewItself = await waitResults();
+  const disabled = doc.querySelector("#do-pack").disabled;
+  // the main action moves: upload is primary until the three are in
+  const uploadAfter = doc.querySelector("#upload-sheets");
+  const packButton = doc.querySelector("#do-pack");
+  const buttons = {
+    uploadPrimary: uploadAfter.classList.contains("btn-primary"),
+    uploadSecondary: uploadAfter.classList.contains("btn-secondary"),
+    packPrimary: packButton.classList.contains("btn-primary"),
+    packSecondary: packButton.classList.contains("btn-secondary"),
+    hasClear: !!doc.querySelector("#clear-sheets"),
+    hasUploadInput: !!doc.querySelector("#sheet-bulk-input"),
+    playerInfo: doc.querySelector("#gif-player-info")?.dataset.tooltip ?? "",
+    hintParagraph: !!doc.querySelector('[data-i18n="web.gifPlayerHint"]'),
+  };
+
+  // The bulk upload matches by name first, then by size: names that say
+  // nothing still land, and the bigger tall file becomes the legs.
+  const { pngBlob } = await import("./js/png.js");
+  for (const role of ["head", "body", "legs"]) {
+    doc.querySelector(`#sheet-${role}-clear`).click();
+    await sleep(40);
+  }
+  await sleep(120);
+  const bulk = new DataTransfer();
+  const unnamed = [
+    ["1.png", sheets.body[1]],
+    ["2.png", sheets.legs[1]],
+    ["3.png", sheets.head[1]],
+  ];
+  for (const [name, bitmap] of unnamed) {
+    bulk.items.add(new File([await pngBlob(bitmap)], name, { type: "image/png" }));
+  }
+  const bulkInput = doc.querySelector("#sheet-bulk-input");
+  bulkInput.files = bulk.files;
+  bulkInput.dispatchEvent(new Event("change", { bubbles: true }));
   for (let tick = 0; tick < 200; tick += 1) {
     await sleep(25);
-    if (!doc.querySelector("#do-gifs").disabled) break;
+    if (!doc.querySelector("#do-pack").disabled) break;
   }
-  const disabled = doc.querySelector("#do-gifs").disabled;
+  buttons.bulkNames = [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[0]);
+  // one tall sheet alone cannot be split: the card asks for a manual drop
+  doc.querySelector("#sheet-head-clear").click();
+  doc.querySelector("#sheet-legs-clear").click();
+  await sleep(80);
+  const lonely = new DataTransfer();
+  lonely.items.add(new File([await pngBlob(sheets.legs[1])], "4.png", { type: "image/png" }));
+  bulkInput.files = lonely.files;
+  bulkInput.dispatchEvent(new Event("change", { bubbles: true }));
+  await sleep(300);
+  buttons.lonelyStatus = doc.querySelector("#sheet-status").textContent.trim();
+
+  // put the three real sheets back for the steps that follow
+  for (const role of ["head", "body", "legs"]) {
+    await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
+    await sleep(60);
+  }
+  await waitResults();
+
+  // the swap trades the head sheet for the legs sheet
+  const headBefore = doc.querySelector("#sheet-head-name").textContent;
+  const legsBefore = doc.querySelector("#sheet-legs-name").textContent;
+  doc.querySelector("#sheet-legs-swap").click();
+  await sleep(150);
+  buttons.swapped =
+    doc.querySelector("#sheet-head-name").textContent === legsBefore &&
+    doc.querySelector("#sheet-legs-name").textContent === headBefore;
+  doc.querySelector("#sheet-head-swap").click();
+  await sleep(150);
+  buttons.swappedBack = doc.querySelector("#sheet-head-name").textContent === headBefore;
   const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
   const filled = [...doc.querySelectorAll(".slot")].map((slot) => slot.classList.contains("is-filled"));
   // each slot has to show its own title and a thumbnail of what was dropped
@@ -312,12 +436,29 @@ async function runSheetGifs(doc) {
     const rect = el.getBoundingClientRect();
     return [Math.round(rect.width), Math.round(rect.height)];
   });
-  // the remove control is an icon button, not a word
-  const clearIcons = [...doc.querySelectorAll(".slot-head button")].map((el) => ({
+  // the remove control is an icon button in the drop area's corner, not a word
+  const clearIcons = [...doc.querySelectorAll(".slot-clear")].map((el) => ({
     svg: !!el.querySelector("svg"),
     text: el.textContent.trim(),
+    visible: !el.hidden,
   }));
-  if (disabled) return { error: "the generate button stayed disabled", sheetStatus, wrongSlotStatus };
+  // head and legs are swappable: their icons sit right below the ×
+  const swapIcons = [...doc.querySelectorAll(".slot-swap")].map((el) => ({
+    id: el.id,
+    visible: !el.hidden,
+    tooltip: el.dataset.tooltip ?? "",
+  }));
+  // the file name and its size are two lines, not one joined by a dot
+  const slotInfo = [...doc.querySelectorAll(".slot-info")].map((el) => ({
+    lines: el.textContent.split("\n"),
+    height: Math.round(el.getBoundingClientRect().height),
+  }));
+  if (disabled) return { error: "the pack button stayed disabled", sheetStatus, wrongSlotStatus };
+
+  await sleep(150); // let the layout settle after the slots are filled
+  // a GIF setting change has to redraw the card by itself: the first preview
+  // must become a different picture
+  const beforeSrc = doc.querySelector("#gif-results .preview img")?.src ?? "";
 
   // slow GIFs at 2x, so the test can see the settings really reach the encoder
   const speed = doc.querySelector("#gif-speed");
@@ -327,18 +468,19 @@ async function runSheetGifs(doc) {
   size.value = "2";
   size.dispatchEvent(new Event("change", { bubbles: true }));
 
-  await sleep(150); // let the layout settle after the slots are filled
-  doc.querySelector("#do-gifs").click();
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
     const images = doc.querySelectorAll("#gif-results .preview img");
-    if (images.length) {
+    if (images.length && images[0].src !== beforeSrc) {
       // GIFs decode lazily: wait so naturalWidth is the real frame size
       await Promise.all([...images].map((img) => img.decode().catch(() => null)));
       const widths = [...images].map((img) => img.naturalWidth);
       const gif = doc.querySelector('#gif-results .files a[download$=".gif"]');
       return {
         disabled,
+        drewItself,
+        demo,
+        buttons,
         sheetStatus,
         wrongSlotStatus,
         wrongSlotFilled,
@@ -347,6 +489,8 @@ async function runSheetGifs(doc) {
         thumbs,
         boxes,
         clearIcons,
+        swapIcons,
+        slotInfo,
         previews: images.length,
         widths,
         gifSize: gif ? gif.textContent : null,
@@ -378,18 +522,29 @@ async function runPlayerOverlay(doc) {
   const info = doc.querySelector("#player-info");
   const hintText = info?.dataset.tooltip ?? "";
 
-  doc.querySelector("#do-gifs").click();
+  // ticking the switch redraws the card by itself
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
     const links = doc.querySelectorAll("#gif-results .files a");
     if (links.length > 4) {
-      return {
+      const report = {
         hintText,
         files: [...links].map((a) => a.textContent),
         previews: doc.querySelectorAll("#gif-results .preview img").length,
         warnings: [...doc.querySelectorAll("#gif-results .warn")].map((el) => el.textContent),
         status: doc.querySelector("#status").textContent.trim(),
       };
+      // each slot's own × empties it, and the card follows with no button press
+      for (const role of ["head", "body", "legs"]) {
+        doc.querySelector(`#sheet-${role}-clear`).click();
+        await sleep(60);
+      }
+      for (let wait = 0; wait < 200 && doc.querySelectorAll("#gif-results .preview img").length; wait += 1) {
+        await sleep(25);
+      }
+      report.clearedPreviews = doc.querySelectorAll("#gif-results .preview img").length;
+      report.clearedText = doc.querySelector("#gif-results").textContent.trim();
+      return report;
     }
   }
   return { error: "no player overlay result" };
@@ -518,6 +673,20 @@ async function runExport(doc) {
     cards: [...doc.querySelectorAll("#results .job h3")].map((el) => el.textContent.trim()),
   };
 
+  // the two corner links: the wiki page follows the language, the source does not
+  const linkInfo = (id) => {
+    const el = doc.querySelector(id);
+    return {
+      href: el?.getAttribute("href") ?? null,
+      target: el?.getAttribute("target") ?? null,
+      rel: el?.getAttribute("rel") ?? null,
+      tooltip: el?.dataset.tooltip ?? null,
+      label: el?.getAttribute("aria-label") ?? null,
+      icon: !!el?.querySelector("svg"),
+    };
+  };
+  const links = { zh: { wiki: linkInfo("#wiki-link"), repo: linkInfo("#repo-link") } };
+
   // switching the language has to translate the cards that are already there
   const captions = () => [...doc.querySelectorAll("#results figcaption")].map((el) => el.textContent);
   const before = captions();
@@ -529,6 +698,7 @@ async function runExport(doc) {
   }
   const english = captions();
   const englishFiles = doc.querySelectorAll("#results a[download]").length;
+  links.en = { wiki: linkInfo("#wiki-link"), repo: linkInfo("#repo-link") };
   language.value = "zh_CN";
   language.dispatchEvent(new Event("change", { bubbles: true }));
   for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(english); tick += 1) {
@@ -539,7 +709,8 @@ async function runExport(doc) {
   // The switches have to redraw the card. Wait for the card to stop changing
   // first: a run started by the previous step may still land.
   // the animation no longer lives in the result card: it is beside the drop area
-  const previewSrc = () => doc.querySelector("#preview-gif")?.getAttribute("src") ?? "";
+  // the animation is a canvas now: every redraw bumps its render counter
+  const previewSrc = () => doc.querySelector("#preview-gif")?.dataset.render ?? "";
   const settle = async () => {
     let last = "";
     let stable = 0;
@@ -579,6 +750,43 @@ async function runExport(doc) {
   await settle();
   const previewVisible = !doc.querySelector("#preview-gif").hidden;
 
+  // the transport: it plays by default, steps one frame at a time, and the
+  // counter shows the position in the GIF's own frame order
+  const canvas = doc.querySelector("#preview-gif");
+  const count = () => doc.querySelector("#gif-count").textContent.trim();
+  const at = () => Number(count().split("/")[0]);
+  const total = () => Number(count().split("/")[1]);
+  const playing = () => doc.querySelector("#gif-play").getAttribute("aria-pressed") === "true";
+  const playingAtStart = playing();
+  const started = at();
+  await sleep(400);
+  const advanced = at() !== started;
+  doc.querySelector("#gif-play").click();
+  const pausedNow = !playing();
+  const pausedAt = at();
+  await sleep(350);
+  const stayedPut = at() === pausedAt;
+  const frames = total();
+  doc.querySelector("#gif-next").click();
+  const nextDelta = (at() - pausedAt + frames) % frames;
+  doc.querySelector("#gif-prev").click();
+  const prevDelta = (at() - pausedAt + frames) % frames;
+  const transport = {
+    playingAtStart,
+    advanced,
+    pausedNow,
+    stayedPut,
+    nextDelta,
+    prevDelta,
+    total: frames,
+    canvasSize: [canvas.width, canvas.height],
+    sizeValue: doc.querySelector("#export-gif-size").value,
+    selectWidths: ["#export-gif-speed", "#export-gif-size"].map((sel) =>
+      Math.round(doc.querySelector(sel).getBoundingClientRect().width),
+    ),
+  };
+  doc.querySelector("#gif-play").click();
+
   // hand the original template back for the steps that follow
   await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
   await waitRender(doc);
@@ -592,6 +800,7 @@ async function runExport(doc) {
     buttons,
     ui,
     captions: { before, english, englishFiles, chinese },
+    links,
     files: [...doc.querySelectorAll("#results a[download]")].map((a) => a.textContent),
     previews: doc.querySelectorAll("#preview-gif").length,
     sizes: doc.querySelector("#results .sheet-table tbody tr:not(.id-row) td:nth-child(2)")?.textContent.trim() ?? "",
@@ -601,6 +810,7 @@ async function runExport(doc) {
     playerChanged,
     femaleChanged,
     previewVisible,
+    transport,
     stored: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.history") || "[]"),
     status: doc.querySelector("#status").textContent.trim(),
   };
@@ -684,7 +894,10 @@ async function runPackCards(doc) {
     button: card().querySelector(".pack-actions > button")?.textContent.trim() ?? null,
     inputs: [...card().querySelectorAll(".pack-info input")].map((input) => input.placeholder),
     rows: [...card().querySelectorAll(".sheet-table tbody tr")].map((tr) =>
-      [...tr.children].slice(0, 3).map((td) => td.textContent.trim()),
+      [...tr.children].map((td) => td.textContent.trim()),
+    ),
+    headers: [...card().querySelectorAll(".sheet-table thead th")].map((th) =>
+      th.textContent.trim(),
     ),
     // the ID column carries an input plus the vanilla name it resolves to
     ids: [...card().querySelectorAll(".id-cell")].map((cell) => ({
