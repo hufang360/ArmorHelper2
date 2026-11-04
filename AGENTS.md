@@ -54,7 +54,7 @@ README 由用户手动维护。不要改它的结构、措辞或顺序。
 
 其它文档按本节的规则写。细节进 `docs/`，索引见 `docs/README.md`。
 
-格式由测试与 lint 守住：中文段落不折行、列表用 `*`、代码块写语言、不用裸 URL、
+格式由测试与 lint 守住：中文段落不折行、列表用 `-`、代码块写语言、不用裸 URL、
 不留连续空行与行尾空格。改完跑 `npm test` 与
 `npx markdownlint-cli2 "README.md" "docs/*.md" "web/README.md" "AGENTS.md"`。
 
