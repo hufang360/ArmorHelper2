@@ -16,9 +16,11 @@ import { $, $$, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { saveConfig, state } from "./state.js";
 import { armorName, effectiveIds } from "./ids.js";
-import { setPreviewGif } from "./gifs.js";
+import { makeGif, setPreviewGif } from "./gifs.js";
 import { bitmapToDataURL, canUseFolders, downloadBlob } from "../js/fs.js";
-import { composeOverlay, magnify } from "../js/compose.js";
+import { pngBlob } from "../js/png.js";
+import { composeOverlay, TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
+import { upscale } from "../js/bitmap.js";
 
 /** `app.js` installs its debounced export here; the ID column cannot import it. */
 let scheduleExport = () => {};
@@ -354,12 +356,13 @@ function sheetColumns(columns) {
 }
 
 function resultCard(result, host = $("#results")) {
-  // the export result is a bare block; the other panels keep their card look
-  const bare = !!result.tabs?.length;
+  // the export result is a bare block; a panel can ask for that too
+  const bare = result.bare === true || !!result.tabs?.length;
   const card = document.createElement("div");
   card.className = bare ? "result-block" : "job";
 
-  if (!bare) {
+  // a bare block only keeps a heading when it says something the files do not
+  if (bare ? result.titleKey : true) {
     const heading = document.createElement("h3");
     heading.textContent = result.titleKey
       ? `${t(result.titleKey, result.titleVars)}${result.titleSuffix ?? ""}`
@@ -367,23 +370,37 @@ function resultCard(result, host = $("#results")) {
     card.append(heading);
   }
 
-  const previews = document.createElement("div");
-  previews.className = "previews";
-  for (const item of result.previews ?? []) {
-    // a template preview is drawn now, so this page's guide switch applies at once
-    if (item.template) {
-      previews.append(
-        previewFigure(
-          keepUrl(magnify(withGuide(item.template, state.config.revGuide !== false), 4)),
-          previewCaption(item),
-          item.alt,
-        ),
-      );
-      continue;
+  // the generated frames and the animation share a row; the drawing template
+  // sits below them, after a rule
+  const all = result.previews ?? [];
+  const drawn = all.filter((item) => item.template);
+  const plain = all.filter((item) => !item.template);
+  const row = (items) => {
+    const box = document.createElement("div");
+    box.className = "previews";
+    for (const item of items) {
+      // a template preview is drawn now, so this page's guide switch applies at once
+      if (item.template) {
+        box.append(
+          previewFigure(
+            keepUrl(upscale(withGuide(item.template, state.config.revGuide !== false), TEMPLATE_PREVIEW_SCALE)),
+            previewCaption(item),
+            item.alt,
+          ),
+        );
+        continue;
+      }
+      box.append(previewFigure(item.url, previewCaption(item), item.alt));
     }
-    previews.append(previewFigure(item.url, previewCaption(item), item.alt));
+    return box;
+  };
+  if (plain.length) card.append(row(plain));
+  if (plain.length && drawn.length) {
+    const rule = document.createElement("hr");
+    rule.className = "preview-rule";
+    card.append(rule);
   }
-  if (previews.childElementCount) card.append(previews);
+  if (drawn.length) card.append(row(drawn));
 
   // the 材质包 card: actions, the era tabs, then the active tab's content
   if (result.tabs?.length) card.append(packCardBody(result.tabs));
@@ -415,6 +432,14 @@ function resultCard(result, host = $("#results")) {
   actions.className = "actions";
   // NB: the locals must not be called `zip` / `save` — that would shadow
   // `result.zip` / `result.save` and make the click handler call the <button>.
+  if (result.download) {
+    const link = document.createElement("a");
+    link.className = "btn btn-sm btn-primary";
+    link.href = result.download.url;
+    link.download = result.download.name.split("/").pop();
+    link.textContent = t("web.download");
+    actions.append(link);
+  }
   if (result.zip && result.zipInCard !== false) {
     const zipButton = document.createElement("button");
     zipButton.className = "btn btn-sm btn-secondary";
@@ -498,4 +523,38 @@ export function keepUrl(bitmap) {
 /** The template as it should be shown: with the guide layer, when enabled. */
 export function withGuide(template, enabled) {
   return enabled ? composeOverlay(template, state.overlay) : template;
+}
+
+/**
+ * Re-encode a result's animation preview for this page's GIF speed.
+ *
+ * The animation is a preview only, so nothing else has to be rebuilt.
+ */
+export function refreshGif(result) {
+  const item = result?.previews?.find((entry) => entry.captionKey === "web.previewGif");
+  if (!item || !result.frames?.length) return result;
+  item.url = URL.createObjectURL(makeGif(result.frames, state.config.revGifSpeed ?? "fast", 2));
+  return result;
+}
+
+/**
+ * Re-encode a result's template PNG for the current guide setting.
+ *
+ * The preview is drawn on the fly, but a download is a blob baked when the set
+ * was reversed.  Flipping the switch has to replace that blob too, otherwise
+ * the link keeps handing out the old picture.
+ */
+export async function rebakeTemplate(result) {
+  const guide = state.config.revGuide !== false;
+  for (const item of result?.templates ?? []) {
+    const blob = await pngBlob(withGuide(item.raw, guide));
+    item.file.url = URL.createObjectURL(blob);
+    item.file.size = blob.size;
+  }
+  const download = result?.download;
+  if (download) {
+    const match = (result.templates ?? []).find((item) => item.file.name === download.name);
+    if (match) download.url = match.file.url;
+  }
+  return result;
 }

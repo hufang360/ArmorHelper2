@@ -177,7 +177,7 @@ function reverseBody(template, body, warnings) {
   }
 
   if (sheet.height >= h * (layout.bodyComposite.rows + layout.bodyComposite.glowRows)) {
-    warnings.push("texture has a glow mask; it is not reversed");
+    warnings.push({ key: "reverse.warnGlowMask" });
   }
 }
 
@@ -192,13 +192,13 @@ export function reverseTemplate(textures = {}) {
   const warnings = [];
 
   if (textures.body) reverseBody(template, textures.body, warnings);
-  else warnings.push("no body texture: the torso and the arms cannot be recovered");
+  else warnings.push({ key: "reverse.warnNoBody" });
 
   if (textures.head) reverseHead(template, textures.head);
-  else warnings.push("no head texture: the head region is left empty");
+  else warnings.push({ key: "reverse.warnNoHead" });
 
   if (textures.legs) reverseLegs(template, textures.legs);
-  else warnings.push("no legs texture: the legs region is left empty");
+  else warnings.push({ key: "reverse.warnNoLegs" });
 
   return { template, warnings };
 }
@@ -206,15 +206,21 @@ export function reverseTemplate(textures = {}) {
 /**
  * The file names to try for each of the three textures, in order.
  *
+ * A slot accepts one id or a list of ids; the list is tried in order, so a set
+ * with a male and a female legs sheet uses whichever one exists.
+ *
  * The body lives in the `Armor/` sub folder, but a flat layout is accepted too
  * so an extracted texture pack that flattens everything still works.
  */
 export function textureCandidates(body, head, legs) {
-  const isSet = (value) => value !== null && value !== undefined && value !== "";
+  const ids = (value) => {
+    if (Array.isArray(value)) return value.filter((item) => item !== null && item !== undefined && item !== "");
+    return value === null || value === undefined || value === "" ? [] : [value];
+  };
   return {
-    head: isSet(head) ? [`Armor_Head_${head}.png`] : [],
-    body: isSet(body) ? [`Armor/Armor_${body}.png`, `Armor_${body}.png`] : [],
-    legs: isSet(legs) ? [`Armor_Legs_${legs}.png`] : [],
+    head: ids(head).map((id) => `Armor_Head_${id}.png`),
+    body: ids(body).flatMap((id) => [`Armor/Armor_${id}.png`, `Armor_${id}.png`]),
+    legs: ids(legs).map((id) => `Armor_Legs_${id}.png`),
   };
 }
 

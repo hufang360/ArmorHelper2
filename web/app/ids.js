@@ -8,7 +8,7 @@
  */
 
 import { $ } from "./dom.js";
-import { displayName } from "../js/data.js";
+import { displayName, extraPartName } from "../js/data.js";
 
 export function asId(value) {
   const raw = String(value ?? "").trim();
@@ -34,7 +34,9 @@ export async function loadArmorNames() {
 /** `head 11` -> `挖矿头盔`, or an empty string when the table has no entry. */
 export function armorName(part, id) {
   const entry = armorNames?.[part]?.[String(id)];
-  return entry ? displayName(entry.zh) || entry.name : "";
+  if (entry) return displayName(entry.zh) || entry.name;
+  // the skirt and extension sheets are named in data/armor_sets_extra.json
+  return extraPartName(part, id);
 }
 
 /** The ids used for output names: 0 when the field is empty. */

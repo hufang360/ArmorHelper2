@@ -93,7 +93,8 @@ test("the crop table agrees with the layout tables", () => {
 
 test("the crop doc points at the reverse feature and the inspector", () => {
   const text = read(DOC);
-  assert.ok(text.includes("反向还原") || text.includes("reverse"));
+  // the page is called 盔甲模板 now; the algorithm is still 反向还原
+  assert.ok(text.includes("盔甲模板") || text.includes("反向还原") || text.includes("reverse"));
   assert.ok(text.includes("tools/inspect_armor.mjs"));
 });
 

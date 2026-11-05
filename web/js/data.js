@@ -27,18 +27,92 @@ export async function loadLayout(url = "data/layout.json") {
 /* ------------------------------------------------------------------ sets -- */
 
 let sets = null;
+let parts = {};
+let extraNames = { head: {}, body: {}, legs: {} };
+let extraSets = [];
+let records = null;
 
-export async function loadSets(url = "data/armor_sets.json") {
-  const response = await fetch(url);
+export async function loadSets(url = "data/armor_sets.json", partsUrl = url.replace(/[^/]*$/, "armor_sets_extra.json")) {
+  const [response, extra] = await Promise.all([fetch(url), fetch(partsUrl)]);
   if (!response.ok) throw new Error(`cannot load ${url}: ${response.status}`);
-  const payload = await response.json();
-  sets = payload.sets;
+  if (!extra.ok) throw new Error(`cannot load ${partsUrl}: ${extra.status}`);
+  const payload = await extra.json();
+  sets = (await response.json()).sets;
+  parts = payload.sets;
+  extraNames = payload.names ?? extraNames;
+  extraSets = payload.extraSets ?? extraSets;
+  records = expand(sets, parts, extraSets);
   return sets;
 }
 
-export function initSets(value) {
+/**
+ * Every texture id of one set, primary id first.
+ *
+ * A set can own more than one sheet per slot: a robe has a skirt in the legs
+ * table, a huntress jerkin has a male and a female variant plus an extension.
+ * `armor_sets.json` carries only the primary id, so the rest comes from
+ * `armor_sets_extra.json`.
+ */
+export function setParts(item) {
+  const extra = parts[String(item.body)] ?? {};
+  const one = (value) => (value === null || value === undefined ? [] : [value]);
+  return {
+    head: extra.head ?? one(item.head),
+    body: one(item.body),
+    legs: extra.legs ?? one(item.legs),
+  };
+}
+
+export function initSets(value, extra = {}) {
   sets = value;
+  parts = extra;
+  records = expand(sets, parts, extraSets);
   return sets;
+}
+
+/**
+ * True for a sheet that only adds a layer: a hem, a coat tail, a skirt.
+ *
+ * The game's constant name says so (`TikiShirtBodyExtensionMale`), and the
+ * curated Chinese name repeats it (提基衣（男性延展）).
+ */
+export function isExtensionPart(part, id) {
+  const entry = extraNames?.[part]?.[String(id)];
+  if (!entry) return false;
+  return /Extension/i.test(entry.name ?? "") || String(entry.zh ?? "").includes("延展");
+}
+
+/** A curated name for a part id the generated table does not cover. */
+export function extraPartName(part, id) {
+  const entry = extraNames?.[part]?.[String(id)];
+  return entry ? displayName(entry.zh) || entry.name || "" : "";
+}
+
+/** The ids the game swaps in for this body: skirt, extension, other sex. */
+export function partIds(item) {
+  return parts[String(item?.body)] ?? {};
+}
+
+/**
+ * One record per part combination.
+ *
+ * A set can own several sheets per slot (male and female legs, a skirt next to
+ * its pants).  The picker lists every combination as its own set, so choosing a
+ * record reverses exactly one picture.
+ */
+function expand(list, patch, extras = []) {
+  const out = [];
+  for (const item of list) {
+    const extra = patch[String(item.body)] ?? {};
+    const heads = extra.head ?? (item.head === null ? [null] : [item.head]);
+    const legs = extra.legs ?? (item.legs === null ? [null] : [item.legs]);
+    for (const head of heads.length ? heads : [null]) {
+      for (const leg of legs.length ? legs : [null]) out.push({ ...item, head, legs: leg });
+    }
+  }
+  // pieces that belong to no body: a hat, say. They are listed on their own.
+  for (const item of extras) out.push({ confidence: "none", ...item });
+  return out;
 }
 
 /**
@@ -50,9 +124,25 @@ export function displayName(name) {
   return String(name || "").replaceAll("护甲", "盔甲");
 }
 
+/** The translated name and the English one, side by side. */
+export function setName(item) {
+  return [displayName(item.zh), item.name].filter(Boolean).join(" ");
+}
+
+/** `(26,4,4)`: the three ids of this record. */
+export function setIds(item) {
+  return `(${item.head ?? "-"},${item.body ?? "-"},${item.legs ?? "-"})`;
+}
+
 export function setLabel(item) {
-  const parts = [displayName(item.zh), item.name].filter(Boolean);
-  return `${parts.join("  ")}  (${item.body})`;
+  return `${setName(item)}${setIds(item)}`;
+}
+
+/** Columns a string takes in a monospace line; a CJK glyph is two. */
+export function textCells(text) {
+  let cells = 0;
+  for (const character of String(text)) cells += character.codePointAt(0) > 0x2e7f ? 2 : 1;
+  return cells;
 }
 
 export function matchesSet(item, needle) {
@@ -81,6 +171,15 @@ export function findSet(body) {
 
 export function allSets() {
   return sets || [];
+}
+
+/** The picker list: one entry per part combination. */
+export function allRecords() {
+  return records || [];
+}
+
+export function searchRecords(query) {
+  return (records || []).filter((item) => matchesSet(item, query));
 }
 
 /* ------------------------------------------------------------------ misc -- */

@@ -32,7 +32,11 @@ test("the app works when it is served from a subdirectory", { skip }, async () =
     );
 
     assert.equal(payload.error, undefined, payload.error);
-    assert.ok(payload.status.includes("就绪"), payload.status);
+    // the page rebuilds its default set while booting, so the bar holds either
+    assert.ok(
+      payload.status.includes("就绪") || payload.status.includes("已还原"),
+      payload.status,
+    );
     assert.ok(payload.sets > 150, `${payload.sets} sets`);
 
     // the bundled atlas is fetched relatively: "data/vanilla/…", not "/data/…"
@@ -44,7 +48,7 @@ test("the app works when it is served from a subdirectory", { skip }, async () =
     assert.equal(reverse.error, undefined, reverse.error);
     assert.deepEqual(reverse.files, ["ArmorTemplate_星尘板甲_190.png"]);
     assert.equal(reverse.previews, 3);
-    assert.equal(reverse.widths[0], 128 * 4 + 4);
+    assert.equal(reverse.widths[2], 128 * 2);
 
     // the service worker is registered for the subdirectory, not for the root.
     // (`controlled` needs a reload after the first install, so it is only

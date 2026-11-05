@@ -92,7 +92,11 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(payload.error, undefined, `${payload.error} | requests=${served.state.paths.join(", ")}`);
 
     // a static page has no backend, so the status bar must not claim a connection
-    assert.ok(payload.status.includes("就绪"), payload.status);
+    // no backend: either the ready line or the first rebuilt set is on the bar
+    assert.ok(
+      payload.status.includes("就绪") || payload.status.includes("已还原"),
+      payload.status,
+    );
     assert.ok(!payload.status.includes("已连接"), payload.status);
     assert.ok(payload.sets > 150, `${payload.sets} sets`);
     // no export targets are left: every output is always generated
@@ -106,10 +110,10 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "set-glow",
       "set-verify",
     ]);
-    assert.deepEqual(payload.tabs, ["导出贴图", "预览贴图", "反向还原", "设置"]);
+    assert.deepEqual(payload.tabs, ["导出贴图", "预览贴图", "盔甲模板", "设置"]);
     assert.ok(payload.subtitle.includes("网页版"), payload.subtitle);
     assert.equal(payload.guide, true);
-    assert.ok(payload.guideLabel.includes("参考线"), payload.guideLabel);
+    assert.ok(payload.guideLabel.includes("叠加标准图"), payload.guideLabel);
     assert.equal(payload.favicon, "data/icon.png");
     assert.equal(payload.logo, "data/icon.png");
     // on a clean profile: nothing to open yet
@@ -124,19 +128,55 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     for (const label of ["builtin", "uploaded"]) {
       const reverse = payload[label];
       assert.equal(reverse.error, undefined, `${label}: ${reverse.error}`);
+      // the status lines are translated now, so look for the Chinese wording
       const missing = reverse.warnings.filter(
-        (text) => text.includes("not found") || text.includes("cannot be recovered") || text.includes("left empty"),
+        (text) => text.includes("找不到贴图") || text.includes("无法还原") || text.includes("留空"),
       );
       assert.deepEqual(missing, [], `${label} could not find a texture`);
       assert.deepEqual(reverse.files, ["ArmorTemplate_星尘板甲_190.png"], label);
       assert.equal(reverse.previews, 3, label);
-      assert.ok(reverse.captions[0].includes("绘制模板"), reverse.captions[0]);
-      assert.ok(reverse.captions[1].includes("20 帧"), reverse.captions[1]);
-      assert.equal(reverse.widths[0], 128 * 4 + 4, `${reverse.widths[0]}`);
+      // frames and animation come first, the drawing template under them
+      assert.ok(reverse.captions[0].includes("20 帧"), reverse.captions[0]);
+      assert.ok(reverse.captions[1].includes("GIF"), reverse.captions[1]);
+      assert.ok(reverse.captions[2].includes("绘制模板"), reverse.captions[2]);
+      assert.ok(reverse.captions[2].includes("2X"), reverse.captions[2]);
+      // the template preview is 2x; the frames are 1:1
+      assert.equal(reverse.widths[2], 128 * 2, `${reverse.widths[2]}`);
+      assert.equal(reverse.heights[2], 80 * 2, `${reverse.heights[2]}`);
+      assert.equal(reverse.sections, 2, "the rule between the rows is missing");
       // the guide switch is checked here: this is the only template preview left
       assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
+      // one set offers one download button; the zip and the folder write are gone
+      assert.deepEqual(reverse.actions, ["下载"], label);
+      assert.deepEqual(reverse.fileMeta, ["128×80px"], label);
     }
 
+    // a set whose typed legs id has no sheet falls back to the set table's own
+    // legs sheet (长袍 Robe: only the skirt 88 exists)
+    const fallback = payload.fallback;
+    assert.equal(fallback.error, undefined, fallback.error);
+    assert.deepEqual(fallback.files, ["ArmorTemplate_长袍_15.png"]);
+    assert.ok(!fallback.warnings.some((text) => text.includes("腿部")), fallback.warnings.join(" | "));
+    // the core reports keys, the page translates them: no English sentence leaks
+    assert.ok(
+      fallback.warnings.some((text) => text.includes("没有头部贴图")),
+      fallback.warnings.join(" | "),
+    );
+
+    // selecting a set in the list rebuilds it without pressing the button, and
+    // clicking the option that is already selected rebuilds it again
+    const pick = payload.pick;
+    assert.ok(pick.listed.includes("星尘板甲"), pick.listed);
+    for (const [label, entry] of Object.entries({
+      selected: pick.selected,
+      clicked: pick.clicked,
+      button: pick.button,
+    })) {
+      assert.equal(entry.error, undefined, `${label}: ${entry.error} | ${entry.status}`);
+      assert.equal(entry.body, "190", label);
+      assert.deepEqual(entry.files, ["ArmorTemplate_星尘板甲_190.png"], label);
+      assert.ok(entry.status.includes("已还原"), entry.status);
+    }
 
     // the drop area's own tools: demo template, guide overlay, download
     const dropTools = payload.dropTools;
@@ -504,7 +544,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(gifs.drewItself, true);
     // 2x was chosen, so the GIFs (and their preview) are twice as wide
     assert.deepEqual(gifs.widths.slice(0, 2), [80, 80]);
-    assert.ok(gifs.widths[2] > 800, String(gifs.widths[2])); // the 20 frame contact sheet
+    // 20 frames laid out 10 per row, 1:1, with a 2 px gap on every side
+    assert.equal(gifs.widths[2], 10 * 40 + 11 * 2, String(gifs.widths[2]));
     assert.equal(gifs.settings.gifSpeed, "slow");
     assert.equal(gifs.settings.gifSize, 2);
 
@@ -587,6 +628,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(reverseAll.files > 100, `${reverseAll.files} files`);
     assert.ok(reverseAll.status.includes("已还原"), reverseAll.status);
     assert.ok(reverseAll.history >= 2, `${reverseAll.history} history entries`);
+    // a batch is the only case with the zip button
+    assert.deepEqual(reverseAll.actions, ["打包下载 (zip)"], reverseAll.actions.join(" | "));
   } finally {
     await served.close();
   }

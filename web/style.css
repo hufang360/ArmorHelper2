@@ -116,6 +116,19 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
    the labels at this width.  Both are a size below `.form-select-sm`, which
    keeps them readable without filling the box. */
 .preview-gif-opts { display: flex; flex-direction: column; gap: .25rem; margin-top: .25rem; }
+/* The set list lines its ids up on the right, so it needs even columns. */
+#set-select { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* The name of the set being previewed, one size up from the body text. */
+.rev-set-name { margin: 0 0 .5rem; font-size: 1.05rem; line-height: 1.3; color: var(--text); }
+
+/* The reverse page's guide switch and GIF speed share one row. */
+.rev-settings {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem;
+  margin-bottom: .6rem;
+}
+.rev-settings .form-select { width: 6.5rem; flex: none; }
+
 /* A fixed width, so the two do not change size when the labels do. */
 .preview-gif-opts .form-select {
   width: 11.2rem; max-width: 100%; font-size: .7rem;
@@ -294,20 +307,25 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .job { background: var(--panel-2); border: 1px solid var(--line); border-radius: .5rem; padding: .6rem; }
 .job h3 { margin: 0 0 .5rem; font-size: .875rem; }
 .previews { display: flex; gap: .5rem; flex-wrap: wrap; }
+.preview-rule { margin: .1rem 0; border-color: var(--line); opacity: 1; }
 .preview {
-  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 16px 16px;
-  border-radius: .375rem; padding: .35rem; overflow: auto; max-width: 100%;
+  border-radius: .375rem; padding: 0; overflow: auto; max-width: 100%;
   margin: 0; display: flex; flex-direction: column; gap: .25rem;
 }
-.preview img { display: block; max-width: 100%; }
+/* the grid sits under the image itself, so the pattern matches its pixels */
+.preview img {
+  display: block; max-width: 100%;
+  background: repeating-conic-gradient(#2a2f3d 0% 25%, #232733 0% 50%) 50% / 16px 16px;
+}
 .preview figcaption {
   font-size: .7rem; color: var(--muted); text-align: center;
   letter-spacing: .02em;
 }
-.job .files { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .8rem; max-height: 200px; overflow: auto; }
-.job .files li { display: flex; align-items: baseline; gap: .5rem; padding: .1rem 0; }
-.job .files li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job .files li .text-body-secondary { flex: none; font-size: .75rem; }
+/* a bare result block has no card of its own, so the list styles follow it */
+.files { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .8rem; max-height: 200px; overflow: auto; }
+.files li { display: flex; align-items: baseline; gap: 1rem; padding: .1rem 0; }
+.files li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files li .text-body-secondary { flex: none; font-size: .75rem; }
 
 /* Thin scrollbars that stay out of the way: no track, a faint thumb, and the
    thumb only appears while the pointer is over the area or it is scrolling. */

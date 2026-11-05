@@ -343,16 +343,6 @@
               <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
 
               <div class="field">
-                <span class="form-label d-block small text-body-secondary mb-1" data-i18n="web.textureSource"></span>
-                <div class="inputrow d-flex flex-wrap gap-1">
-                  <button class="btn btn-sm btn-secondary" id="pick-images" data-i18n="web.pickImages"></button>
-                  <input type="file" id="texture-input" accept=".png" multiple hidden>
-                  <button class="btn btn-sm btn-secondary" id="pick-textures" data-i18n="web.pickFiles"></button>
-                </div>
-              </div>
-              <p class="text-body-secondary small mb-1" id="images-status"></p>
-
-              <div class="field">
                 <label class="form-label small text-body-secondary mb-1" for="set-search" data-i18n="web.reverseSearch"></label>
                 <input type="search" id="set-search" class="form-control form-control-sm" data-i18n-placeholder="web.reverseSearch">
               </div>
@@ -362,33 +352,35 @@
                 <select id="set-select" class="form-select form-select-sm" size="8"></select>
               </div>
 
-              <div class="row g-2">
-                <div class="col-4">
-                  <label class="form-label small text-body-secondary mb-1" for="rev-head" data-i18n="details.idHead"></label>
-                  <input type="number" class="form-control form-control-sm" id="rev-head" min="0" max="999">
-                </div>
-                <div class="col-4">
-                  <label class="form-label small text-body-secondary mb-1" for="rev-body" data-i18n="details.idBody"></label>
-                  <input type="number" class="form-control form-control-sm" id="rev-body" min="0" max="999">
-                </div>
-                <div class="col-4">
-                  <label class="form-label small text-body-secondary mb-1" for="rev-legs" data-i18n="details.idLegs"></label>
-                  <input type="number" class="form-control form-control-sm" id="rev-legs" min="0" max="999">
+              <hr class="my-2">
+
+              <div class="field">
+                <span class="form-label d-block small text-body-secondary mb-1" data-i18n="web.textureSource"></span>
+                <div class="inputrow d-flex flex-wrap gap-1">
+                  <button class="btn btn-sm btn-secondary" id="pick-images" data-i18n="web.pickImages"></button>
+                  <input type="file" id="texture-input" accept=".png" multiple hidden>
+                  <button class="btn btn-sm btn-secondary" id="pick-textures" data-i18n="web.pickFiles"></button>
                 </div>
               </div>
-              <p class="text-body-secondary small mb-0" data-i18n="web.idsHint"></p>
+              <p class="text-body-secondary small mb-1" id="images-status"></p>
 
-              <!-- this page owns its own guide switch: the export page has an icon -->
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="rev-guide">
-                <label class="form-check-label" for="rev-guide" data-i18n="web.guideOverlay"></label>
+              <!-- this page owns its own guide switch and speed: the other pages keep their own -->
+              <div class="rev-settings">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="checkbox" id="rev-guide">
+                  <label class="form-check-label" for="rev-guide" data-i18n="web.guideOverlay"></label>
+                </div>
+                <label class="form-label mb-0 small text-body-secondary" for="rev-gif-speed" data-i18n="web.gifSpeed"></label>
+                <select id="rev-gif-speed" class="form-select form-select-sm">
+                  <option value="fast" data-i18n="web.gifSpeedFast"></option>
+                  <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+                  <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+                </select>
               </div>
 
               <div class="actions">
-                <button class="btn btn-sm btn-primary" id="do-reverse" data-i18n="web.reverseDo"></button>
                 <button class="btn btn-sm btn-secondary" id="do-reverse-all" data-i18n="web.reverseAll"></button>
               </div>
-              <p class="text-body-secondary small mb-0" data-i18n="web.reverseAllHint"></p>
             </div>
           </div>
         </div>
@@ -397,6 +389,28 @@
           <div class="card results-card">
             <div class="card-body">
               <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.previewSheet"></h2>
+
+              <p class="rev-set-name" id="rev-set-name"></p>
+
+              <div class="row g-2">
+                <div class="col-4">
+                  <input type="number" class="form-control form-control-sm" id="rev-head" min="0" max="999"
+                         data-i18n-placeholder="web.slot.head">
+                  <span class="d-block small text-body-secondary mt-1" id="rev-head-name"></span>
+                </div>
+                <div class="col-4">
+                  <input type="number" class="form-control form-control-sm" id="rev-body" min="0" max="999"
+                         data-i18n-placeholder="web.slot.body">
+                  <span class="d-block small text-body-secondary mt-1" id="rev-body-name"></span>
+                </div>
+                <div class="col-4">
+                  <input type="number" class="form-control form-control-sm" id="rev-legs" min="0" max="999"
+                         data-i18n-placeholder="web.slot.legs">
+                  <span class="d-block small text-body-secondary mt-1" id="rev-legs-name"></span>
+                </div>
+              </div>
+              <p class="text-body-secondary small mb-2" data-i18n="web.idsHint"></p>
+
               <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
             </div>
           </div>

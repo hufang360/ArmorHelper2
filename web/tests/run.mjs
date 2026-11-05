@@ -44,7 +44,6 @@ import {
   contactSheet,
   fullArmorFrames,
   gifFrameOrder,
-  magnify,
   overlay as overlayFrames,
   playerFrames,
   tintFrames,
@@ -64,8 +63,9 @@ if (!workdir) {
 
 const layout = JSON.parse(readFileSync(join(here, "..", "data", "layout.json"), "utf8"));
 const sets = JSON.parse(readFileSync(join(here, "..", "data", "armor_sets.json"), "utf8"));
+const extra = JSON.parse(readFileSync(join(here, "..", "data", "armor_sets_extra.json"), "utf8"));
 initLayout(layout);
-initSets(sets.sets);
+initSets(sets.sets, extra.sets);
 
 function readBitmap(name, width, height) {
   const data = readFileSync(join(workdir, name));
@@ -124,6 +124,11 @@ const flat = await loadTextures({ body: 190, head: 189, legs: 130 }, async (path
   flatLibrary[path] ?? null,
 );
 const bodyOnly = await loadTextures({ body: 190 }, async (path) => library[path] ?? null);
+// a slot may name several ids: the first sheet that exists wins
+const listed = await loadTextures(
+  { body: 190, head: [999, 189], legs: [998, 130] },
+  async (path) => library[path] ?? null,
+);
 
 writeFileSync(
   join(workdir, "js_texture_lookup.json"),
@@ -145,7 +150,13 @@ writeFileSync(
       legs: bodyOnly.textures.legs,
       missing: bodyOnly.missing,
     },
+    listed: {
+      head: listed.textures.head?.height ?? null,
+      legs: listed.textures.legs?.height ?? null,
+      missing: listed.missing,
+    },
     candidates: textureCandidates(190, 189, 130),
+    candidatesListed: textureCandidates(190, [999, 189], [998, 130]),
   }),
 );
 
@@ -368,7 +379,6 @@ const overlay = null; // filled below when the caller supplies the pixels
       hasOverlay: !!layer,
       gainedPixels: gained,
       unchanged: Buffer.from(composed.data).equals(Buffer.from(template.data)),
-      magnified: magnify(composed, 4).width,
     }),
   );
 }

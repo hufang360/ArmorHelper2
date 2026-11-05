@@ -40,6 +40,12 @@ test("texture lookup maps vanilla files to slots", () => {
     body: ["Armor/Armor_190.png", "Armor_190.png"],
     legs: ["Armor_Legs_130.png"],
   });
+
+  // a set can own several sheets per slot: the list is tried in order
+  assert.deepEqual(lookup.candidatesListed.head, ["Armor_Head_999.png", "Armor_Head_189.png"]);
+  assert.deepEqual(lookup.candidatesListed.body, ["Armor/Armor_190.png", "Armor_190.png"]);
+  assert.deepEqual(lookup.candidatesListed.legs, ["Armor_Legs_998.png", "Armor_Legs_130.png"]);
+  assert.deepEqual(lookup.listed, { head: 1120, legs: 1120, missing: [] });
 });
 
 test("the atlas reader rebuilds the textures", () => {

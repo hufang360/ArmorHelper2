@@ -16,11 +16,11 @@ import { addHistory } from "./history.js";
 import { keepUrl, showResult, withGuide } from "./result.js";
 import { ensureOutputFolder } from "./folders.js";
 import { displayName, findSet, sanitizeFilename } from "../js/data.js";
-import { contactSheet, gifFrameOrder } from "../js/compose.js";
-import { magnify } from "../js/compose.js";
+import { contactSheet, gifFrameOrder, TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
 import { detectId as detectSheetId } from "../js/sheets.js";
 import { downloadBlob, writeToFolder } from "../js/fs.js";
 import { gifBlob } from "../js/gif.js";
+import { upscale } from "../js/bitmap.js";
 import { pngBlob } from "../js/png.js";
 import { zipBlob, zipBlobAsync } from "../js/zip.js";
 
@@ -161,8 +161,9 @@ export async function packSheetGifs(title, entries, gifs, warnings = [], preview
 
   const previews = [];
   for (const item of gifs) {
-    const shown = gifFrames(item.frames);
-    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay() });
+    // the preview-sheets tab owns these two values; pass them, do not inherit
+    const shown = gifFrames(item.frames, state.config.gifSize);
+    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay(state.config.gifSpeed) });
     blobs.push({ name: item.name, blob });
     files.push({
       name: item.name,
@@ -175,7 +176,8 @@ export async function packSheetGifs(title, entries, gifs, warnings = [], preview
   }
   if (previewFrames.length) {
     previews.push({
-      url: keepUrl(contactSheet(previewFrames)),
+      // 1:1: the previews show the pixels the game would see, never an upscale
+      url: keepUrl(contactSheet(previewFrames, 1)),
       captionKey: "web.previewFrames",
     });
   }
@@ -199,69 +201,71 @@ export async function packSheetGifs(title, entries, gifs, warnings = [], preview
   };
 }
 
-/** Build a result object from a list of `{ name, bitmap }` plus previews. */
 /**
- * Result object for the reverse tab: the template PNG, its 4x preview with the
- * guide, the 20 frame sheet and the animation.
+ * Result object for one reversed set: one template PNG per part combination,
+ * their previews, the 20 frame sheet and the animation.
+ *
+ * `templates` is `[{ name, bitmap, caption }]` with the raw (guide-free)
+ * bitmaps, so the guide switch can redraw both the previews and the downloads.
+ * A single file gets a download button; several files get a zip.
  */
-export async function packResult(title, entries, frames, warnings = [], options = {}) {
-  const { template = null } = options;
+export async function packResult(title, templates, frames, warnings = []) {
+  const guide = state.config.revGuide !== false;
   const files = [];
-  const blobs = [];
-  for (const entry of entries) {
-    const blob = await pngBlob(entry.bitmap);
-    blobs.push({ name: entry.name, blob });
-    files.push({
+  const shown = [];
+  const previews = [];
+  for (const entry of templates) {
+    const blob = await pngBlob(withGuide(entry.bitmap, guide));
+    const file = {
       name: entry.name,
       width: entry.bitmap.width,
       height: entry.bitmap.height,
       size: blob.size,
       url: URL.createObjectURL(blob),
-    });
-  }
-
-  const previews = [];
-  if (template) {
+    };
+    files.push(file);
+    shown.push({ raw: entry.bitmap, file });
     previews.push({
-      url: keepUrl(magnify(withGuide(template, state.config.revGuide !== false), 4)),
-      captionKey: "web.previewTemplate",
+      url: keepUrl(upscale(withGuide(entry.bitmap, guide), TEMPLATE_PREVIEW_SCALE)),
+      captionKey: entry.caption ? undefined : "web.previewTemplate",
+      caption: entry.caption,
       alt: "ArmorTemplate",
       // the drawing template, so a switch flip can redraw without reversing again
-      template,
+      template: entry.bitmap,
     });
   }
   if (frames?.length) {
-    previews.push({ url: keepUrl(contactSheet(frames)), captionKey: "web.previewFrames" });
-    const gif = makeGif(frames);
-    // the preview animation is not an output: it is neither zipped nor written
-    blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
+    previews.push({ url: keepUrl(contactSheet(frames, 1)), captionKey: "web.previewFrames" });
+    // the animation is a preview only: 2x for the eye, never written to disk
+    const gif = makeGif(frames, state.config.revGifSpeed ?? "fast", 2);
     previews.push({ url: URL.createObjectURL(gif), captionKey: "web.previewGif", alt: "GIF" });
   }
 
   return {
+    bare: true,
     title,
     files,
     previews,
     warnings,
-    zip: {
-      save: async () =>
-        downloadBlob(
-          await zipBlobAsync(blobs.filter((item) => !item.extra)),
-          `${sanitizeFilename(title)}.zip`,
-        ),
-    },
-    save: {
-      save: async () => {
-        const folder = await ensureOutputFolder();
-        if (!folder) return;
-        let written = 0;
-        for (const item of blobs) {
-          if (item.extra) continue; // the preview animation stays in the page
-          await writeToFolder(folder, item.name, item.blob);
-          written += 1;
-        }
-        say(t("web.savedTo", { count: written }));
-      },
-    },
+    // every template PNG, so a guide flip can replace the downloads too
+    templates: shown,
+    // the frames behind the animation, so a speed change can re-bake it
+    frames,
+    download: files.length === 1 ? { url: files[0].url, name: files[0].name } : null,
+    zip:
+      files.length > 1
+        ? {
+            save: async () => {
+              const latest = [];
+              for (const item of shown) {
+                latest.push({
+                  name: item.file.name,
+                  blob: await pngBlob(withGuide(item.raw, state.config.revGuide !== false)),
+                });
+              }
+              downloadBlob(await zipBlobAsync(latest), `${sanitizeFilename(title)}.zip`);
+            },
+          }
+        : null,
   };
 }

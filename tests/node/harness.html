@@ -199,12 +199,12 @@ async function runDropTools(doc) {
   };
 }
 
-/** Click "rebuild this set" and wait for the result card. */
+/** Type the three ids, which rebuilds on its own, and wait for the card. */
 async function runReverse(doc) {
   doc.querySelector("#rev-head").value = "189";
   doc.querySelector("#rev-body").value = "190";
   doc.querySelector("#rev-legs").value = "130";
-  doc.querySelector("#do-reverse").click();
+  doc.querySelector("#rev-legs").dispatchEvent(new Event("change", { bubbles: true }));
 
   for (let tick = 0; tick < 400; tick += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -214,14 +214,19 @@ async function runReverse(doc) {
         previews: images.length,
         captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),
         widths: [...images].map((img) => img.naturalWidth),
+        heights: [...images].map((img) => img.naturalHeight),
+        sections: doc.querySelectorAll("#reverse-result .previews").length,
         files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+        fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
+        actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
         warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
         status: doc.querySelector("#status").textContent.trim(),
       };
 
       // The reverse page has its own guide switch: flipping it redraws the
       // template preview without reversing anything again.
-      const before = images[0].src;
+      // the drawing template is the one the guide switch redraws
+      const before = images[images.length - 1].src;
       const guide = doc.querySelector("#rev-guide");
       guide.checked = false;
       guide.dispatchEvent(new Event("change", { bubbles: true }));
@@ -244,6 +249,93 @@ async function runReverse(doc) {
     }
   }
   return { error: "reverse produced no preview" };
+}
+
+/**
+ * Pick a set in the list: selecting it has to refill the ids and rebuild on its
+ * own. The second half clicks the option that is already selected, which fires
+ * `click` but no `change`, and must rebuild too.
+ */
+async function runReversePick(doc) {
+  const search = doc.querySelector("#set-search");
+  const select = doc.querySelector("#set-select");
+  const fields = ["#rev-head", "#rev-body", "#rev-legs"];
+  const status = () => doc.querySelector("#status").textContent.trim();
+  const preview = () => doc.querySelector("#reverse-result .preview img");
+  const waitForPreview = async (ready) => {
+    for (let tick = 0; tick < 400; tick += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      if (preview() && ready()) {
+        return {
+          body: doc.querySelector("#rev-body").value,
+          files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+          status: status(),
+        };
+      }
+    }
+    return { error: "no preview after picking a set", status: status() };
+  };
+
+  for (const field of fields) doc.querySelector(field).value = "";
+  search.value = "星尘";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  for (let tick = 0; tick < 200 && select.options.length !== 1; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const listed = select.options.length === 1 ? select.options[0].textContent : "";
+
+  select.value = "0";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  const selected = await waitForPreview(() => status().includes("已还原"));
+
+  // the option is selected now: clear the fields and click it again. The image
+  // is the same pixels, so the status line is what proves a second run.
+  for (const field of fields) doc.querySelector(field).value = "";
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  doc.querySelector("#status").textContent = "waiting";
+  select.dispatchEvent(new Event("click", { bubbles: true }));
+  const clicked = await waitForPreview(() => status().includes("已还原"));
+
+  // an id edit rebuilds on demand, even when the set is already on screen
+  doc.querySelector("#status").textContent = "waiting";
+  const legs = doc.querySelector("#rev-legs");
+  legs.value = String(Number(legs.value) + 0);
+  legs.dispatchEvent(new Event("change", { bubbles: true }));
+  const button = await waitForPreview(() => status().includes("已还原"));
+
+  search.value = "";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  for (let tick = 0; tick < 200 && select.options.length < 100; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return { listed, selected, clicked, button };
+}
+
+/**
+ * A set whose typed legs id has no sheet: the set table's own legs id (the
+ * skirt, extension or other sex) has to be used instead of leaving the region
+ * empty. 长袍 Robe owns only the skirt sheet 88.
+ */
+async function runReverseFallback(doc) {
+  doc.querySelector("#rev-head").value = "";
+  doc.querySelector("#rev-body").value = "15";
+  doc.querySelector("#rev-legs").value = "999";
+  doc.querySelector("#rev-legs").dispatchEvent(new Event("change", { bubbles: true }));
+
+  for (let tick = 0; tick < 400; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const images = doc.querySelectorAll("#reverse-result .preview img");
+    if (images.length) {
+      return {
+        files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
+        fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
+        actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
+        warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
+        status: doc.querySelector("#status").textContent.trim(),
+      };
+    }
+  }
+  return { error: "no preview for the fallback set" };
 }
 
 /** Build the three generated sheets (and the template) once per call. */
@@ -1010,6 +1102,7 @@ async function runReverseAll(doc) {
     sawFill,
     status: doc.querySelector("#status").textContent.trim(),
     files: doc.querySelectorAll("#reverse-result .files a").length,
+    actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
     history: doc.querySelectorAll("#history-list li img").length,
   };
 }
@@ -1046,6 +1139,8 @@ function blockDownloads(win) {
 }
 
 let ticks = 0;
+let lastStatus = "";
+let settled = 0;
 const timer = setInterval(async () => {
   ticks += 1;
   let doc;
@@ -1057,6 +1152,17 @@ const timer = setInterval(async () => {
     }
     const status = doc.querySelector("#status");
     const text = status ? status.textContent.trim() : "";
+    // the page reverses a set while it boots, so wait for the bar to settle
+    if (text && text === lastStatus && status.className !== "busy") settled += 1;
+    else settled = 0;
+    lastStatus = text;
+    if (settled < 5) {
+      if (ticks > 2000) {
+        clearInterval(timer);
+        report({ error: "timeout waiting for the app" });
+      }
+      return;
+    }
     if (!text || text === "…") {
       if (ticks > 2000) {
         clearInterval(timer);
@@ -1078,6 +1184,10 @@ const timer = setInterval(async () => {
     //    with the site have to be found on their own.
     step("reverse");
     const builtin = await runReverse(doc);
+    step("reverse-fallback");
+    const fallback = await runReverseFallback(doc);
+    step("reverse-pick");
+    const pick = await runReversePick(doc);
     step("drop-tools");
     const dropTools = await runDropTools(doc);
     // 2. an export from a dropped template, which also fills the history
@@ -1107,6 +1217,8 @@ const timer = setInterval(async () => {
       ...app,
       serviceWorker,
       builtin,
+      fallback,
+      pick,
       dropTools,
       exported,
       gifTargets,

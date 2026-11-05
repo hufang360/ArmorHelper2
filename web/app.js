@@ -17,7 +17,7 @@ import { setMessages, t } from "./app/i18n.js";
 import { bindSheets } from "./app/sheets.js";
 import { bindHistory } from "./app/history.js";
 import { loadConfig, state } from "./app/state.js";
-import { bindReverse } from "./app/reverse.js";
+import { bindReverse, reverseOnBoot } from "./app/reverse.js";
 import { bindExportOptions, scheduleExport } from "./app/export.js";
 import { loadBuiltinInfo, loadBundledPlayerParts } from "./app/textures.js";
 import { loadArmorNames } from "./app/ids.js";
@@ -61,7 +61,6 @@ async function main() {
     const [layout] = await Promise.all([loadLayout(), loadSets(), loadArmorNames()]);
     state.layout = layout;
     state.version = layout.version;
-    state.defaults = layout.targets.defaults;
     setMessages(await loadMessages(state.language));
     await showAppVersion();
 
@@ -69,6 +68,7 @@ async function main() {
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
     $("#rev-guide").checked = state.config.revGuide !== false;
+    $("#rev-gif-speed").value = state.config.revGifSpeed ?? "fast";
     $("#gif-player").checked = !!state.config.gifPlayer;
     $("#gif-speed").value = state.config.gifSpeed ?? "fast";
     $("#gif-size").value = String(state.config.gifSize ?? 1);
@@ -104,6 +104,9 @@ async function main() {
       return;
     }
     say(t("web.connected"));
+    // the atlas is loaded: draw the default set instead of an empty preview.
+    // Not awaited, so the page is usable while the first template renders.
+    reverseOnBoot();
     registerServiceWorker();
   } catch (error) {
     console.error(error);

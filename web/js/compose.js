@@ -16,6 +16,9 @@ import { compositeBodyFrames, generateHead, generateLegs } from "./generate.js";
 /** The tint ArmorHelper v1 used for the player skin in "Full Armor + Player". */
 export const SKIN_TINT = [255 / 255, 150 / 255, 89 / 255];
 
+/** How much the 128x80 drawing template is enlarged for its preview. */
+export const TEMPLATE_PREVIEW_SCALE = 2;
+
 /** 20 frames of the armor set, no player drawn. */
 export function fullArmorFrames(template, female = false, scale = 2) {
   const layout = L();
@@ -195,16 +198,4 @@ export function composeOverlay(template, overlay) {
   return out;
 }
 
-/**
- * Blow a bitmap up for display, with a faint outline.
- *
- * The drawing template is only 128x80, so it needs a few times magnification to
- * be readable next to the generated sheets.
- */
-export function magnify(bitmap, scale = 4, pad = 2) {
-  const out = createBitmap(bitmap.width * scale + pad * 2, bitmap.height * scale + pad * 2);
-  fillRect(out, [0, 0, out.width, out.height], [0, 0, 0, 60]);
-  pasteBitmap(out, upscale(bitmap, scale), pad, pad);
-  return out;
-}
 

@@ -13,6 +13,7 @@ import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { saveConfig, state } from "./state.js";
 import { currentSkin, loadPlayerParts } from "./textures.js";
+import { renderFolders } from "./folders.js";
 import { effectiveIds, outputNames } from "./ids.js";
 import { addHistory } from "./history.js";
 import { clearResult, keepUrl, showResult } from "./result.js";
@@ -286,6 +287,19 @@ function verifyRoundTrip(template, sheets) {
 
 /** Bind the controls this module owns. */
 export function bindExportOptions() {
+// the two output switches live on this page: they never touch another panel
+on("#opt-female", "change", (event) => {
+  state.config.female = event.target.checked;
+  saveConfig();
+  scheduleExport();
+});
+on("#opt-player", "change", (event) => {
+  state.config.player = event.target.checked;
+  saveConfig();
+  renderFolders();
+  scheduleExport();
+});
+
 on("#export-gif-speed", "change", (event) => {
   state.config.exportGifSpeed = event.target.value;
   saveConfig();

@@ -18,7 +18,6 @@ export const state = {
   language: "zh_CN",
   config: null,
   layout: null, // `data/layout.json`, set once at boot
-  defaults: null, // the default ids / target switches the page starts with
   version: "",
   release: "",
   offlineReady: false, // the worker took over: offline reuse works from now on
@@ -40,7 +39,6 @@ export const state = {
 function defaultConfig() {
   return {
     language: "zh_CN",
-    targets: {},
     ids: { id_head: "", id_body: "", id_legs: "" },
     glow: false,
     skin: 0,
@@ -49,8 +47,10 @@ function defaultConfig() {
     gifPlayer: false,
     gifSpeed: "fast",
     gifSize: 1,
-    // the export page keeps its own copy: the two pages never share these
+    // the export page and the reverse page keep their own copies: no page
+    // shares a GIF setting with another
     exportGifSpeed: "fast",
+    revGifSpeed: "fast",
     // 2x shows the 40x56 art at a readable size; 1x stays one click away
     exportGifSize: 2,
     verify: false,
