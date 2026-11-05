@@ -12,3 +12,5 @@ venv/
 config.json
 out/
 /ArmorTemplate_v1.png
+
+.agents/
