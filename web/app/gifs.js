@@ -25,7 +25,7 @@ export function gifDelay(speed = state.config.gifSpeed) {
 }
 
 /** The GIF scale chosen in the UI: 1, 2 or 4. */
-export function gifScale(size = state.config.gifSize) {
+function gifScale(size = state.config.gifSize) {
   const value = Math.floor(Number(size) || 1);
   return value > 1 ? value : 1;
 }
@@ -61,7 +61,7 @@ export const exportGif = () => ({
  */
 const previewPlayer = { frames: [], order: [], delay: 100, step: 0, timer: null, run: 0 };
 
-export function drawPreviewFrame() {
+function drawPreviewFrame() {
   const canvas = $("#preview-gif");
   const frame = previewPlayer.frames[previewPlayer.order[previewPlayer.step]];
   if (!canvas || !frame) return;
@@ -85,7 +85,7 @@ export function drawPreviewFrame() {
 }
 
 /** Restart the loop from the current step, with the current delay. */
-export function schedulePreview() {
+function schedulePreview() {
   clearTimeout(previewPlayer.timer);
   previewPlayer.timer = null;
   if (!previewPlayer.order.length) return;

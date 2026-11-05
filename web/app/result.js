@@ -96,12 +96,12 @@ export function clearResult(panel) {
 }
 
 /** The caption of a preview: `captionKey` is translated now, `caption` is literal. */
-export function previewCaption(item) {
+function previewCaption(item) {
   if (!item) return "";
   return item.captionKey ? t(item.captionKey, item.captionVars) : (item.caption ?? "");
 }
 
-export function previewFigure(url, caption, alt) {
+function previewFigure(url, caption, alt) {
   const figure = document.createElement("figure");
   figure.className = "preview";
   const img = document.createElement("img");
@@ -123,7 +123,7 @@ export function previewFigure(url, caption, alt) {
  * The zip is built on click: most visits never press it, and a resource pack
  * is the one output large enough to notice.
  */
-export function packButton(pack) {
+function packButton(pack) {
   const button = document.createElement("button");
   button.className = "btn btn-sm btn-primary";
   button.textContent = t(pack.labelKey);
@@ -147,7 +147,7 @@ export function packButton(pack) {
  * The thumb is transparent at rest, so a long sheet list does not sit behind a
  * permanent grey bar; hover still shows it (see `.thin-scroll` in style.css).
  */
-export function thinScroll(element) {
+function thinScroll(element) {
   let timer = null;
   element.addEventListener(
     "scroll",
@@ -168,7 +168,7 @@ const PACK_FIELDS = [
   ["description", "web.packDescription", "is-long"],
 ];
 
-export function packInfoInputs() {
+function packInfoInputs() {
   const group = document.createElement("div");
   group.className = "input-group input-group-sm pack-info";
   for (const [field, key, size] of PACK_FIELDS) {
@@ -194,7 +194,7 @@ export function packInfoInputs() {
  * It is not a card any more: the results sit directly under the input card, so
  * there is no title and no frame around them.
  */
-export function packCardBody(tabs) {
+function packCardBody(tabs) {
   const wrap = document.createElement("div");
   wrap.className = "pack";
   const active = tabs.find((tab) => tab.id === state.config.packTab) ?? tabs[0];
@@ -245,7 +245,7 @@ export function packCardBody(tabs) {
 }
 
 /** Name, size and purpose of every file in a material pack. */
-export function sheetTable(rows = [], options = {}) {
+function sheetTable(rows = [], options = {}) {
   const table = document.createElement("table");
   table.className = options.idColumn ? "sheet-table has-id" : "sheet-table";
   const head = document.createElement("thead");
@@ -296,7 +296,7 @@ const PART_ID = { head: "#set-head", body: "#set-body", legs: "#set-legs" };
  * input. Editing it writes the settings field and redraws, which renames every
  * file in the tab.
  */
-export function idCell(part) {
+function idCell(part) {
   const cell = document.createElement("td");
   cell.className = "id-cell";
 
@@ -328,7 +328,7 @@ export function idCell(part) {
 }
 
 /** The sheets themselves, one column per file, scrolled vertically. */
-export function sheetColumns(columns) {
+function sheetColumns(columns) {
   const strip = document.createElement("div");
   strip.className = "sheet-cols";
   for (const column of columns ?? []) {
@@ -353,7 +353,7 @@ export function sheetColumns(columns) {
   return strip;
 }
 
-export function resultCard(result, host = $("#results")) {
+function resultCard(result, host = $("#results")) {
   // the export result is a bare block; the other panels keep their card look
   const bare = !!result.tabs?.length;
   const card = document.createElement("div");
@@ -451,7 +451,7 @@ export function resultCard(result, host = $("#results")) {
  */
 let filePreview = null;
 
-export function previewBox() {
+function previewBox() {
   if (filePreview) return filePreview;
   const box = document.createElement("div");
   box.className = "file-preview";
@@ -466,7 +466,7 @@ export function previewBox() {
 }
 
 /** Show `url` next to `anchor`, kept inside the viewport. */
-export function showFilePreview(url, anchor) {
+function showFilePreview(url, anchor) {
   const box = previewBox();
   const img = box.firstElementChild;
   if (img.getAttribute("src") !== url) img.src = url;
@@ -487,7 +487,7 @@ export function showFilePreview(url, anchor) {
   else img.addEventListener("load", place, { once: true });
 }
 
-export function hideFilePreview() {
+function hideFilePreview() {
   if (filePreview) filePreview.hidden = true;
 }
 

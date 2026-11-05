@@ -59,7 +59,7 @@ export function scheduleExport(delay = 120) {
  * whole input, so the card is redrawn whenever either changes. History is only
  * written for a new template, or toggling a checkbox would fill it up.
  */
-export async function renderExport() {
+async function renderExport() {
   const file = state.files[0];
   if (!file?.bitmap) {
     clearResult("export");
@@ -250,7 +250,7 @@ export async function renderExport() {
  * `sheets` maps output file names to bitmaps. It is empty unless the 1.4.4
  * target is on, and there is nothing to verify without those three sheets.
  */
-export function verifyRoundTrip(template, sheets) {
+function verifyRoundTrip(template, sheets) {
   // names come from `outputNames`, so match the prefix rather than the suffix
   const pick = (prefix) => {
     for (const [name, bitmap] of sheets) {

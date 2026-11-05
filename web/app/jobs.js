@@ -10,7 +10,7 @@ import { $, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { state } from "./state.js";
 
-export function setProgress(bar, done, total) {
+function setProgress(bar, done, total) {
   const percent = Math.round((done / Math.max(1, total)) * 100);
   const fill = bar.firstElementChild;
   if (fill) fill.style.width = `${percent}%`;

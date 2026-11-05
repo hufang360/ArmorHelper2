@@ -56,7 +56,7 @@ export function renderTooltips() {
  * What the drop area shows and the download hands out: the template, with the
  * guide overlay when the switch is on and the file does not carry it already.
  */
-export function shownTemplate(file) {
+function shownTemplate(file) {
   return file.preGuided ? file.bitmap : withGuide(file.bitmap, state.config.guide !== false);
 }
 

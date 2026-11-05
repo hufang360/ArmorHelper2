@@ -181,7 +181,7 @@ let gifsHistoryKey = null;
  * input, so the card redraws whenever any of them changes.  History is only
  * written for a new set of sheets, or moving a select would fill it up.
  */
-export async function renderGifs() {
+async function renderGifs() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   if (missing.length) {
     clearResult("gif");

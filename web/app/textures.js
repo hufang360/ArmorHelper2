@@ -21,7 +21,7 @@ import { ensurePermission } from "../js/idb.js";
 const PLAYER_PART_NUMBERS = { head: 0, eyes: 1, torso: 3, arm: 7, legs: 10 };
 
 /** The texture names for one skin (`Player_<skin>_<part>.png`). */
-export function playerPartNames(skin) {
+function playerPartNames(skin) {
   const names = {};
   for (const [part, number] of Object.entries(PLAYER_PART_NUMBERS)) {
     names[part] = `Player_${skin}_${number}.png`;

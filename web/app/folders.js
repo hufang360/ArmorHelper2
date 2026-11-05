@@ -16,7 +16,7 @@ import { ensurePermission, putHandle } from "../js/idb.js";
 export const HANDLE_OUTPUT = "output";
 export const HANDLE_IMAGES = "images";
 
-export function textureSourceLabel() {
+function textureSourceLabel() {
   if (state.folders.images) return t("web.usingFolder", { name: state.folders.images.name });
   if (state.textures.size) return t("web.usingUploads", { count: state.textures.size });
   if (state.builtin) {

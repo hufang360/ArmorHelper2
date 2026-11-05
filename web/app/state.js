@@ -37,7 +37,7 @@ export const state = {
   job: null, // {cancelled, done, total} while a long task runs
 };
 
-export function defaultConfig() {
+function defaultConfig() {
   return {
     language: "zh_CN",
     targets: {},
