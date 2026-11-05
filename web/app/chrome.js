@@ -7,9 +7,9 @@
  * in the renderers themselves — they must not depend on each other's order.
  */
 
-import { $, $$ } from "./dom.js";
-import { t } from "./i18n.js";
-import { state } from "./state.js";
+import { $, $$, on, say } from "./dom.js";
+import { setMessages, t } from "./i18n.js";
+import { saveConfig, state } from "./state.js";
 import { renderFiles, renderGuideToggle, renderTooltips } from "./template.js";
 import { renderSlots } from "./sheets.js";
 import { renderFolders } from "./folders.js";
@@ -109,4 +109,22 @@ export async function showAppVersion() {
     // a missing version file must not stop the page
     console.error(error);
   }
+}
+
+/** Bind the controls this module owns. */
+export function bindChrome() {
+for (const tab of $$(".tab")) {
+  tab.addEventListener("click", () => {
+    for (const other of $$(".tab")) other.classList.toggle("active", other === tab);
+    for (const panel of $$(".panel")) panel.classList.toggle("active", panel.id === `tab-${tab.dataset.tab}`);
+  });
+}
+
+on("#language", "change", async (event) => {
+  state.language = event.target.value;
+  setMessages(await loadMessages(state.language));
+  saveConfig();
+  applyI18n();
+  say(t("web.saved"));
+});
 }

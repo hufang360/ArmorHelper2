@@ -9,9 +9,9 @@
  * Runs are numbered: a slow, older run must not overwrite a newer result.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
-import { state } from "./state.js";
+import { saveConfig, state } from "./state.js";
 import { currentSkin, loadPlayerParts } from "./textures.js";
 import { effectiveIds, outputNames } from "./ids.js";
 import { addHistory } from "./history.js";
@@ -282,4 +282,55 @@ function verifyRoundTrip(template, sheets) {
   } catch (error) {
     return [t("web.verifyFailed", { error: error.message })];
   }
+}
+
+/** Bind the controls this module owns. */
+export function bindExportOptions() {
+on("#export-gif-speed", "change", (event) => {
+  state.config.exportGifSpeed = event.target.value;
+  saveConfig();
+  scheduleExport();
+});
+on("#export-gif-size", "change", (event) => {
+  state.config.exportGifSize = Number(event.target.value) || 1;
+  saveConfig();
+  scheduleExport();
+});
+
+for (const [selector, key] of [
+  ["#set-head", "id_head"],
+  ["#set-body", "id_body"],
+  ["#set-legs", "id_legs"],
+]) {
+  on(selector, "input", () => {
+    state.config.ids = { ...state.config.ids, [key]: $(selector).value };
+    saveConfig();
+    scheduleExport();
+  });
+}
+on("#set-skin", "change", (event) => {
+  state.config.skin = Number(event.target.value) || 0;
+  saveConfig();
+  scheduleExport();
+});
+on("#set-glow", "change", (event) => {
+  state.config.glow = event.target.checked;
+  saveConfig();
+  scheduleExport();
+});
+on("#set-verify", "change", (event) => {
+  state.config.verify = event.target.checked;
+  saveConfig();
+  scheduleExport();
+});
+on("#save-settings", "click", () => {
+  state.config.ids = {
+    id_head: $("#set-head").value,
+    id_body: $("#set-body").value,
+    id_legs: $("#set-legs").value,
+  };
+  saveConfig();
+  scheduleExport();
+  say(t("web.saved"));
+});
 }

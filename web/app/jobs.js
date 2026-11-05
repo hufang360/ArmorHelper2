@@ -6,7 +6,7 @@
  * cancelling never interrupts a step in flight, it only stops the next one.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { state } from "./state.js";
 
@@ -79,4 +79,9 @@ export function cancelJob() {
 /** Let the browser repaint, so the progress text is actually visible. */
 export function nextFrame() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** Bind the cancel button. The bar and the text are driven by the job itself. */
+export function bindCancel() {
+  on("#cancel-job", "click", cancelJob);
 }

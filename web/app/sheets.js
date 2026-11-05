@@ -6,13 +6,14 @@
  * Redraws are debounced (`scheduleGifs`) because a drop can fill three slots.
  */
 
-import { $, say } from "./dom.js";
+import { $, noteMissing, on, say } from "./dom.js";
 import { t, warnText } from "./i18n.js";
-import { SHEET_ROLES, state } from "./state.js";
+import { SHEET_ROLES, saveConfig, state } from "./state.js";
 import { clearResult, keepUrl, showResult } from "./result.js";
-import { packSheetGifs, sheetStem } from "./pack.js";
+import { doResourcePack, packSheetGifs, sheetStem } from "./pack.js";
 import { loadPlayerParts, textureReader } from "./textures.js";
 import { addHistory } from "./history.js";
+import { scheduleExport } from "./export.js";
 import { stackFrames, upscale } from "../js/bitmap.js";
 import { SKIN_TINT, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import { loadTextures } from "../js/reverse.js";
@@ -256,4 +257,82 @@ async function renderGifs() {
 export function scheduleGifs(delay = 120) {
   clearTimeout(gifsTimer);
   gifsTimer = setTimeout(() => void renderGifs(), delay);
+}
+
+/** Bind the controls this module owns. */
+export function bindSheets() {
+// one drop zone / picker per sheet slot: the user says what each file is,
+// and dropping several files at once still sorts them by name.
+for (const role of SHEET_ROLES) {
+  const slot = $(`#sheet-${role}-slot`);
+  const input = $(`#sheet-${role}-input`);
+  if (!slot || !input) {
+    noteMissing(`#sheet-${role}-slot`);
+    continue;
+  }
+  slot.addEventListener("click", () => input.click());
+  slot.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      input.click();
+    }
+  });
+  input.addEventListener("change", () => {
+    const files = [...input.files];
+    input.value = "";
+    addSheetFiles(files, role);
+  });
+  for (const type of ["dragenter", "dragover"]) {
+    slot.addEventListener(type, (event) => {
+      event.preventDefault();
+      slot.classList.add("is-over");
+    });
+  }
+  for (const type of ["dragleave", "drop"]) {
+    slot.addEventListener(type, () => slot.classList.remove("is-over"));
+  }
+  slot.addEventListener("drop", (event) => {
+    event.preventDefault();
+    addSheetFiles(event.dataTransfer.files, role);
+  });
+  on(`#sheet-${role}-clear`, "click", () => setSlot(role, null));
+}
+on("#upload-sheets", "click", () => $("#sheet-bulk-input")?.click());
+on("#load-sheets-demo", "click", () => void loadSheetDemo());
+on("#sheet-bulk-input", "change", (event) => {
+  const files = [...event.target.files];
+  // the same file may be picked again after a swap or a clear
+  event.target.value = "";
+  if (files.length) void addSheetFiles(files);
+});
+// the head and the legs have the same shape: this trades their places
+for (const role of ["head", "legs"]) {
+  on(`#sheet-${role}-swap`, "click", (event) => {
+    event.stopPropagation();
+    const other = role === "head" ? "legs" : "head";
+    const mine = state.sheetSlots[role];
+    state.sheetSlots[role] = state.sheetSlots[other];
+    state.sheetSlots[other] = mine;
+    renderSlots();
+  });
+}
+on("#do-pack", "click", doResourcePack);
+on("#gif-player", "change", (event) => {
+  state.config.gifPlayer = event.target.checked;
+  saveConfig();
+  scheduleGifs();
+});
+
+on("#gif-speed", "change", (event) => {
+  state.config.gifSpeed = event.target.value;
+  saveConfig();
+  scheduleExport();
+  scheduleGifs();
+});
+on("#gif-size", "change", (event) => {
+  state.config.gifSize = Number(event.target.value) || 1;
+  saveConfig();
+  scheduleExport();
+  scheduleGifs();
+});
 }

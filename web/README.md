@@ -257,7 +257,7 @@ web/
   index.html            单页应用（Bootstrap 结构与工具类）
   style.css             配色覆盖 + 站点自有组件（拖放区 / 槽位 / 像素预览 / 状态栏）
   vendor/               随包发布的 Bootstrap 5.3 CSS 与许可证，不请求 CDN
-  app.js                编排：把每个控件接到模块上，然后启动（不含业务逻辑）
+  app.js                装配根：调用各模块的 bind…()，然后启动（无业务逻辑）
   app/
     dom.js              DOM 取元素 / 绑定事件 / 状态栏；记下缺失的元素
     i18n.js             文案表与 t()

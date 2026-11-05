@@ -6,11 +6,14 @@
  * of failing the whole run.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { REVERSE_SUBDIR, textureReader } from "./textures.js";
-import { state } from "./state.js";
+import { saveConfig, state } from "./state.js";
 import { asId } from "./ids.js";
+import { loadSetsIndex, pickSet } from "./sets.js";
+import { scheduleExport } from "./export.js";
+import { renderFolders } from "./folders.js";
 import { addHistory } from "./history.js";
 import { keepUrl, showResult } from "./result.js";
 import { packResult } from "./pack.js";
@@ -144,4 +147,35 @@ export async function doReverseAll() {
     endJob();
     $("#do-reverse-all").disabled = false;
   }
+}
+
+/** Bind the controls this module owns. */
+export function bindReverse() {
+on("#rev-guide", "change", (event) => {
+  state.config.revGuide = event.target.checked;
+  saveConfig();
+  // the preview is baked in the result, so rebuild the card from what it holds
+  if (state.results.reverse) showResult("reverse", state.results.reverse);
+});
+on("#opt-female", "change", (event) => {
+  state.config.female = event.target.checked;
+  saveConfig();
+  scheduleExport();
+});
+on("#opt-player", "change", (event) => {
+  state.config.player = event.target.checked;
+  saveConfig();
+  renderFolders();
+  scheduleExport();
+});
+
+let timer = null;
+on("#set-search", "input", (event) => {
+  clearTimeout(timer);
+  const value = event.target.value;
+  timer = setTimeout(() => loadSetsIndex(value), 140);
+});
+on("#set-select", "change", (event) => pickSet(Number(event.target.value)));
+on("#do-reverse", "click", doReverse);
+on("#do-reverse-all", "click", doReverseAll);
 }

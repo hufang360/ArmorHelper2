@@ -8,7 +8,7 @@
  * The two pages keep their own speed and size — see `exportGif()`.
  */
 
-import { $ } from "./dom.js";
+import { $, on } from "./dom.js";
 import { state } from "./state.js";
 import { upscale } from "../js/bitmap.js";
 import { gifFrameOrder } from "../js/compose.js";
@@ -142,4 +142,11 @@ export function setPreviewGif(frames, speed, size) {
     return;
   }
   playPreview(true);
+}
+
+/** Bind the controls this module owns. */
+export function bindPlayer() {
+on("#gif-play", "click", () => playPreview(!previewPlaying()));
+on("#gif-prev", "click", () => stepPreview(-1));
+on("#gif-next", "click", () => stepPreview(1));
 }

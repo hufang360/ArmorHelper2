@@ -6,7 +6,7 @@
  * failure is swallowed — a full quota must never fail an export.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
 
 const HISTORY_KEY = "armorhelper.history";
@@ -85,4 +85,36 @@ export function clearHistory() {
   saveHistory([]);
   renderHistory();
   say(t("web.historyCleared"));
+}
+
+/** Bind the controls this module owns. */
+export function bindHistory() {
+on("#clear-history", "click", clearHistory);
+
+// The history moved out of the page and behind an icon button, so it opens on
+// click and closes on a click outside or Escape.
+const historyToggle = $("#history-toggle");
+const historyPop = $("#history-pop");
+if (historyToggle && historyPop) {
+  const closeHistory = () => {
+    historyPop.hidden = true;
+    historyToggle.setAttribute("aria-expanded", "false");
+  };
+  historyToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = historyPop.hidden;
+    historyPop.hidden = !open;
+    historyToggle.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", (event) => {
+    if (historyPop.hidden) return;
+    if (historyPop.contains(event.target) || historyToggle.contains(event.target)) return;
+    closeHistory();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || historyPop.hidden) return;
+    closeHistory();
+    historyToggle.focus();
+  });
+}
 }

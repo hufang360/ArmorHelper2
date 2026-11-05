@@ -18,7 +18,9 @@
 * ES 模块，两空格，双引号，分号。`const` 优先；`camelCase` 函数、`UPPER_SNAKE` 常量、文件名小写。
 * 无构建、无 CDN、无服务端。第三方代码只有 `web/vendor/` 里随包发布的 Bootstrap CSS，页面因此不请求任何外部地址。要再加别的库，先改需求文档，别直接引。
 * `web/js/*` 不碰 DOM：它要能在 Node 下运行，才谈得上逐像素比对。
-* 需要 DOM 或 `localStorage` 的辅助函数放 `web/app/`，`app.js` 只做编排。
+* 需要 DOM 或 `localStorage` 的辅助函数放 `web/app/`。
+* 新增控件时，在拥有它的模块里加一个 `bind…()`，`app.js` 只加一行调用。
+  `app.js` 不放业务逻辑。
 * 常量与坐标只在 `web/data/*.json`。JS 里不复制数据表。
 * 错误信息用小写英文短句：`cannot load <url>: 404`。面向用户的文案走 `i18n.json` 的 key，不写死字符串。
 * 模块顶部一段注释写契约：输入、输出、为什么这么写。注释写英文，文档写中文。

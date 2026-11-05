@@ -7,11 +7,11 @@
  * that is `ensureOutputFolder()`'s job.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { state } from "./state.js";
 import { canUseFolders, pickFolder } from "../js/fs.js";
-import { ensurePermission, putHandle } from "../js/idb.js";
+import { dropHandle, ensurePermission, putHandle } from "../js/idb.js";
 
 export const HANDLE_OUTPUT = "output";
 export const HANDLE_IMAGES = "images";
@@ -70,4 +70,35 @@ export async function pickImagesFolder() {
   state.folders.images = handle;
   await putHandle(HANDLE_IMAGES, handle);
   renderFolders();
+}
+
+/** Bind the controls this module owns. */
+export function bindFolders() {
+on("#pick-images", "click", pickImagesFolder);
+on("#pick-images-2", "click", pickImagesFolder);
+on("#pick-textures", "click", () => $("#texture-input")?.click());
+on("#texture-input", "change", (event) => {
+  for (const file of event.target.files) state.textures.set(file.name, file);
+  event.target.value = "";
+  renderFolders();
+  say(t("web.selected", { count: state.textures.size }));
+});
+
+on("#pick-output", "click", async () => {
+  const handle = await pickFolder("readwrite");
+  if (!handle) return;
+  state.folders.output = handle;
+  await putHandle(HANDLE_OUTPUT, handle);
+  renderFolders();
+});
+on("#clear-output", "click", async () => {
+  state.folders.output = null;
+  await dropHandle(HANDLE_OUTPUT);
+  renderFolders();
+});
+on("#clear-images", "click", async () => {
+  state.folders.images = null;
+  await dropHandle(HANDLE_IMAGES);
+  renderFolders();
+});
 }

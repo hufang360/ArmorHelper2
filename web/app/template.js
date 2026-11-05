@@ -6,9 +6,9 @@
  * refused with a status line: a clipped sheet is worse than no sheet.
  */
 
-import { $, say } from "./dom.js";
+import { $, on, say } from "./dom.js";
 import { t } from "./i18n.js";
-import { SHEET_ROLES, state } from "./state.js";
+import { SHEET_ROLES, saveConfig, state } from "./state.js";
 import { clearResult, keepUrl, withGuide } from "./result.js";
 import { scheduleExport } from "./export.js";
 import { decodeBitmap, downloadBlob } from "../js/fs.js";
@@ -175,4 +175,50 @@ export function clearFiles() {
   state.files = [];
   renderFiles();
   clearResult("export");
+}
+
+/** Bind the controls this module owns. */
+export function bindTemplate() {
+const drop = $("#drop");
+const input = $("#file-input");
+drop.addEventListener("click", () => input.click());
+drop.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") input.click();
+});
+input.addEventListener("change", () => {
+  const files = [...input.files];
+  input.value = "";
+  addFiles(files);
+});
+for (const type of ["dragenter", "dragover"]) {
+  drop.addEventListener(type, (event) => {
+    event.preventDefault();
+    drop.classList.add("is-over");
+  });
+}
+for (const type of ["dragleave", "drop"]) {
+  drop.addEventListener(type, () => drop.classList.remove("is-over"));
+}
+drop.addEventListener("drop", (event) => {
+  event.preventDefault();
+  addFiles(event.dataTransfer.files);
+});
+on("#upload-file", "click", () => $("#file-input")?.click());
+on("#load-demo", "click", () => void loadDemo());
+on("#drop-guide", "click", (event) => {
+  // the icons sit inside the drop zone, which opens the file picker on click
+  event.stopPropagation();
+  state.config.guide = !(state.config.guide !== false);
+  saveConfig();
+  renderGuideToggle();
+  scheduleExport();
+});
+on("#drop-download", "click", (event) => {
+  event.stopPropagation();
+  void downloadTemplateFile();
+});
+on("#drop-clear", "click", (event) => {
+  event.stopPropagation();
+  clearFiles();
+});
 }
