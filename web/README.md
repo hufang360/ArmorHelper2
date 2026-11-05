@@ -267,6 +267,9 @@ web/
     result.js           结果卡：材质包卡片、文件表、悬浮预览
     jobs.js             进度条、取消按钮与任务状态
     folders.js          输出目录与 Content/Images 的授权与状态文案
+    textures.js         内置贴图 / 玩家贴图的三个来源与统一读取
+    pack.js             资源包、1.3 版 zip 与「生成材质包」
+    sheets.js           预览贴图页：三个槽位与实时 20 帧结果
     history.js          「最近导出」的读写与渲染
   sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
   manifest.webmanifest  Web App Manifest（可安装成独立窗口）

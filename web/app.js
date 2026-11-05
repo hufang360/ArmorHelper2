@@ -12,15 +12,13 @@ import {
   allSets,
   displayName,
   findSet,
-  initLayout,
-  initSets,
   loadLayout,
   loadSets,
   sanitizeFilename,
   searchSets,
   setLabel,
 } from "./js/data.js";
-import { countDifferences, stackFrames, upscale } from "./js/bitmap.js";
+import { countDifferences, stackFrames } from "./js/bitmap.js";
 import {
   generateArms,
   generateBodyComposite,
@@ -40,24 +38,30 @@ import {
   tintFrames,
 } from "./js/compose.js";
 import { loadTextures, reverseTemplate } from "./js/reverse.js";
-import { classifySheets, composeFrames, detectId as detectSheetId, validateSheet } from "./js/sheets.js";
-import { createAtlasReader } from "./js/atlas.js";
 import { gifBlob } from "./js/gif.js";
 import { pngBlob } from "./js/png.js";
-import { zipBlob, zipBlobAsync } from "./js/zip.js";
+import { zipBlobAsync } from "./js/zip.js";
 import {
-  bitmapToDataURL,
   decodeBitmap,
   downloadBlob,
   pickFolder,
-  readFromFolder,
   writeToFolder,
 } from "./js/fs.js";
-import { ensurePermission, getHandle, putHandle, dropHandle } from "./js/idb.js";
+import { dropHandle, getHandle, putHandle } from "./js/idb.js";
 import { $, $$, missing, noteMissing, on, say } from "./app/dom.js";
 import { setMessages, t } from "./app/i18n.js";
+import { addSheetFiles, loadSheetDemo, renderSlots, scheduleGifs, setSlot } from "./app/sheets.js";
 import { addHistory, clearHistory, renderHistory } from "./app/history.js";
-import { loadConfig, saveConfig, state } from "./app/state.js";
+import { SHEET_ROLES, loadConfig, saveConfig, state } from "./app/state.js";
+import { doResourcePack, legacyPackBlob, resourcePackBlob } from "./app/pack.js";
+import {
+  REVERSE_SUBDIR,
+  currentSkin,
+  loadBuiltinInfo,
+  loadBundledPlayerParts,
+  loadPlayerParts,
+  textureReader,
+} from "./app/textures.js";
 import { asId, effectiveIds, loadArmorNames, outputNames } from "./app/ids.js";
 import { exportGif, gifDelay, gifFrames, makeGif, playPreview, previewPlaying, setPreviewGif, stepPreview } from "./app/gifs.js";
 import { cancelJob, endJob, jobCancelled, jobProgress, startJob } from "./app/jobs.js";
@@ -78,45 +82,9 @@ import {
   withGuide,
 } from "./app/result.js";
 
-/** Part numbers of ``TextureAssets.Players[skin, n]``.
- *  The head and the eyes are the two the face area of a helmet shows. */
-const PLAYER_PART_NUMBERS = { head: 0, eyes: 1, torso: 3, arm: 7, legs: 10 };
-
-/** The texture names for one skin (`Player_<skin>_<part>.png`). */
-function playerPartNames(skin) {
-  const names = {};
-  for (const [part, number] of Object.entries(PLAYER_PART_NUMBERS)) {
-    names[part] = `Player_${skin}_${number}.png`;
-  }
-  return names;
-}
-
-/** The skin chosen in the settings; the bundled art only ships skin 0. */
-function currentSkin() {
-  const skin = Math.floor(Number(state.config.skin) || 0);
-  return skin >= 0 && skin <= 9 ? skin : 0;
-}
-/** The same three textures ship with the site: phones have no game folder. */
-const PLAYER_DIR = "data/player";
-const REVERSE_SUBDIR = "ArmorTemplate";
-/** Armor textures shipped with the site, so phones work without a game folder. */
-const BUILTIN_DIR = "data/vanilla";
-/** Page rects for `BUILTIN_DIR`; the pages themselves are WebP (see js/atlas.js). */
-const BUILTIN_INDEX = "index.json";
 /** The release version shown in the header; one file, so the build has none. */
 const VERSION_FILE = "data/version.json";
-/** The three sheet slots of the preview tab, in display order. */
-const SHEET_ROLES = ["head", "body", "legs"];
-
 /* ---------------------------------------------------------------- i18n -- */
-
-/** Render a core warning `{ key, vars }` in the current language. */
-function warnText(warning) {
-  if (typeof warning === "string") return warning;
-  const vars = { ...(warning.vars ?? {}) };
-  if (vars.role) vars.role = t(`web.slot.${vars.role}`);
-  return t(warning.key, vars);
-}
 
 /** The wiki page that lists every armor ID, per interface language. */
 const WIKI_ARMOR_IDS = {
@@ -124,6 +92,7 @@ const WIKI_ARMOR_IDS = {
   en: "https://terraria.wiki.gg/wiki/Armor_IDs",
 };
 
+/** Re-render every bit of text after a language switch. */
 function applyI18n() {
   document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
   for (const el of $$("[data-i18n]")) el.textContent = t(el.dataset.i18n);
@@ -146,6 +115,7 @@ function applyI18n() {
   }
   syncResultHeights();
 }
+
 
 /* ------------------------------------------------------------------ ui -- */
 
@@ -249,421 +219,6 @@ function nextFrame() {
 }
 
 /** Bootstrap progress is a div pair: the wrapper has the id, the inner div has the width. */
-/* ------------------------------------------------------- preview sheets -- */
-
-const SLOT_LABEL = { head: "web.slot.head", body: "web.slot.body", legs: "web.slot.legs" };
-const SLOT_HINT = { head: "web.slot.headDrop", body: "web.slot.bodyDrop", legs: "web.slot.legsDrop" };
-
-/** Show what each of the three slots holds, and what is still missing. */
-function renderSlots() {
-  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
-  for (const role of SHEET_ROLES) {
-    const slot = $(`#sheet-${role}-slot`);
-    const hint = $(`#sheet-${role}-hint`);
-    const info = $(`#sheet-${role}-name`);
-    const clear = $(`#sheet-${role}-clear`);
-    if (!slot || !hint || !info || !clear) continue;
-    const entry = state.sheetSlots[role];
-    const thumb = $(`#sheet-${role}-thumb`);
-    slot.closest(".slot")?.classList.toggle("is-filled", !!entry);
-    if (thumb) {
-      thumb.hidden = !entry;
-      if (entry && thumb.getAttribute("src") !== (entry.url ?? "")) {
-        // keep the data URL on the entry: re-rendering must not re-encode the sheet
-        if (!entry.url) entry.url = keepUrl(entry.bitmap);
-        thumb.src = entry.url;
-      }
-    }
-    // the hint fills the box while it is empty; a filled box shows the sheet only
-    hint.hidden = !!entry;
-    if (!entry) hint.textContent = t(SLOT_HINT[role]);
-    info.hidden = !entry;
-    if (entry) {
-      // name on one line, size on the next: a slot is 180px wide
-      info.textContent = `${entry.name}\n${entry.bitmap.width}×${entry.bitmap.height}`;
-    }
-    clear.hidden = !entry;
-  }
-
-  // the head and the legs have the same shape, so they can be swapped
-  for (const role of ["head", "legs"]) {
-    const swap = $(`#sheet-${role}-swap`);
-    if (!swap) continue;
-    swap.hidden = !state.sheetSlots[role] || !state.sheetSlots[role === "head" ? "legs" : "head"];
-  }
-
-  const status = $("#sheet-status");
-  if (status) {
-    // a filled slot shows its own tick, so only the warnings go here
-    status.textContent = (state.sheetIssues ?? []).map(warnText).join("\n");
-  }
-  const pack = $("#do-pack");
-  if (pack) {
-    // the button only exists once there is a pack to make
-    pack.hidden = missing.length > 0;
-    pack.disabled = missing.length > 0;
-  }
-  // uploading is the main action until the three sheets are in
-  const upload = $("#upload-sheets");
-  if (upload) {
-    upload.classList.toggle("btn-primary", missing.length > 0);
-    upload.classList.toggle("btn-secondary", missing.length === 0);
-  }
-  // the card redraws itself, so every slot change is also a redraw
-  scheduleGifs();
-}
-
-/** Put one decoded file in a slot, validating it against that role. */
-function setSlot(role, entry, issues = []) {
-  if (entry) {
-    try {
-      validateSheet(role, entry.bitmap);
-      state.sheetSlots[role] = entry;
-    } catch (error) {
-      issues.push({
-        key: error.key ?? "web.sheetWarnBadRatio",
-        vars: { name: entry.name, ...(error.vars ?? {}) },
-      });
-    }
-  } else {
-    state.sheetSlots[role] = null;
-  }
-  state.sheetIssues = issues;
-  renderSlots();
-}
-
-/**
- * Fill the three slots from a bundled armor set.
- *
- * The gold set is read out of the vanilla atlas on demand, so the demo needs no
- * extra images of its own: the three sheets are generated from the same
- * textures the reverse conversion uses.
- */
-const SHEET_DEMO_IDS = { head: 26, body: 4, legs: 4 };
-
-async function loadSheetDemo() {
-  say(t("web.working"), "busy");
-  try {
-    const { textures, missing } = await loadTextures(SHEET_DEMO_IDS, textureReader());
-    if (missing.length) {
-      say(t("web.needTextures"), "warn");
-      return;
-    }
-    state.sheetIssues = [];
-    for (const role of SHEET_ROLES) {
-      const number = SHEET_DEMO_IDS[role];
-      const name = role === "body" ? `Armor_${number}.png` : `Armor_${role === "head" ? "Head" : "Legs"}_${number}.png`;
-      setSlot(role, { name, bitmap: textures[role] });
-    }
-    say(t("web.demoLoaded", { name: t("web.demoGold") }));
-  } catch (error) {
-    console.error(error);
-    say(String(error.message || error), "bad");
-  }
-}
-
-/**
- * Files dropped on a slot: one file fills that slot, several are sorted by
- * name/dimensions (which is what makes "any order" uploads work).
- */
-async function addSheetFiles(fileList, role = null) {
-  const items = [];
-  for (const file of fileList) {
-    if (!/\.(png|bmp)$/i.test(file.name)) continue;
-    try {
-      items.push({ name: file.name, bitmap: await decodeBitmap(file), size: file.size });
-    } catch (error) {
-      console.error(error);
-      say(t("web.dropped", { name: file.name }), "warn");
-    }
-  }
-  if (!items.length) return;
-
-  if (role && items.length === 1) {
-    setSlot(role, items[0]);
-    return;
-  }
-
-  const classified = classifySheets(items);
-  const issues = [...classified.warnings];
-  for (const kind of SHEET_ROLES) {
-    if (!classified[kind]) continue;
-    if (state.sheetSlots[kind]) {
-      issues.push({ key: "web.sheetWarnDuplicate", vars: { role: kind, name: classified.names[kind] } });
-      continue;
-    }
-    state.sheetSlots[kind] = { name: classified.names[kind], bitmap: classified[kind] };
-  }
-  state.sheetIssues = issues;
-  renderSlots();
-}
-
-/**
- * A Terraria resource pack (`<name>-pack-pc.zip`), the layout the game reads:
- *
- *     pack.json
- *     Content/Images/Armor_Head_<id>.png
- *     Content/Images/Armor_Legs_<id>.png
- *     Content/Images/Armor/Armor_<id>.png
- *
- * `pack.json` carries the display name; the zip's own name is what the game
- * lists in `ResourcePacks/`, so it stays ASCII (`Armor_<id>`).
- */
-async function resourcePackBlob({ head, legs, body }, id, info = {}) {
-  // an empty field means "use the default", so the inputs can stay blank
-  const pack = {
-    Name: (info.name ?? "").trim() || t("web.packDefaultName"),
-    Author: (info.author ?? "").trim() || t("web.packDefaultAuthor"),
-    Description: (info.description ?? "").trim() || t("web.packDescription"),
-    Version: { major: 1, minor: 0 },
-  };
-  const png = async (bitmap) => (await pngBlob(bitmap)).arrayBuffer();
-
-  const entries = [
-    { name: "pack.json", data: `${JSON.stringify(pack, null, 2)}\n` },
-    { name: "Content/", data: new Uint8Array(0) },
-    { name: "Content/Images/", data: new Uint8Array(0) },
-    { name: `Content/Images/Armor_Head_${id}.png`, data: await png(head) },
-    { name: `Content/Images/Armor_Legs_${id}.png`, data: await png(legs) },
-    { name: "Content/Images/Armor/", data: new Uint8Array(0) },
-    { name: `Content/Images/Armor/Armor_${id}.png`, data: await png(body) },
-  ];
-  return zipBlob(entries);
-}
-
-/**
- * The same five sheets for Terraria 1.3, which had no resource packs.
- *
- * The zip keeps the game's folder layout so it can be unpacked next to
- * `Content/Images`, but it carries no `pack.json`: 1.3 never reads one.
- */
-async function legacyPackBlob({ head, legs, body, female, arms }, id) {
-  const png = async (bitmap) => (await pngBlob(bitmap)).arrayBuffer();
-  const entries = [
-    { name: "Content/", data: new Uint8Array(0) },
-    { name: "Content/Images/", data: new Uint8Array(0) },
-    { name: `Content/Images/Armor_Head_${id}.png`, data: await png(head) },
-    { name: `Content/Images/Armor_Legs_${id}.png`, data: await png(legs) },
-    { name: `Content/Images/Armor_Body_${id}.png`, data: await png(body) },
-    { name: `Content/Images/Female_Body_${id}.png`, data: await png(female) },
-    { name: `Content/Images/Armor_Arm_${id}.png`, data: await png(arms) },
-  ];
-  return zipBlob(entries);
-}
-
-async function doResourcePack() {
-  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
-  if (missing.length) {
-    say(t("web.gifsNeed"), "warn");
-    return;
-  }
-
-  $("#do-pack").disabled = true;
-  say(t("web.working"), "busy");
-  try {
-    const ids = effectiveIds();
-    const detected = detectSheetId(state.sheetSlots.body.name);
-    const id = detected ?? ids.body ?? 0;
-    const warnings = detected === null && ids.body === null ? [t("web.packNoId")] : [];
-
-    const item = findSet(id);
-    const friendly = (item && (displayName(item.zh) || item.name)) || `Armor_${id}`;
-    const slug = `Armor_${id}`;
-    const zipName = `${slug}-pack-pc.zip`;
-    const bitmaps = {
-      head: state.sheetSlots.head.bitmap,
-      legs: state.sheetSlots.legs.bitmap,
-      body: state.sheetSlots.body.bitmap,
-    };
-
-    const blob = await resourcePackBlob(bitmaps, id);
-    const url = URL.createObjectURL(blob);
-    const result = {
-      title: friendly,
-      titleKey: "web.packTitle",
-      titleVars: { name: friendly },
-      previews: [],
-      files: [{ name: zipName, size: blob.size, url }],
-      warnings,
-      zip: { save: () => downloadBlob(blob, zipName) },
-      save: {
-        save: async () => {
-          const folder = await ensureOutputFolder();
-          if (!folder) return;
-          await writeToFolder(folder, zipName, blob);
-          say(t("web.savedTo", { count: 1 }));
-        },
-      },
-    };
-
-    showResult("gif", result);
-    addHistory(slug, [{ name: zipName }], keepUrl(state.sheetSlots.body.bitmap));
-    say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
-  } catch (error) {
-    console.error(error);
-    say(String(error.message || error), "bad");
-  } finally {
-    $("#do-pack").disabled = SHEET_ROLES.some((role) => !state.sheetSlots[role]);
-  }
-}
-
-/** File name stem of the body sheet, used when it has no vanilla id. */
-function sheetStem(name) {
-  const base = String(name ?? "Armor")
-    .split("/")
-    .pop()
-    .replace(/\.[^.]+$/, "");
-  return sanitizeFilename(base || "Armor");
-}
-
-/** Build a result object with the 20 frame PNGs plus the animated GIFs. */
-async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames = []) {
-  const blobs = [];
-  const files = [];
-
-  for (const entry of entries) {
-    const blob = await pngBlob(entry.bitmap);
-    blobs.push({ name: entry.name, blob });
-    files.push({
-      name: entry.name,
-      width: entry.bitmap.width,
-      height: entry.bitmap.height,
-      size: blob.size,
-      url: URL.createObjectURL(blob),
-    });
-  }
-
-  const previews = [];
-  for (const item of gifs) {
-    const shown = gifFrames(item.frames);
-    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay() });
-    blobs.push({ name: item.name, blob });
-    files.push({
-      name: item.name,
-      width: shown[0].width,
-      height: shown[0].height,
-      size: blob.size,
-      url: URL.createObjectURL(blob),
-    });
-    previews.push({ url: URL.createObjectURL(blob), captionKey: item.captionKey });
-  }
-  if (previewFrames.length) {
-    previews.push({
-      url: keepUrl(contactSheet(previewFrames)),
-      captionKey: "web.previewFrames",
-    });
-  }
-
-  return {
-    title,
-    files,
-    previews,
-    warnings,
-    zip: {
-      save: async () => downloadBlob(await zipBlobAsync(blobs), `${sanitizeFilename(title)}.zip`),
-    },
-    save: {
-      save: async () => {
-        const folder = await ensureOutputFolder();
-        if (!folder) return;
-        for (const item of blobs) await writeToFolder(folder, item.name, item.blob);
-        say(t("web.savedTo", { count: blobs.length }));
-      },
-    },
-  };
-}
-
-/** A change must not be overwritten by a slower, earlier run. */
-let gifsRun = 0;
-let gifsTimer = null;
-/** The sheets already written to the history; speed and size changes keep it. */
-let gifsHistoryKey = null;
-
-/**
- * Redraw the preview-sheets card.
- *
- * There is no button: the three sheets plus the two selects are the whole
- * input, so the card redraws whenever any of them changes.  History is only
- * written for a new set of sheets, or moving a select would fill it up.
- */
-async function renderGifs() {
-  const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
-  if (missing.length) {
-    clearResult("gif");
-    return;
-  }
-  const run = ++gifsRun;
-  try {
-    const input = {
-      head: state.sheetSlots.head.bitmap,
-      body: state.sheetSlots.body.bitmap,
-      legs: state.sheetSlots.legs.bitmap,
-    };
-    const frames = composeFrames(input);
-    const femaleFrames = composeFrames({ ...input, female: true });
-    const bodyId = detectSheetId(state.sheetSlots.body.name);
-    const stem = bodyId !== null ? `Armor_${bodyId}` : sheetStem(state.sheetSlots.body.name);
-    const warnings = (state.sheetIssues ?? []).map(warnText);
-
-    const entries = [
-      { name: `${stem}_FullArmor.png`, bitmap: stackFrames(frames) },
-      { name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) },
-    ];
-    const gifs = [
-      { name: `${stem}_FullArmor.gif`, frames, captionKey: "web.gifMale" },
-      { name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames, captionKey: "web.gifFemale" },
-    ];
-
-    if ($("#gif-player").checked) {
-      const parts = await loadPlayerParts();
-      if (!parts) {
-        warnings.push(t("web.gifPlayerHint"));
-      } else {
-        // Player art is always native 2x, so upscale 1x sheets first.
-        const factor = frames[0].width === 40 ? 1 : 40 / frames[0].width;
-        const withPlayer = (list, isFemale) => {
-          const armor = factor === 1 ? list : list.map((frame) => upscale(frame, factor));
-          return overlay(tintFrames(playerFrames(parts, isFemale), SKIN_TINT), armor);
-        };
-        const playerMale = withPlayer(frames, false);
-        const playerFemale = withPlayer(femaleFrames, true);
-        entries.push(
-          { name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(playerMale) },
-          { name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) },
-        );
-        gifs.push(
-          { name: `${stem}_FullArmorPlayer.gif`, frames: playerMale, captionKey: "web.gifMalePlayer" },
-          {
-            name: `${stem}_FullArmorPlayerFemale.gif`,
-            frames: playerFemale,
-            captionKey: "web.gifFemalePlayer",
-          },
-        );
-      }
-    }
-
-    const result = await packSheetGifs(stem, entries, gifs, warnings, frames);
-    if (run !== gifsRun) return;
-    showResult("gif", result);
-    const key = SHEET_ROLES.map((role) => state.sheetSlots[role].name).join("|");
-    if (gifsHistoryKey !== key) {
-      gifsHistoryKey = key;
-      addHistory(stem, result.files, keepUrl(frames[0]));
-    }
-  } catch (error) {
-    if (run !== gifsRun) return;
-    console.error(error);
-    say(String(error.message || error), "bad");
-  }
-}
-
-/** Redraw the preview-sheets card after a short pause. */
-function scheduleGifs(delay = 120) {
-  clearTimeout(gifsTimer);
-  gifsTimer = setTimeout(() => void renderGifs(), delay);
-}
-
-/** Which vanilla textures the reverse conversion will use, in words. */
 /** Load the optional guide layer; missing or broken files are not an error. */
 async function loadGuideOverlay() {
   try {
@@ -784,55 +339,6 @@ async function packResult(title, entries, frames, warnings = [], options = {}) {
       },
     },
   };
-}
-
-/** Every player part for one skin, decoded by `read(name)` into a bitmap. */
-async function loadPlayerSheets(skin, read) {
-  const parts = {};
-  const names = Object.entries(playerPartNames(skin));
-  await Promise.all(
-    names.map(async ([part, name]) => {
-      parts[part] = await decodeBitmap(await read(name));
-    }),
-  );
-  return parts;
-}
-
-/** The player textures bundled with the site (works on any browser, offline too). */
-async function loadBundledPlayerParts() {
-  // only skin 0 is bundled; another skin falls back to it
-  for (const skin of [currentSkin(), 0]) {
-    try {
-      const parts = await loadPlayerSheets(skin, async (name) => {
-        const response = await fetch(`${PLAYER_DIR}/${name}`);
-        if (!response.ok) throw new Error(name);
-        return response.blob();
-      });
-      return { ...parts, skin };
-    } catch {
-      /* try the next skin */
-    }
-  }
-  return null;
-}
-
-/**
- * The player body used by "overlay player": the user's `Content/Images` when a
- * Chromium folder is available (they may have retextured it), otherwise the
- * copies shipped in `data/player/`.
- */
-async function loadPlayerParts() {
-  const images = state.folders.images;
-  const skin = currentSkin();
-  if (images && (await ensurePermission(images, "read"))) {
-    try {
-      const parts = await loadPlayerSheets(skin, (name) => readFromFolder(images, name));
-      return { ...parts, skin };
-    } catch {
-      /* fall through to the bundled copies */
-    }
-  }
-  return loadBundledPlayerParts();
 }
 
 /* --------------------------------------------------------------- export -- */
@@ -1082,77 +588,6 @@ function verifyRoundTrip(template, sheets) {
 }
 
 /* -------------------------------------------------------------- reverse -- */
-
-/**
- * A reader for vanilla textures, in order of preference:
- *
- * 1. the `Content/Images` folder the user picked (Chromium only),
- * 2. files the user uploaded by hand,
- * 3. the textures bundled with the site — this is what makes the reverse
- *    conversion usable on a phone, where neither of the first two exists.
- */
-function textureReader() {
-  const folder = state.folders.images;
-  let permission = null;
-
-  return async (path) => {
-    if (folder) {
-      if (permission === null) permission = await ensurePermission(folder, "read");
-      if (permission) {
-        try {
-          return await decodeBitmap(await readFromFolder(folder, path));
-        } catch {
-          /* fall through to the next source */
-        }
-      }
-    }
-    const file = state.textures.get(path.split("/").pop());
-    if (file) return decodeBitmap(file);
-    if (state.atlas) {
-      try {
-        const bitmap = await state.atlas(path);
-        if (bitmap) return bitmap;
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    return null;
-  };
-}
-
-/** Read `data/vanilla/version.txt` and the atlas index; absent means nothing is bundled. */
-async function loadBuiltinInfo() {
-  try {
-    const response = await fetch(`${BUILTIN_DIR}/version.txt`);
-    if (!response.ok) return null;
-    const info = {};
-    for (const line of (await response.text()).split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
-      const [key, value] = trimmed.split("=", 2);
-      info[key.trim()] = value.trim();
-    }
-    info.count = Number(info.count) || 0;
-    if (!info.count) return null;
-
-    // The textures live in a few WebP pages; `index.json` says which rect of
-    // which page holds each game path.
-    const indexResponse = await fetch(`${BUILTIN_DIR}/${BUILTIN_INDEX}`);
-    if (!indexResponse.ok) return null;
-    state.atlas = createAtlasReader({
-      index: await indexResponse.json(),
-      loadPage: async (file) => {
-        const page = await fetch(`${BUILTIN_DIR}/${file}`);
-        if (!page.ok) return null;
-        return decodeBitmap(await page.blob());
-      },
-    });
-    return info;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
 
 async function doReverse() {
   const body = asId($("#rev-body").value);

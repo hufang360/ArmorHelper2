@@ -20,3 +20,11 @@ export function t(key, vars) {
   if (vars) for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, value);
   return text;
 }
+
+/** Render a core warning `{ key, vars }` in the current language. */
+export function warnText(warning) {
+  if (typeof warning === "string") return warning;
+  const vars = { ...(warning.vars ?? {}) };
+  if (vars.role) vars.role = t(`web.slot.${vars.role}`);
+  return t(warning.key, vars);
+}

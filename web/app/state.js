@@ -11,6 +11,9 @@
 
 const SETTINGS_KEY = "armorhelper.settings";
 
+/** The three sheet slots of the preview tab, in display order. */
+export const SHEET_ROLES = ["head", "body", "legs"];
+
 export const state = {
   language: "zh_CN",
   config: null,

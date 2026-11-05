@@ -22,6 +22,9 @@ const readJson = (path) => JSON.parse(read(path));
 const LAYOUT = readJson(join(WEB, "data", "layout.json"));
 const HTML = read(join(WEB, "index.html"));
 const APP = read(join(WEB, "app.js"));
+const APP_DIR = join(WEB, "app");
+/** The UI layer: `app.js` plus the modules under `app/`. */
+const UI = [APP, ...readdirSync(APP_DIR).map((name) => read(join(APP_DIR, name)))].join("\n");
 
 /** Width/height from a PNG's IHDR, so icon checks need no image library. */
 function pngSize(path) {
@@ -132,8 +135,7 @@ test("the site has no absolute paths", () => {
 test("every translation the app uses exists", () => {
   const messages = readJson(join(WEB, "data", "i18n.json")).messages;
   // the UI layer is app.js plus app/*.js: a key may be used in either
-  const ui = [APP, ...readdirSync(join(WEB, "app")).map((name) => read(join(WEB, "app", name)))].join("\n");
-  const used = new Set([...ui.matchAll(/(?<![\w.$])t\("([\w.]+)"/g)].map((m) => m[1]));
+  const used = new Set([...UI.matchAll(/(?<![\w.$])t\("([\w.]+)"/g)].map((m) => m[1]));
   for (const role of ["head", "body", "legs"]) used.add(`web.slot.${role}`);
   assert.ok(used.size > 40, `${used.size} keys`);
 
@@ -187,7 +189,7 @@ test("the player textures are bundled", () => {
   assert.ok(info.includes("count=5"));
   assert.ok(info.includes("version="));
   // the page loads them by name and the service worker caches them
-  assert.ok(APP.includes("data/player"));
+  assert.ok(UI.includes("data/player"), "nothing loads data/player");
   const worker = read(join(WEB, "sw.js"));
   for (const name of Object.keys(expected)) {
     assert.ok(worker.includes(`data/player/${name}`), name);

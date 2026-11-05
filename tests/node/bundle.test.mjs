@@ -287,7 +287,8 @@ test("collect finds every armor png", () => {
 });
 
 test("the web app reads the bundle from the right place", () => {
-  const script = read(join(WEB, "app.js"));
+  // the reader lives in the UI layer's textures module, not in app.js
+  const script = read(join(WEB, "app", "textures.js"));
   assert.ok(script.includes('const BUILTIN_DIR = "data/vanilla"'));
   assert.ok(script.includes("${BUILTIN_DIR}/version.txt"));
   assert.ok(script.includes("${BUILTIN_DIR}/${BUILTIN_INDEX}"));
