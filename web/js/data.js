@@ -70,17 +70,6 @@ export function initSets(value, extra = {}) {
   return sets;
 }
 
-/**
- * True for a sheet that only adds a layer: a hem, a coat tail, a skirt.
- *
- * The game's constant name says so (`TikiShirtBodyExtensionMale`), and the
- * curated Chinese name repeats it (提基衣（男性延展）).
- */
-export function isExtensionPart(part, id) {
-  const entry = extraNames?.[part]?.[String(id)];
-  if (!entry) return false;
-  return /Extension/i.test(entry.name ?? "") || String(entry.zh ?? "").includes("延展");
-}
 
 /** A curated name for a part id the generated table does not cover. */
 export function extraPartName(part, id) {

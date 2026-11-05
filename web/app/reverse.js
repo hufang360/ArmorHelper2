@@ -16,58 +16,15 @@ import { addHistory } from "./history.js";
 import { keepUrl, rebakeTemplate, refreshGif, showResult, withGuide } from "./result.js";
 import { packResult } from "./pack.js";
 import { endJob, jobCancelled, jobProgress, nextFrame, startJob } from "./jobs.js";
-import { allSets, displayName, findSet, isExtensionPart, partIds, sanitizeFilename, setParts } from "../js/data.js";
+import { allSets, displayName, findSet, partIds, sanitizeFilename, setParts } from "../js/data.js";
 import { downloadBlob } from "../js/fs.js";
 import { fullArmorFrames } from "../js/compose.js";
-import { createBitmap, pasteBitmap } from "../js/bitmap.js";
-import { loadTextures, reverseTemplate, textureCandidates } from "../js/reverse.js";
+import { loadTextures, reverseTemplate } from "../js/reverse.js";
 import { pngBlob } from "../js/png.js";
 import { zipBlobAsync } from "../js/zip.js";
 
 /* -------------------------------------------------------------- reverse -- */
 
-/**
- * The legs sheet, with an extension sheet painted over it.
- *
- * An extension only carries the hem or the coat tail.  On its own the template
- * would look like the set has no legs at all, so the base sheet goes underneath.
- * Transparent pixels are skipped, which is what makes the layering work.
- */
-async function legsTexture(ids, baseId, read) {
-  const load = async (id) => {
-    const path = textureCandidates(null, null, id).legs[0];
-    try {
-      return await read(path);
-    } catch {
-      return null;
-    }
-  };
-
-  let chosen = null;
-  let chosenId = null;
-  for (const id of ids) {
-    const bitmap = await load(id);
-    if (bitmap) {
-      chosen = bitmap;
-      chosenId = id;
-      break;
-    }
-  }
-  if (!chosen) return null;
-
-  const layering =
-    baseId !== null &&
-    baseId !== chosenId &&
-    isExtensionPart("legs", chosenId) &&
-    !isExtensionPart("legs", baseId);
-  const under = layering ? await load(baseId) : null;
-  if (!under) return chosen;
-
-  const merged = createBitmap(under.width, under.height);
-  pasteBitmap(merged, under);
-  pasteBitmap(merged, chosen);
-  return merged;
-}
 
 
 
@@ -105,15 +62,9 @@ export async function doReverse() {
       head: wanted($("#rev-head").value, parts.head),
       legs: wanted($("#rev-legs").value, parts.legs),
     };
-    const read = textureReader();
-    const { textures, missing } = await loadTextures({ body: slots.body, head: slots.head }, read);
-    const legs = await legsTexture(slots.legs, parts.legs[0] ?? null, read);
-    if (legs) {
-      textures.legs = legs;
-      // `loadTextures` was asked for the other two slots only; drop its note
-      const at = missing.indexOf("legs");
-      if (at >= 0) missing.splice(at, 1);
-    }
+    // one sheet per slot: a slot with several ids uses the first one that exists,
+    // the sheets are never mixed
+    const { textures, missing } = await loadTextures(slots, textureReader());
     if (run !== reverseRun) return;
 
     const label = sanitizeFilename((item && (displayName(item.zh) || item.name)) || `Armor${body}`);

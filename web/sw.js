@@ -12,7 +12,7 @@
  * fails when the stamp is out of date.  The old cache is dropped on activate.
  */
 
-const FINGERPRINT = "212c06b52d7b";
+const FINGERPRINT = "5388775e8b64";
 const CACHE = `armorhelper-${FINGERPRINT}`;
 
 /** Everything needed to start the app; kept in sync by a test. */
