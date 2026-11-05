@@ -156,7 +156,7 @@ test("the release version is one number everywhere", () => {
 
   // the page shows it, and the worker caches the file it comes from
   assert.ok(HTML.includes('id="app-version"'), "the header has no version badge");
-  assert.ok(APP.includes("data/version.json"), "the app never reads the version");
+  assert.ok(UI.includes("data/version.json"), "the app never reads the version");
   assert.ok(read(join(WEB, "sw.js")).includes('"data/version.json"'), "not precached");
 });
 
@@ -258,8 +258,8 @@ test("the service worker precaches the whole app", () => {
 });
 
 test("the service worker is registered and scoped to the site", () => {
-  assert.ok(APP.includes('register("sw.js")'));
-  assert.ok(APP.includes("serviceWorker"));
+  assert.ok(UI.includes(`register("sw.js")`), "the app never registers the worker");
+  assert.ok(UI.includes("serviceWorker"));
   assert.ok(HTML.includes('<link rel="manifest" href="manifest.webmanifest">'));
   assert.ok(HTML.includes('<meta name="theme-color"'));
 });

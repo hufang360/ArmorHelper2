@@ -79,7 +79,7 @@
 │  index.html + style.css + app.js                                      │
 │    app/  ← DOM 层：dom / i18n / state / ids / gifs / result / jobs /   │
 │             folders / textures / pack / sheets / export / reverse /    │
-│             template / sets / history                                  │
+│             template / sets / history / chrome                         │
 │    ├─ 文件拖放 / 选择（FileReader、createImageBitmap）                 │
 │    ├─ 设置（localStorage）＋ 目录句柄（IndexedDB）                     │
 │    └─ 结果预览（data URL / object URL）                                │

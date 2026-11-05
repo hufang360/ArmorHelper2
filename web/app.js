@@ -1,20 +1,21 @@
 /**
- * ArmorHelper web front end.
+ * ArmorHelper web front end: the composition root.
  *
- * Everything happens in the browser: the sheets are generated, previewed and
- * encoded here, so the page works from any static host (GitHub Pages included)
- * with no server at all.  The core in `js/` is DOM-free and its pixels are
- * pinned to the frozen reference images in `web/tests/golden/`
- * (`tests/node/core.test.mjs`).
+ * This file only wires the page: it binds every control to the module that does
+ * the work, then boots.  The work itself lives in `app/` (DOM side) and `js/`
+ * (DOM-free core, pinned pixel for pixel by `tests/node/core.test.mjs`).
+ *
+ * Everything happens in the browser, so the page runs from any static host —
+ * GitHub Pages included — with no server at all.
  */
 
 import { allSets, loadLayout, loadSets } from "./js/data.js";
-import { decodeBitmap, pickFolder } from "./js/fs.js";
+import { pickFolder } from "./js/fs.js";
 import { dropHandle, getHandle, putHandle } from "./js/idb.js";
 import { $, $$, missing, noteMissing, on, say } from "./app/dom.js";
 import { setMessages, t } from "./app/i18n.js";
 import { addSheetFiles, loadSheetDemo, renderSlots, scheduleGifs, setSlot } from "./app/sheets.js";
-import { clearHistory, renderHistory } from "./app/history.js";
+import { clearHistory } from "./app/history.js";
 import { SHEET_ROLES, loadConfig, saveConfig, state } from "./app/state.js";
 import { doResourcePack } from "./app/pack.js";
 import { doReverse, doReverseAll } from "./app/reverse.js";
@@ -22,88 +23,19 @@ import { scheduleExport } from "./app/export.js";
 import { loadBuiltinInfo, loadBundledPlayerParts } from "./app/textures.js";
 import { loadArmorNames } from "./app/ids.js";
 import { playPreview, previewPlaying, stepPreview } from "./app/gifs.js";
+import { addFiles, clearFiles, downloadTemplateFile, loadDemo, renderGuideToggle } from "./app/template.js";
 import {
-  addFiles,
-  clearFiles,
-  downloadTemplateFile,
-  loadDemo,
-  renderFiles,
-  renderGuideToggle,
-  renderTooltips,
-} from "./app/template.js";
+  applyI18n,
+  loadGuideOverlay,
+  loadMessages,
+  registerServiceWorker,
+  renderAbout,
+  showAppVersion,
+} from "./app/chrome.js";
 import { loadSetsIndex, pickSet } from "./app/sets.js";
 import { cancelJob } from "./app/jobs.js";
 import { HANDLE_IMAGES, HANDLE_OUTPUT, pickImagesFolder, renderFolders } from "./app/folders.js";
-import {
-  setExportScheduler,
-  showResult,
-  syncResultHeights,
-  watchResultHeights,
-} from "./app/result.js";
-
-/** The release version shown in the header; one file, so the build has none. */
-const VERSION_FILE = "data/version.json";
-/* ---------------------------------------------------------------- i18n -- */
-
-/** The wiki page that lists every armor ID, per interface language. */
-const WIKI_ARMOR_IDS = {
-  zh_CN: "https://terraria.wiki.gg/zh/wiki/Armor_IDs",
-  en: "https://terraria.wiki.gg/wiki/Armor_IDs",
-};
-
-/** Re-render every bit of text after a language switch. */
-function applyI18n() {
-  document.documentElement.lang = state.language === "en" ? "en" : "zh-CN";
-  for (const el of $$("[data-i18n]")) el.textContent = t(el.dataset.i18n);
-  for (const el of $$("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
-  // icons and unlabelled controls carry their name in `aria-label` only
-  for (const el of $$("[data-i18n-label]")) el.setAttribute("aria-label", t(el.dataset.i18nLabel));
-  // the wiki exists in both languages: send the reader to his own
-  const wiki = $("#wiki-link");
-  if (wiki) wiki.href = WIKI_ARMOR_IDS[state.language] ?? WIKI_ARMOR_IDS.zh_CN;
-  renderTooltips();
-  renderGuideToggle();
-  renderFiles();
-  renderSlots();
-  renderFolders();
-  renderHistory();
-  renderAbout();
-  // redraw the result cards: their captions and buttons are translated too
-  for (const [panel, result] of Object.entries(state.results)) {
-    if (result) showResult(panel, result);
-  }
-  syncResultHeights();
-}
-
-
-/* --------------------------------------------------------- long tasks -- */
-
-/** Load the optional guide layer; missing or broken files are not an error. */
-async function loadGuideOverlay() {
-  try {
-    const response = await fetch("data/ArmorTemplate_overlay.png");
-    if (!response.ok) return null;
-    return await decodeBitmap(await response.blob());
-  } catch {
-    return null;
-  }
-}
-
-/** Register the offline cache; a static host without HTTPS just skips it. */
-function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  if (!/^https?:$/.test(location.protocol)) return;
-  navigator.serviceWorker
-    .register("sw.js")
-    .then(() => {
-      // Mention it in the about line: the status bar belongs to the app.
-      state.offlineReady = true;
-      const about = $("#about");
-      if (about) about.textContent = `${about.textContent} · ${t("web.offlineReady")}`;
-    })
-    .catch((error) => console.debug("offline cache unavailable", error));
-}
-
+import { setExportScheduler, showResult, watchResultHeights } from "./app/result.js";
 /* ------------------------------------------------------------ listeners -- */
 
 function wire() {
@@ -373,39 +305,6 @@ function wire() {
     scheduleExport();
     say(t("web.saved"));
   });
-}
-
-async function loadMessages(language) {
-  const response = await fetch("data/i18n.json");
-  const payload = await response.json();
-  return payload.messages[language] ?? payload.messages.zh_CN;
-}
-
-/* ----------------------------------------------------------------- boot -- */
-
-/** The footer line: the release and, when bundled, the vanilla texture pack. */
-function renderAbout() {
-  const about = $("#about");
-  if (!about) return;
-  const vars = { version: state.version, vanilla: state.builtin?.version ?? "", count: state.builtin?.count ?? 0 };
-  about.textContent = state.builtin ? t("web.aboutBuiltin", vars) : t("web.about", vars);
-}
-
-/** Show the release version from `data/version.json` in the header. */
-async function showAppVersion() {
-  const badge = $("#app-version");
-  if (!badge) return;
-  try {
-    const response = await fetch(VERSION_FILE);
-    if (!response.ok) throw new Error(`cannot load ${VERSION_FILE}: ${response.status}`);
-    const info = await response.json();
-    state.release = info.version ?? "";
-    badge.textContent = state.release ? `v${state.release}` : "";
-    badge.title = `${info.name ?? "ArmorHelper"} ${state.release}`.trim();
-  } catch (error) {
-    // a missing version file must not stop the page
-    console.error(error);
-  }
 }
 
 async function main() {

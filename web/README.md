@@ -257,7 +257,7 @@ web/
   index.html            单页应用（Bootstrap 结构与工具类）
   style.css             配色覆盖 + 站点自有组件（拖放区 / 槽位 / 像素预览 / 状态栏）
   vendor/               随包发布的 Bootstrap 5.3 CSS 与许可证，不请求 CDN
-  app.js                UI 编排（导入 / 导出 / 还原 / 预览贴图 / 设置）
+  app.js                编排：把每个控件接到模块上，然后启动（不含业务逻辑）
   app/
     dom.js              DOM 取元素 / 绑定事件 / 状态栏；记下缺失的元素
     i18n.js             文案表与 t()
@@ -273,7 +273,8 @@ web/
     export.js           导出结果：三张页签与防抖重画
     reverse.js          反向还原：单套与「还原全部套装」
     template.js         拖放区：128×80 模板的载入、预览与下载
-    sets.js             反向还原页的套装下拉与搜索
+    sets.js              反向还原页的套装下拉与搜索
+    chrome.js            页头 / 页脚 / 语言切换 / 参考线层 / 离线缓存
     history.js          「最近导出」的读写与渲染
   sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
   manifest.webmanifest  Web App Manifest（可安装成独立窗口）
