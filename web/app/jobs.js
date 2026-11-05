@@ -75,3 +75,8 @@ export function cancelJob() {
   if (cancel) cancel.disabled = true;
   say(t("web.cancelling"), "warn");
 }
+
+/** Let the browser repaint, so the progress text is actually visible. */
+export function nextFrame() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}

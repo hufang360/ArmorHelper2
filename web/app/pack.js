@@ -11,12 +11,13 @@ import { $, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { SHEET_ROLES, state } from "./state.js";
 import { effectiveIds } from "./ids.js";
-import { gifDelay, gifFrames } from "./gifs.js";
+import { gifDelay, gifFrames, makeGif } from "./gifs.js";
 import { addHistory } from "./history.js";
-import { keepUrl, showResult } from "./result.js";
+import { keepUrl, showResult, withGuide } from "./result.js";
 import { ensureOutputFolder } from "./folders.js";
 import { displayName, findSet, sanitizeFilename } from "../js/data.js";
 import { contactSheet, gifFrameOrder } from "../js/compose.js";
+import { magnify } from "../js/compose.js";
 import { detectId as detectSheetId } from "../js/sheets.js";
 import { downloadBlob, writeToFolder } from "../js/fs.js";
 import { gifBlob } from "../js/gif.js";
@@ -193,6 +194,73 @@ export async function packSheetGifs(title, entries, gifs, warnings = [], preview
         if (!folder) return;
         for (const item of blobs) await writeToFolder(folder, item.name, item.blob);
         say(t("web.savedTo", { count: blobs.length }));
+      },
+    },
+  };
+}
+
+/** Build a result object from a list of `{ name, bitmap }` plus previews. */
+/**
+ * Result object for the reverse tab: the template PNG, its 4x preview with the
+ * guide, the 20 frame sheet and the animation.
+ */
+export async function packResult(title, entries, frames, warnings = [], options = {}) {
+  const { template = null } = options;
+  const files = [];
+  const blobs = [];
+  for (const entry of entries) {
+    const blob = await pngBlob(entry.bitmap);
+    blobs.push({ name: entry.name, blob });
+    files.push({
+      name: entry.name,
+      width: entry.bitmap.width,
+      height: entry.bitmap.height,
+      size: blob.size,
+      url: URL.createObjectURL(blob),
+    });
+  }
+
+  const previews = [];
+  if (template) {
+    previews.push({
+      url: keepUrl(magnify(withGuide(template, state.config.revGuide !== false), 4)),
+      captionKey: "web.previewTemplate",
+      alt: "ArmorTemplate",
+      // the drawing template, so a switch flip can redraw without reversing again
+      template,
+    });
+  }
+  if (frames?.length) {
+    previews.push({ url: keepUrl(contactSheet(frames)), captionKey: "web.previewFrames" });
+    const gif = makeGif(frames);
+    // the preview animation is not an output: it is neither zipped nor written
+    blobs.push({ name: `${title}_preview.gif`, blob: gif, extra: true });
+    previews.push({ url: URL.createObjectURL(gif), captionKey: "web.previewGif", alt: "GIF" });
+  }
+
+  return {
+    title,
+    files,
+    previews,
+    warnings,
+    zip: {
+      save: async () =>
+        downloadBlob(
+          await zipBlobAsync(blobs.filter((item) => !item.extra)),
+          `${sanitizeFilename(title)}.zip`,
+        ),
+    },
+    save: {
+      save: async () => {
+        const folder = await ensureOutputFolder();
+        if (!folder) return;
+        let written = 0;
+        for (const item of blobs) {
+          if (item.extra) continue; // the preview animation stays in the page
+          await writeToFolder(folder, item.name, item.blob);
+          written += 1;
+        }
+        say(t("web.savedTo", { count: written }));
       },
     },
   };

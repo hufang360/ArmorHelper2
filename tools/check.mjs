@@ -152,8 +152,8 @@ function declaredNames(code) {
   for (const match of code.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
   for (const match of code.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
   for (const match of code.matchAll(/\bclass\s+([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
-  // `const [a, b] = ...` and destructured imports
-  for (const match of code.matchAll(/\b(?:const|let|var)\s*\[([^\]]*)\]\s*=/g)) {
+  // `const [a, b] = ...`, `for (const [a, b] of ...)` and destructured imports
+  for (const match of code.matchAll(/\b(?:const|let|var)\s*\[([^\]]*)\]\s*(?:=|of|in)/g)) {
     for (const part of match[1].split(",")) {
       const name = part.trim().split(":").pop().trim();
       if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);

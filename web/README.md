@@ -270,6 +270,10 @@ web/
     textures.js         内置贴图 / 玩家贴图的三个来源与统一读取
     pack.js             资源包、1.3 版 zip 与「生成材质包」
     sheets.js           预览贴图页：三个槽位与实时 20 帧结果
+    export.js           导出结果：三张页签与防抖重画
+    reverse.js          反向还原：单套与「还原全部套装」
+    template.js         拖放区：128×80 模板的载入、预览与下载
+    sets.js             反向还原页的套装下拉与搜索
     history.js          「最近导出」的读写与渲染
   sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
   manifest.webmanifest  Web App Manifest（可安装成独立窗口）
