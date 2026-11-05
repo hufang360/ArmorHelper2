@@ -17,18 +17,10 @@ import { renderFolders } from "./folders.js";
 import { effectiveIds, outputNames } from "./ids.js";
 import { addHistory } from "./history.js";
 import { clearResult, keepUrl, showResult } from "./result.js";
-import { exportGif, gifDelay, gifFrames, setPreviewGif } from "./gifs.js";
-import { legacyPackBlob, resourcePackBlob } from "./pack.js";
-import { countDifferences, stackFrames } from "../js/bitmap.js";
-import {
-  SKIN_TINT,
-  fullArmorFrames,
-  gifFrameOrder,
-  overlay,
-  playerFrames,
-  tintFrames,
-} from "../js/compose.js";
-import { sanitizeFilename } from "../js/data.js";
+import { exportGif, setPreviewGif } from "./gifs.js";
+import { resourcePackBlob } from "./pack.js";
+import { countDifferences } from "../js/bitmap.js";
+import { SKIN_TINT, fullArmorFrames, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import {
   generateArms,
   generateBodyComposite,
@@ -36,10 +28,8 @@ import {
   generateHead,
   generateLegs,
 } from "../js/generate.js";
-import { gifBlob } from "../js/gif.js";
 import { pngBlob } from "../js/png.js";
 import { reverseTemplate } from "../js/reverse.js";
-import { zipBlobAsync } from "../js/zip.js";
 
 /** A newer change must not be overwritten by a slower, older run. */
 let exportRun = 0;
@@ -166,11 +156,6 @@ async function renderExport() {
           col("web.sheetCol.arm", arms),
           col("web.sheetCol.legs", legsRow),
         ],
-        pack: {
-          name: `Armor_${ids.body}-legacy.zip`,
-          labelKey: "web.packZip",
-          run: () => legacyPackBlob(pack13, ids.body),
-        },
       },
     ];
 
@@ -184,47 +169,6 @@ async function renderExport() {
     const playerFemale = withPlayerFor(femaleFrames, true);
     // the 20 frame animation next to the drop area follows the two switches
     const previewFrames = female ? playerFemale : playerMale;
-
-    // the full armour outputs are the third tab, always complete
-    const fullRows = [];
-    /** @type {[string, () => any, string][]} */
-    const pngRows = [
-      ["FullArmor.png", () => maleFrames, "web.gifMale"],
-      ["FullArmorFemale.png", () => femaleFrames, "web.gifFemale"],
-      ["FullArmorPlayer.png", () => playerMale, "web.gifMalePlayer"],
-      ["FullArmorPlayerFemale.png", () => playerFemale, "web.gifFemalePlayer"],
-    ];
-    for (const [name, frames, labelKey] of pngRows) {
-      const bitmap = stackFrames(frames());
-      fullRows.push(
-        await blobRow(name, await pngBlob(bitmap), bitmap.width, bitmap.height, "web.sheetDesc.full", labelKey),
-      );
-    }
-    /** @type {[string, () => any, string][]} */
-    const gifRows = [
-      ["FullArmor.gif", () => maleFrames, "web.gifMale"],
-      ["FullArmorFemale.gif", () => femaleFrames, "web.gifFemale"],
-      ["FullArmorPlayer.gif", () => playerMale, "web.gifMalePlayer"],
-      ["FullArmorPlayerFemale.gif", () => playerFemale, "web.gifFemalePlayer"],
-    ];
-    for (const [name, frames, labelKey] of gifRows) {
-      const shown = gifFrames(frames(), exportGif().size);
-      const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay(exportGif().speed) });
-      fullRows.push(await blobRow(name, blob, shown[0].width, shown[0].height, "web.sheetDesc.gif", labelKey));
-    }
-    const fullNames = new Set(fullRows.map((row) => row.name));
-    packTabs.push({
-      id: "full",
-      labelKey: "web.tab.packFull",
-      table: fullRows,
-      columns: fullRows.map((row) => ({ labelKey: row.labelKey, ...row })),
-      pack: {
-        name: `${sanitizeFilename(stem)}_FullArmor.zip`,
-        labelKey: "web.packZip",
-        // already encoded: zip those bytes as they are
-        run: () => zipBlobAsync(sheetBlobs.filter((item) => fullNames.has(item.name))),
-      },
-    });
 
     const warnings = [];
     if (state.config.verify) warnings.push(...verifyRoundTrip(file.bitmap, sheets));

@@ -9,21 +9,70 @@
 import { $, noteMissing, on, say } from "./dom.js";
 import { t, warnText } from "./i18n.js";
 import { SHEET_ROLES, saveConfig, state } from "./state.js";
-import { clearResult, keepUrl, showResult } from "./result.js";
-import { doResourcePack, packSheetGifs, sheetStem } from "./pack.js";
+import { bindFilePreview, bindPackField, keepUrl } from "./result.js";
+import { doResourcePack } from "./pack.js";
 import { loadPlayerParts, textureReader } from "./textures.js";
-import { addHistory } from "./history.js";
-import { scheduleExport } from "./export.js";
+import { setSheetPreview } from "./gifs.js";
 import { stackFrames, upscale } from "../js/bitmap.js";
-import { SKIN_TINT, overlay, playerFrames, tintFrames } from "../js/compose.js";
+import { SKIN_TINT, gifFrameOrder, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import { loadTextures } from "../js/reverse.js";
-import { classifySheets, composeFrames, detectId as detectSheetId, validateSheet } from "../js/sheets.js";
+import { classifySheets, composeFrames, validateSheet } from "../js/sheets.js";
 import { decodeBitmap } from "../js/fs.js";
+import { pngBlob } from "../js/png.js";
 
 /* ------------------------------------------------------- preview sheets -- */
 
 const SLOT_LABEL = { head: "web.slot.head", body: "web.slot.body", legs: "web.slot.legs" };
 const SLOT_HINT = { head: "web.slot.headDrop", body: "web.slot.bodyDrop", legs: "web.slot.legsDrop" };
+
+/**
+ * The three `pack.json` fields under the slots.
+ *
+ * The export page edits the same three values, so `show` only toggles the row
+ * and the values come from the settings.  A field keeps what the user is typing:
+ * only an input that is not focused is overwritten.
+ */
+const PACK_FIELDS = [
+  ["name", "#sheet-pack-name"],
+  ["author", "#sheet-pack-author"],
+  ["description", "#sheet-pack-desc"],
+];
+
+export function renderPackInfo(show) {
+  const group = $("#sheet-pack-info");
+  if (group) group.hidden = !show;
+  for (const [field, selector] of PACK_FIELDS) {
+    const input = $(selector);
+    if (input && document.activeElement !== input) input.value = state.config.pack?.[field] ?? "";
+  }
+}
+
+/**
+ * The four controls of the animation above the result.
+ *
+ * They drive that player only; the speed and size of the files stay on the
+ * left.  The values live in the settings, so the controls show what is stored.
+ */
+export function renderSheetPreviewOptions() {
+  const female = $("#sheet-opt-female");
+  if (female) female.checked = !!state.config.sheetFemale;
+  const player = $("#sheet-opt-player");
+  if (player) player.checked = !!state.config.sheetPlayer;
+  const speed = $("#sheet-preview-speed");
+  if (speed) speed.value = state.config.sheetGifSpeed ?? "fast";
+  const size = $("#sheet-preview-size");
+  if (size) size.value = String(state.config.sheetGifSize ?? 2);
+  // the icon names what the link holds, including the animation's frame count
+  const info = $("#sheet-preview-info");
+  if (info) {
+    const text = t("web.sheetPreviewInfo", {
+      desc: t("web.sheetDesc.full"),
+      count: gifFrameOrder().length,
+    });
+    info.dataset.tooltip = text;
+    info.setAttribute("aria-label", text);
+  }
+}
 
 /** Show what each of the three slots holds, and what is still missing. */
 export function renderSlots() {
@@ -31,7 +80,7 @@ export function renderSlots() {
   for (const role of SHEET_ROLES) {
     const slot = $(`#sheet-${role}-slot`);
     const hint = $(`#sheet-${role}-hint`);
-    const info = $(`#sheet-${role}-name`);
+    const info = $(`#sheet-${role}-info`);
     const clear = $(`#sheet-${role}-clear`);
     if (!slot || !hint || !info || !clear) continue;
     const entry = state.sheetSlots[role];
@@ -50,8 +99,10 @@ export function renderSlots() {
     if (!entry) hint.textContent = t(SLOT_HINT[role]);
     info.hidden = !entry;
     if (entry) {
-      // name on one line, size on the next: a slot is 180px wide
-      info.textContent = `${entry.name}\n${entry.bitmap.width}×${entry.bitmap.height}`;
+      // the name on one line and the size on the next: the box is too narrow
+      // for both, so they live in the info icon's tooltip
+      info.dataset.tooltip = `${entry.name}\n${entry.bitmap.width}×${entry.bitmap.height}`;
+      info.setAttribute("aria-label", t("web.slotInfo"));
     }
     clear.hidden = !entry;
   }
@@ -74,6 +125,8 @@ export function renderSlots() {
     pack.hidden = missing.length > 0;
     pack.disabled = missing.length > 0;
   }
+  renderPackInfo(missing.length === 0);
+  renderSheetPreviewOptions();
   // uploading is the main action until the three sheets are in
   const upload = $("#upload-sheets");
   if (upload) {
@@ -169,23 +222,46 @@ export async function addSheetFiles(fileList, role = null) {
   renderSlots();
 }
 
+/**
+ * The download link under the player.
+ *
+ * It hands out the PNG of the animation that is on screen, so its name follows
+ * the two switches above it.  The picture is encoded here instead of taken from
+ * the result table: those two switches never add files to that table.
+ */
+let previewFileUrl = null;
+
+async function renderPreviewFile(name, frames, run) {
+  const link = $("#sheet-preview-file");
+  if (!link) return;
+  const url = URL.createObjectURL(await pngBlob(stackFrames(frames)));
+  // a slower, earlier run must not replace the newer picture
+  if (run !== gifsRun) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+  if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
+  previewFileUrl = url;
+  link.href = url;
+  link.download = name;
+  link.textContent = name;
+  link.hidden = false;
+}
+
 /** A change must not be overwritten by a slower, earlier run. */
 let gifsRun = 0;
 let gifsTimer = null;
-/** The sheets already written to the history; speed and size changes keep it. */
-let gifsHistoryKey = null;
 
 /**
  * Redraw the preview-sheets card.
  *
- * There is no button: the three sheets plus the two selects are the whole
- * input, so the card redraws whenever any of them changes.  History is only
- * written for a new set of sheets, or moving a select would fill it up.
+ * There is no button: the three sheets and the four controls of the player are
+ * the whole input, so the card redraws whenever any of them changes.
  */
 async function renderGifs() {
   const missing = SHEET_ROLES.filter((role) => !state.sheetSlots[role]);
   if (missing.length) {
-    clearResult("gif");
+    setSheetPreview(null);
     return;
   }
   const run = ++gifsRun;
@@ -197,55 +273,24 @@ async function renderGifs() {
     };
     const frames = composeFrames(input);
     const femaleFrames = composeFrames({ ...input, female: true });
-    const bodyId = detectSheetId(state.sheetSlots.body.name);
-    const stem = bodyId !== null ? `Armor_${bodyId}` : sheetStem(state.sheetSlots.body.name);
-    const warnings = (state.sheetIssues ?? []).map(warnText);
-
-    const entries = [
-      { name: `${stem}_FullArmor.png`, bitmap: stackFrames(frames) },
-      { name: `${stem}_FullArmorFemale.png`, bitmap: stackFrames(femaleFrames) },
-    ];
-    const gifs = [
-      { name: `${stem}_FullArmor.gif`, frames, captionKey: "web.gifMale" },
-      { name: `${stem}_FullArmorFemale.gif`, frames: femaleFrames, captionKey: "web.gifFemale" },
-    ];
-
-    if ($("#gif-player").checked) {
+    const female = !!state.config.sheetFemale;
+    const wantsPlayer = !!state.config.sheetPlayer;
+    let shown = female ? femaleFrames : frames;
+    if (wantsPlayer) {
       const parts = await loadPlayerParts();
-      if (!parts) {
-        warnings.push(t("web.gifPlayerHint"));
-      } else {
+      if (parts) {
         // Player art is always native 2x, so upscale 1x sheets first.
         const factor = frames[0].width === 40 ? 1 : 40 / frames[0].width;
-        const withPlayer = (list, isFemale) => {
-          const armor = factor === 1 ? list : list.map((frame) => upscale(frame, factor));
-          return overlay(tintFrames(playerFrames(parts, isFemale), SKIN_TINT), armor);
-        };
-        const playerMale = withPlayer(frames, false);
-        const playerFemale = withPlayer(femaleFrames, true);
-        entries.push(
-          { name: `${stem}_FullArmorPlayer.png`, bitmap: stackFrames(playerMale) },
-          { name: `${stem}_FullArmorPlayerFemale.png`, bitmap: stackFrames(playerFemale) },
-        );
-        gifs.push(
-          { name: `${stem}_FullArmorPlayer.gif`, frames: playerMale, captionKey: "web.gifMalePlayer" },
-          {
-            name: `${stem}_FullArmorPlayerFemale.gif`,
-            frames: playerFemale,
-            captionKey: "web.gifFemalePlayer",
-          },
-        );
+        const armor = factor === 1 ? shown : shown.map((frame) => upscale(frame, factor));
+        shown = overlay(tintFrames(playerFrames(parts, female), SKIN_TINT), armor);
+      } else {
+        say(t("web.gifPlayerHint"), "warn");
       }
     }
-
-    const result = await packSheetGifs(stem, entries, gifs, warnings, frames);
-    if (run !== gifsRun) return;
-    showResult("gif", result);
-    const key = SHEET_ROLES.map((role) => state.sheetSlots[role].name).join("|");
-    if (gifsHistoryKey !== key) {
-      gifsHistoryKey = key;
-      addHistory(stem, result.files, keepUrl(frames[0]));
-    }
+    setSheetPreview(shown, state.config.sheetGifSpeed, state.config.sheetGifSize);
+    // the link under the player hands out the PNG of what is being shown
+    const variant = female ? (wantsPlayer ? "PlayerFemale" : "Female") : (wantsPlayer ? "Player" : "");
+    renderPreviewFile(`FullArmor${variant}.png`, shown, run).catch((error) => console.error(error));
   } catch (error) {
     if (run !== gifsRun) return;
     console.error(error);
@@ -299,6 +344,9 @@ for (const role of SHEET_ROLES) {
 }
 on("#upload-sheets", "click", () => $("#sheet-bulk-input")?.click());
 on("#load-sheets-demo", "click", () => void loadSheetDemo());
+// the link is re-pointed on every redraw, so its hover listener only binds once
+const previewFile = $("#sheet-preview-file");
+if (previewFile) bindFilePreview(previewFile);
 on("#sheet-bulk-input", "change", (event) => {
   const files = [...event.target.files];
   // the same file may be picked again after a swap or a clear
@@ -314,25 +362,36 @@ for (const role of ["head", "legs"]) {
     state.sheetSlots[role] = state.sheetSlots[other];
     state.sheetSlots[other] = mine;
     renderSlots();
+    // one click, not a burst: redraw at once so the card cannot lag behind
+    scheduleGifs(0);
   });
 }
+for (const [field, selector] of PACK_FIELDS) {
+  const input = $(selector);
+  if (input) bindPackField(input, field);
+}
+// the export page edits the same values: refresh the row when this tab opens
+on('[data-tab="gifs"]', "click", () => renderPackInfo(!$("#do-pack")?.hidden));
 on("#do-pack", "click", doResourcePack);
-on("#gif-player", "change", (event) => {
-  state.config.gifPlayer = event.target.checked;
+// the player owns the four settings of the animation on the right
+on("#sheet-opt-female", "change", (event) => {
+  state.config.sheetFemale = event.target.checked;
   saveConfig();
-  scheduleGifs();
+  scheduleGifs(0);
 });
-
-on("#gif-speed", "change", (event) => {
-  state.config.gifSpeed = event.target.value;
+on("#sheet-opt-player", "change", (event) => {
+  state.config.sheetPlayer = event.target.checked;
   saveConfig();
-  scheduleExport();
-  scheduleGifs();
+  scheduleGifs(0);
 });
-on("#gif-size", "change", (event) => {
-  state.config.gifSize = Number(event.target.value) || 1;
+on("#sheet-preview-speed", "change", (event) => {
+  state.config.sheetGifSpeed = event.target.value;
   saveConfig();
-  scheduleExport();
-  scheduleGifs();
+  scheduleGifs(0);
+});
+on("#sheet-preview-size", "change", (event) => {
+  state.config.sheetGifSize = Number(event.target.value) || 2;
+  saveConfig();
+  scheduleGifs(0);
 });
 }

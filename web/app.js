@@ -64,14 +64,10 @@ async function main() {
     setMessages(await loadMessages(state.language));
     await showAppVersion();
 
-    $("#language").value = state.language;
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
     $("#rev-guide").checked = state.config.revGuide !== false;
     $("#rev-gif-speed").value = state.config.revGifSpeed ?? "fast";
-    $("#gif-player").checked = !!state.config.gifPlayer;
-    $("#gif-speed").value = state.config.gifSpeed ?? "fast";
-    $("#gif-size").value = String(state.config.gifSize ?? 1);
     $("#export-gif-speed").value = state.config.exportGifSpeed ?? "fast";
     $("#export-gif-size").value = String(state.config.exportGifSize ?? 2);
     $("#set-head").value = state.config.ids.id_head ?? "";

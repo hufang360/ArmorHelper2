@@ -11,15 +11,12 @@ import { $, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { SHEET_ROLES, state } from "./state.js";
 import { effectiveIds } from "./ids.js";
-import { gifDelay, gifFrames, makeGif } from "./gifs.js";
 import { addHistory } from "./history.js";
-import { keepUrl, showResult, withGuide } from "./result.js";
-import { ensureOutputFolder } from "./folders.js";
+import { keepUrl, withGuide } from "./result.js";
 import { displayName, findSet, sanitizeFilename } from "../js/data.js";
-import { contactSheet, gifFrameOrder, TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
+import { TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
 import { detectId as detectSheetId } from "../js/sheets.js";
-import { downloadBlob, writeToFolder } from "../js/fs.js";
-import { gifBlob } from "../js/gif.js";
+import { downloadBlob } from "../js/fs.js";
 import { upscale } from "../js/bitmap.js";
 import { pngBlob } from "../js/png.js";
 import { zipBlob, zipBlobAsync } from "../js/zip.js";
@@ -102,27 +99,10 @@ export async function doResourcePack() {
       body: state.sheetSlots.body.bitmap,
     };
 
-    const blob = await resourcePackBlob(bitmaps, id);
-    const url = URL.createObjectURL(blob);
-    const result = {
-      title: friendly,
-      titleKey: "web.packTitle",
-      titleVars: { name: friendly },
-      previews: [],
-      files: [{ name: zipName, size: blob.size, url }],
-      warnings,
-      zip: { save: () => downloadBlob(blob, zipName) },
-      save: {
-        save: async () => {
-          const folder = await ensureOutputFolder();
-          if (!folder) return;
-          await writeToFolder(folder, zipName, blob);
-          say(t("web.savedTo", { count: 1 }));
-        },
-      },
-    };
-
-    showResult("gif", result);
+    // the three fields under the slots are the same ones the export page edits
+    const blob = await resourcePackBlob(bitmaps, id, state.config.pack ?? {});
+    // the pack page keeps no result card: the zip goes straight to the browser
+    downloadBlob(blob, zipName);
     addHistory(slug, [{ name: zipName }], keepUrl(state.sheetSlots.body.bitmap));
     say(t("web.packDone", { name: zipName, size: Math.max(1, Math.round(blob.size / 1024)) }));
   } catch (error) {
@@ -140,65 +120,6 @@ export function sheetStem(name) {
     .pop()
     .replace(/\.[^.]+$/, "");
   return sanitizeFilename(base || "Armor");
-}
-
-/** Build a result object with the 20 frame PNGs plus the animated GIFs. */
-export async function packSheetGifs(title, entries, gifs, warnings = [], previewFrames = []) {
-  const blobs = [];
-  const files = [];
-
-  for (const entry of entries) {
-    const blob = await pngBlob(entry.bitmap);
-    blobs.push({ name: entry.name, blob });
-    files.push({
-      name: entry.name,
-      width: entry.bitmap.width,
-      height: entry.bitmap.height,
-      size: blob.size,
-      url: URL.createObjectURL(blob),
-    });
-  }
-
-  const previews = [];
-  for (const item of gifs) {
-    // the preview-sheets tab owns these two values; pass them, do not inherit
-    const shown = gifFrames(item.frames, state.config.gifSize);
-    const blob = gifBlob(shown, { order: gifFrameOrder(), delayMs: gifDelay(state.config.gifSpeed) });
-    blobs.push({ name: item.name, blob });
-    files.push({
-      name: item.name,
-      width: shown[0].width,
-      height: shown[0].height,
-      size: blob.size,
-      url: URL.createObjectURL(blob),
-    });
-    previews.push({ url: URL.createObjectURL(blob), captionKey: item.captionKey });
-  }
-  if (previewFrames.length) {
-    previews.push({
-      // 1:1: the previews show the pixels the game would see, never an upscale
-      url: keepUrl(contactSheet(previewFrames, 1)),
-      captionKey: "web.previewFrames",
-    });
-  }
-
-  return {
-    title,
-    files,
-    previews,
-    warnings,
-    zip: {
-      save: async () => downloadBlob(await zipBlobAsync(blobs), `${sanitizeFilename(title)}.zip`),
-    },
-    save: {
-      save: async () => {
-        const folder = await ensureOutputFolder();
-        if (!folder) return;
-        for (const item of blobs) await writeToFolder(folder, item.name, item.blob);
-        say(t("web.savedTo", { count: blobs.length }));
-      },
-    },
-  };
 }
 
 /**
@@ -234,13 +155,6 @@ export async function packResult(title, templates, frames, warnings = []) {
       template: entry.bitmap,
     });
   }
-  if (frames?.length) {
-    previews.push({ url: keepUrl(contactSheet(frames, 1)), captionKey: "web.previewFrames" });
-    // the animation is a preview only: 2x for the eye, never written to disk
-    const gif = makeGif(frames, state.config.revGifSpeed ?? "fast", 2);
-    previews.push({ url: URL.createObjectURL(gif), captionKey: "web.previewGif", alt: "GIF" });
-  }
-
   return {
     bare: true,
     title,

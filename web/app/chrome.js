@@ -36,6 +36,9 @@ export function applyI18n() {
   // the wiki exists in both languages: send the reader to his own
   const wiki = $("#wiki-link");
   if (wiki) wiki.href = WIKI_ARMOR_IDS[state.language] ?? WIKI_ARMOR_IDS.zh_CN;
+  // the switch names the language it moves to, not the one it is in
+  const language = $("#language");
+  if (language) language.textContent = state.language === "en" ? "中" : "En";
   renderTooltips();
   renderGuideToggle();
   renderFiles();
@@ -120,8 +123,9 @@ for (const tab of $$(".tab")) {
   });
 }
 
-on("#language", "change", async (event) => {
-  state.language = event.target.value;
+// one button, two languages: its label names the one it switches to
+on("#language", "click", async () => {
+  state.language = state.language === "en" ? "zh_CN" : "en";
   setMessages(await loadMessages(state.language));
   saveConfig();
   applyI18n();

@@ -13,7 +13,8 @@ import { saveConfig, state } from "./state.js";
 import { armorName, asId } from "./ids.js";
 import { loadSetsIndex, pickSet, renderRevNames } from "./sets.js";
 import { addHistory } from "./history.js";
-import { keepUrl, rebakeTemplate, refreshGif, showResult, withGuide } from "./result.js";
+import { keepUrl, rebakeTemplate, showResult, withGuide } from "./result.js";
+import { setReversePreview } from "./gifs.js";
 import { packResult } from "./pack.js";
 import { endJob, jobCancelled, jobProgress, nextFrame, startJob } from "./jobs.js";
 import { allSets, displayName, findSet, partIds, sanitizeFilename, setParts } from "../js/data.js";
@@ -99,6 +100,8 @@ export async function doReverse() {
     const result = await packResult(base, outputs, frames, [...new Set(warnings.map(warnText))]);
 
     showResult("reverse", result);
+    // the animation is the player above the result, never a file
+    setReversePreview(frames, state.config.revGifSpeed ?? "fast", 2);
     say(t("reverse.done", { path: result.files[0].name }));
   } catch (error) {
     console.error(error);
@@ -240,11 +243,11 @@ for (const field of ["#rev-head", "#rev-body", "#rev-legs"]) {
 on("#rev-gif-speed", "change", (event) => {
   state.config.revGifSpeed = event.target.value;
   saveConfig();
-  // the speed only changes the preview animation, not the template
+  // the speed only changes the animation, not the template
   const shown = state.results.reverse;
-  if (!shown) return;
-  for (const result of shown) refreshGif(result);
-  showResult("reverse", shown);
+  const frames = shown?.[0]?.frames;
+  if (!frames) return;
+  setReversePreview(frames, state.config.revGifSpeed ?? "fast", 2);
 });
 on("#do-reverse-all", "click", doReverseAll);
 }

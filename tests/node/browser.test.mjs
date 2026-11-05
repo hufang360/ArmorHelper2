@@ -105,12 +105,13 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.deepEqual(payload.checkboxIds, [
       "opt-female",
       "opt-player",
-      "gif-player",
+      "sheet-opt-female",
+      "sheet-opt-player",
       "rev-guide",
       "set-glow",
       "set-verify",
     ]);
-    assert.deepEqual(payload.tabs, ["导出贴图", "预览贴图", "盔甲模板", "设置"]);
+    assert.deepEqual(payload.tabs, ["拆图", "预览", "模板", "设置"]);
     assert.ok(payload.subtitle.includes("网页版"), payload.subtitle);
     assert.equal(payload.guide, true);
     assert.ok(payload.guideLabel.includes("叠加标准图"), payload.guideLabel);
@@ -134,16 +135,18 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       );
       assert.deepEqual(missing, [], `${label} could not find a texture`);
       assert.deepEqual(reverse.files, ["ArmorTemplate_星尘板甲_190.png"], label);
-      assert.equal(reverse.previews, 3, label);
-      // frames and animation come first, the drawing template under them
-      assert.ok(reverse.captions[0].includes("20 帧"), reverse.captions[0]);
-      assert.ok(reverse.captions[1].includes("GIF"), reverse.captions[1]);
-      assert.ok(reverse.captions[2].includes("绘制模板"), reverse.captions[2]);
-      assert.ok(reverse.captions[2].includes("2X"), reverse.captions[2]);
-      // the template preview is 2x; the frames are 1:1
-      assert.equal(reverse.widths[2], 128 * 2, `${reverse.widths[2]}`);
-      assert.equal(reverse.heights[2], 80 * 2, `${reverse.heights[2]}`);
-      assert.equal(reverse.sections, 2, "the rule between the rows is missing");
+      // only the drawing template is an image now: the animation is a player
+      assert.equal(reverse.previews, 1, label);
+      assert.ok(reverse.captions[0].includes("绘制模板"), reverse.captions[0]);
+      assert.ok(reverse.captions[0].includes("2X"), reverse.captions[0]);
+      assert.equal(reverse.widths[0], 128 * 2, `${reverse.widths[0]}`);
+      assert.equal(reverse.heights[0], 80 * 2, `${reverse.heights[0]}`);
+      assert.equal(reverse.sections, 1, "the rule between the rows is gone");
+      // the 20 frame animation plays above the result
+      assert.equal(reverse.player.hidden, false, label);
+      assert.deepEqual(reverse.player.canvas, [80, 112], label);
+      assert.match(reverse.player.count, /^\d+\/\d+$/, reverse.player.count);
+      assert.ok(reverse.player.render, label);
       // the guide switch is checked here: this is the only template preview left
       assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
       // one set offers one download button; the zip and the folder write are gone
@@ -267,26 +270,28 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     );
     assert.ok(exported.history.length >= 1);
     assert.ok(exported.history[0].includes("MyArmor"), exported.history[0]);
-    // the history counts every generated file: 6 sheets + 4 PNG + 4 GIF
-    assert.equal(exported.stored[0].files, 14);
+    // the history counts every generated file: the six sheets of the two tabs
+    assert.equal(exported.stored[0].files, 6);
     assert.ok(exported.stored[0].thumb.startsWith("data:image/png"), exported.stored[0].thumb);
 
     // the corner links: the wiki follows the language, the source does not
     const links = exported.links;
     assert.equal(links.zh.wiki.href, "https://terraria.wiki.gg/zh/wiki/Armor_IDs");
     assert.equal(links.en.wiki.href, "https://terraria.wiki.gg/wiki/Armor_IDs");
-    assert.equal(links.zh.wiki.tooltip, "wiki:盔甲ID");
-    assert.equal(links.en.wiki.tooltip, "wiki: armor IDs");
+    // the wiki is a text link inside the template page, not a header icon
+    assert.equal(links.zh.wiki.text, "Wiki: 盔甲ID");
+    assert.equal(links.en.wiki.text, "Wiki: Armor IDs");
+    assert.equal(links.zh.wiki.icon, false);
     assert.equal(links.zh.repo.href, "https://github.com/hufang360/ArmorHelper2");
     assert.equal(links.en.repo.href, links.zh.repo.href);
     assert.equal(links.zh.repo.tooltip, "开源仓库（GitHub）");
+    // the repo keeps its icon; the wiki is plain text, so it names itself
+    assert.equal(links.zh.repo.icon, true);
     for (const link of [links.zh.wiki, links.zh.repo]) {
       assert.equal(link.target, "_blank");
       assert.equal(link.rel, "noopener");
-      assert.equal(link.icon, true);
-      // the tooltip doubles as the accessible name
-      assert.ok(link.label.length > 0, JSON.stringify(link));
     }
+    assert.ok(links.zh.repo.label.length > 0, JSON.stringify(links.zh.repo));
 
     // the results are not a card any more: no forced height, content decides
     const before = exported.heightsBefore;
@@ -346,33 +351,18 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.deepEqual(exported.files, ["Armor_Head_0.png", "Armor/Armor_0.png", "Armor_Legs_0.png"]);
 
     // the GIFs are real files in the 全身盔甲 tab
-    const gifTargets = payload.gifTargets;
-    assert.deepEqual(gifTargets.labels, ["1.4", "1.3", "全身盔甲"]);
-    assert.equal(gifTargets.active, "全身盔甲", JSON.stringify(gifTargets));
-    // the full armour tab lists the four PNGs, then the four GIFs
-    assert.deepEqual(gifTargets.names, [
-      "FullArmor.png",
-      "FullArmorFemale.png",
-      "FullArmorPlayer.png",
-      "FullArmorPlayerFemale.png",
-      "FullArmor.gif",
-      "FullArmorFemale.gif",
-      "FullArmorPlayer.gif",
-      "FullArmorPlayerFemale.gif",
-    ]);
-
-    // the results block: three tabs, each with its own zip
     const packCards = payload.packCards;
     assert.equal(packCards.info.length, 2);
     const [tab144, tab13] = packCards.info;
-    assert.deepEqual(tab144.tabs, ["1.4", "1.3", "全身盔甲"]);
+    assert.deepEqual(tab144.tabs, ["1.4", "1.3"]);
     assert.equal(tab144.activeTab, "1.4");
     assert.equal(tab13.activeTab, "1.3");
     // only 1.4.4+ writes a pack.json, so only its tab offers the inputs
     assert.deepEqual(tab144.inputs, ["材质包名称", "作者", "由 ArmorHelper 生成"]);
     assert.deepEqual(tab13.inputs, []);
     assert.equal(tab144.button, "下载材质包");
-    assert.equal(tab13.button, "打包下载");
+    // 1.3 keeps only its table: the zip button was removed
+    assert.equal(tab13.button, null);
     assert.deepEqual(tab144.rows, [
       ["Armor_Head_0.png", "40×1120", "便装假发", "头部，20 帧"],
       ["Armor/Armor_0.png", "360×224", "便装衣", "身体，包括男身和女身"],
@@ -401,14 +391,11 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.deepEqual(tab13.columns, ["头", "男身", "女身", "手臂", "腿"]);
     assert.equal(tab144.sheets, 3);
     assert.equal(tab13.sheets, 5);
-    // the 全身盔甲 tab has its own zip of the eight files
-    assert.equal(packCards.full.rows.length, 8);
-    assert.equal(packCards.full.button, "打包下载");
-
-    const [pack144, pack13, packFull] = packCards.packs.map((pack) => ({
-      ...pack,
-      entries: readZip(Buffer.from(pack.base64, "base64")).map((entry) => entry.name),
-    }));
+    const [pack144, pack13] = packCards.packs.map((pack) =>
+      pack.base64
+        ? { ...pack, entries: readZip(Buffer.from(pack.base64, "base64")).map((entry) => entry.name) }
+        : pack,
+    );
     assert.equal(pack144.signature, "PK");
     assert.deepEqual(pack144.entries, [
       "pack.json",
@@ -419,30 +406,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "Content/Images/Armor/",
       "Content/Images/Armor/Armor_0.png",
     ]);
-    // 1.3 had no resource packs, so its zip carries no pack.json
-    assert.equal(pack13.signature, "PK");
-    assert.deepEqual(pack13.entries, [
-      "Content/",
-      "Content/Images/",
-      "Content/Images/Armor_Head_0.png",
-      "Content/Images/Armor_Legs_0.png",
-      "Content/Images/Armor_Body_0.png",
-      "Content/Images/Female_Body_0.png",
-      "Content/Images/Armor_Arm_0.png",
-    ]);
-    // the full armour zip carries the eight generated files, not the sheets
-    assert.equal(packFull.signature, "PK");
-    assert.deepEqual(packFull.entries, [
-      "FullArmor.png",
-      "FullArmorFemale.png",
-      "FullArmorPlayer.png",
-      "FullArmorPlayerFemale.png",
-      "FullArmor.gif",
-      "FullArmorFemale.gif",
-      "FullArmorPlayer.gif",
-      "FullArmorPlayerFemale.gif",
-    ]);
-
+    // 1.3 hands out no zip: the tab has no pack button
+    assert.equal(pack13.error, "no button");
     // the player switch and the female switch both redraw the animation
     assert.equal(exported.previewVisible, true);
     assert.equal(exported.playerChanged, true);
@@ -501,6 +466,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(gifs.buttons.lonelyStatus.includes("拖到"), gifs.buttons.lonelyStatus);
     // the swap icon really trades the two sheets, both ways
     assert.equal(gifs.buttons.swapped, true);
+    // and the card is redrawn from the swapped sheets
+    assert.equal(gifs.buttons.swappedRedraws, true);
     assert.equal(gifs.buttons.swappedBack, true);
     assert.deepEqual(gifs.filled, [true, true, true]);
     assert.deepEqual(gifs.titles, ["头", "身体", "腿"]);
@@ -510,9 +477,9 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.deepEqual(gifs.thumbs.map((thumb) => thumb.width), [40, 360, 40]);
     // the body box is 360x224 itself, head and legs are half as wide
     assert.deepEqual(gifs.boxes, [
-      [180, 224],
+      [90, 224],
       [360, 224],
-      [180, 224],
+      [90, 224],
     ]);
     // "remove" is an icon button with no label text
     assert.deepEqual(gifs.clearIcons.map((icon) => icon.svg), [true, true, true]);
@@ -529,31 +496,41 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     );
     assert.ok(gifs.slotInfo[0].lines[0].startsWith("Armor_Head"), JSON.stringify(gifs.slotInfo));
     assert.ok(/^\d+×\d+$/.test(gifs.slotInfo[0].lines[1]), JSON.stringify(gifs.slotInfo));
+    // the name and size live in an info icon inside the box's bottom left corner
+    assert.deepEqual(gifs.slotInfo.map((info) => info.label), ["头", "身体", "腿"]);
+    assert.deepEqual(gifs.slotInfo.map((info) => info.icon), [true, true, true]);
+    assert.deepEqual(gifs.slotInfo.map((info) => info.corner), [true, true, true]);
     // a filled slot shows its own tick, so the status line is empty
     assert.equal(gifs.sheetStatus, "");
-    assert.deepEqual(gifs.files, [
-      "Armor_190_FullArmor.png",
-      "Armor_190_FullArmorFemale.png",
-      "Armor_190_FullArmor.gif",
-      "Armor_190_FullArmorFemale.gif",
-    ]);
-    assert.equal(gifs.previews, 3);
-    assert.deepEqual(gifs.captions.slice(0, 2), ["全身盔甲（男）", "全身盔甲（女）"]);
-    assert.deepEqual(gifs.sources.slice(0, 3), ["blob:", "blob:", "data:"]);
-    // no generate button: filling the three slots is what draws the card
+    // the whole result block is gone: the player and its link replace it
+    assert.equal(gifs.hasResults, false);
+    assert.equal(gifs.hasOwnFileTable, 0);
+    // the options that only fed the old result block are gone too
+    assert.equal(gifs.hasLeftOptions, false);
+    // no generate button: filling the three slots draws the player
     assert.equal(gifs.drewItself, true);
-    // 2x was chosen, so the GIFs (and their preview) are twice as wide
-    assert.deepEqual(gifs.widths.slice(0, 2), [80, 80]);
-    // 20 frames laid out 10 per row, 1:1, with a 2 px gap on every side
-    assert.equal(gifs.widths[2], 10 * 40 + 11 * 2, String(gifs.widths[2]));
-    assert.equal(gifs.settings.gifSpeed, "slow");
-    assert.equal(gifs.settings.gifSize, 2);
+    assert.equal(gifs.at2x.boxHidden, false);
+    assert.deepEqual(gifs.at2x.canvas, [80, 112]);
+    assert.match(gifs.at2x.count, /^\d+\/\d+$/);
+    // the link drops the Armor_<id> prefix and names the file it hands out
+    assert.equal(gifs.at2x.link, "FullArmor.png");
+    assert.equal(gifs.at2x.download, "FullArmor.png");
+    assert.equal(gifs.at2x.href, "blob:");
+    assert.equal(gifs.at2x.linkHidden, false);
+    // the icon's tooltip says what the file holds and how long the animation is
+    assert.equal(gifs.at2x.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。");
+    // 4x really reaches the canvas, and the card keeps one height for 1x-4x
+    assert.deepEqual(gifs.at4x.canvas, [160, 224]);
+    assert.equal(gifs.at4x.boxHeight, gifs.at2x.boxHeight);
+    // the female switch names the female PNG
+    assert.equal(gifs.femaleLink, "FullArmorFemale.png");
+    assert.equal(gifs.settings.sheetGifSize, 2);
 
     // "make resource pack": the zip has to carry the game's folder layout
     const pack = payload.pack;
     assert.equal(pack.error, undefined, pack.error);
     assert.equal(pack.enabled, true);
-    assert.equal(pack.name, "Armor_190-pack-pc.zip");
+    assert.equal(pack.signature, "PK");
     assert.ok(pack.status.includes("已生成材质包"), pack.status);
 
     const entries = readZip(Buffer.from(pack.base64, "base64"));
@@ -592,22 +569,11 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(player.error, undefined, player.error);
     // the note lives in the info icon's tooltip
     assert.ok(player.hintText.includes("内置"), player.hintText);
-    assert.deepEqual(player.files, [
-      "Armor_190_FullArmor.png",
-      "Armor_190_FullArmorFemale.png",
-      "Armor_190_FullArmorPlayer.png",
-      "Armor_190_FullArmorPlayerFemale.png",
-      "Armor_190_FullArmor.gif",
-      "Armor_190_FullArmorFemale.gif",
-      "Armor_190_FullArmorPlayer.gif",
-      "Armor_190_FullArmorPlayerFemale.gif",
-    ]);
-    assert.equal(player.previews, 5);
-    // clearing the slots empties the card again, still without a button
-    assert.equal(player.clearedPreviews, 0);
-    // no placeholder text and no heading once the slots are empty
-    assert.equal(player.clearedText, "");
-    assert.deepEqual(player.warnings, []);
+    assert.equal(player.redrew, true);
+    assert.equal(player.link, "FullArmorPlayer.png");
+    assert.deepEqual(player.canvas, [80, 112]);
+    // clearing the slots hides the player again, still without a button
+    assert.equal(player.cleared, true);
 
     // nothing the page did may have thrown on the way (this is what caught the
     // leftover `!!images` in renderFolders)

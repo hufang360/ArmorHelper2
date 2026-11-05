@@ -34,7 +34,7 @@ const TOOLTIPS = [
   ["#wiki-link", "web.wikiHint"],
   ["#repo-link", "web.repoHint"],
   ["#player-info", "web.playerHint"],
-  ["#gif-player-info", "web.gifPlayerHint"],
+  ["#sheet-player-info", "web.gifPlayerHint"],
   ...["head", "legs"].map((role) => [`#sheet-${role}-swap`, "web.swapHeadLegs"]),
   ["#gif-play", "web.gifPlay"],
   ["#gif-prev", "web.gifPrev"],

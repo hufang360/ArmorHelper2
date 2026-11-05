@@ -16,7 +16,7 @@ import { $, $$, say } from "./dom.js";
 import { t } from "./i18n.js";
 import { saveConfig, state } from "./state.js";
 import { armorName, effectiveIds } from "./ids.js";
-import { makeGif, setPreviewGif } from "./gifs.js";
+import { setPreviewGif } from "./gifs.js";
 import { bitmapToDataURL, canUseFolders, downloadBlob } from "../js/fs.js";
 import { pngBlob } from "../js/png.js";
 import { composeOverlay, TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
@@ -57,7 +57,7 @@ export function watchResultHeights() {
 }
 
 /** Where each panel shows its result. */
-const RESULT_HOSTS = { export: "#results", gif: "#gif-results", reverse: "#reverse-result" };
+const RESULT_HOSTS = { export: "#results", reverse: "#reverse-result" };
 
 /** Show `result` in one panel's result area and remember it for redraws. */
 export function showResult(panel, results) {
@@ -68,10 +68,6 @@ export function showResult(panel, results) {
   state.results[panel] = list;
   host.innerHTML = "";
   for (const item of list) host.append(resultCard(item, host));
-  if (panel === "gif") {
-    const title = $("#gif-results-title");
-    if (title) title.hidden = list.length === 0;
-  }
   syncResultHeights();
 }
 
@@ -90,26 +86,37 @@ export function clearResult(panel) {
     }
   }
   if (panel === "export") setPreviewGif(null);
-  if (panel === "gif") {
-    const title = $("#gif-results-title");
-    if (title) title.hidden = true;
-  }
   syncResultHeights();
 }
 
 /** The caption of a preview: `captionKey` is translated now, `caption` is literal. */
 function previewCaption(item) {
   if (!item) return "";
-  return item.captionKey ? t(item.captionKey, item.captionVars) : (item.caption ?? "");
+  const text = item.captionKey ? t(item.captionKey, item.captionVars) : (item.caption ?? "");
+  // the scale marker is a unit, not a sentence: it reads the same in both languages
+  return `${text}${item.captionSuffix ?? ""}`;
 }
 
-function previewFigure(url, caption, alt) {
+/**
+ * One preview figure.
+ *
+ * `display` sets the on-screen size: an animation preview can be shown at a
+ * multiple of the art's own pixels, and the caption then names that multiple.
+ */
+function previewFigure(url, caption, alt, display = null) {
   const figure = document.createElement("figure");
   figure.className = "preview";
   const img = document.createElement("img");
   img.src = url;
   img.alt = alt ?? caption;
   img.className = "pixel";
+  if (display) {
+    img.width = display.width;
+    img.height = display.height;
+    // the caption wraps under the picture: a long caption must not widen the
+    // figure and push the neighbouring previews out of the row
+    figure.style.maxWidth = `${display.width}px`;
+  }
   figure.append(img);
   if (caption) {
     const label = document.createElement("figcaption");
@@ -170,6 +177,19 @@ const PACK_FIELDS = [
   ["description", "web.packDescription", "is-long"],
 ];
 
+/**
+ * Store one `pack.json` field in the settings.
+ *
+ * The preview-sheets page edits the same three fields, and its inputs are plain
+ * HTML, so the handler lives here and both pages use it.
+ */
+export function bindPackField(input, field) {
+  input.addEventListener("input", () => {
+    state.config.pack = { ...(state.config.pack ?? {}), [field]: input.value };
+    saveConfig();
+  });
+}
+
 function packInfoInputs() {
   const group = document.createElement("div");
   group.className = "input-group input-group-sm pack-info";
@@ -180,10 +200,7 @@ function packInfoInputs() {
     input.placeholder = t(key);
     input.setAttribute("aria-label", t(key));
     input.value = state.config.pack?.[field] ?? "";
-    input.addEventListener("input", () => {
-      state.config.pack = { ...(state.config.pack ?? {}), [field]: input.value };
-      saveConfig();
-    });
+    bindPackField(input, field);
     group.append(input);
   }
   return group;
@@ -271,8 +288,7 @@ function sheetTable(rows = [], options = {}) {
     link.href = row.url;
     link.download = row.name.split("/").pop();
     link.textContent = row.name;
-    for (const type of ["mouseenter", "focus"]) link.addEventListener(type, () => showFilePreview(row.url, link));
-    for (const type of ["mouseleave", "blur"]) link.addEventListener(type, hideFilePreview);
+    bindFilePreview(link);
     nameCell.append(link);
 
     const sizeCell = document.createElement("td");
@@ -390,7 +406,7 @@ function resultCard(result, host = $("#results")) {
         );
         continue;
       }
-      box.append(previewFigure(item.url, previewCaption(item), item.alt));
+      box.append(previewFigure(item.url, previewCaption(item), item.alt, item.display));
     }
     return box;
   };
@@ -419,8 +435,7 @@ function resultCard(result, host = $("#results")) {
       meta.textContent = `${file.width}×${file.height}px`;
       li.append(link, meta);
       // the file's own pixels, shown while the link is hovered
-      for (const type of ["mouseenter", "focus"]) link.addEventListener(type, () => showFilePreview(file.url, link));
-      for (const type of ["mouseleave", "blur"]) link.addEventListener(type, hideFilePreview);
+      bindFilePreview(link);
     } else {
       li.append(link);
     }
@@ -446,14 +461,6 @@ function resultCard(result, host = $("#results")) {
     zipButton.textContent = t("web.zip");
     zipButton.addEventListener("click", () => result.zip.save());
     actions.append(zipButton);
-  }
-  if (result.save) {
-    const saveButton = document.createElement("button");
-    saveButton.className = "btn btn-sm btn-secondary";
-    saveButton.textContent = t("web.saveToOutput");
-    saveButton.disabled = !state.folders.output && !canUseFolders;
-    saveButton.addEventListener("click", () => result.save.save());
-    actions.append(saveButton);
   }
   if (actions.childElementCount) card.append(actions);
 
@@ -490,6 +497,19 @@ function previewBox() {
   return box;
 }
 
+/**
+ * Show the file behind `link` while it is hovered or focused.
+ *
+ * The URL is read when the pointer arrives, so a link can be re-pointed to a
+ * new blob without binding its listeners again.
+ */
+export function bindFilePreview(link) {
+  const show = () => showFilePreview(link.href, link);
+  for (const type of ["mouseenter", "focus"]) link.addEventListener(type, show);
+  for (const type of ["mouseleave", "blur"]) link.addEventListener(type, hideFilePreview);
+  return link;
+}
+
 /** Show `url` next to `anchor`, kept inside the viewport. */
 function showFilePreview(url, anchor) {
   const box = previewBox();
@@ -523,18 +543,6 @@ export function keepUrl(bitmap) {
 /** The template as it should be shown: with the guide layer, when enabled. */
 export function withGuide(template, enabled) {
   return enabled ? composeOverlay(template, state.overlay) : template;
-}
-
-/**
- * Re-encode a result's animation preview for this page's GIF speed.
- *
- * The animation is a preview only, so nothing else has to be rebuilt.
- */
-export function refreshGif(result) {
-  const item = result?.previews?.find((entry) => entry.captionKey === "web.previewGif");
-  if (!item || !result.frames?.length) return result;
-  item.url = URL.createObjectURL(makeGif(result.frames, state.config.revGifSpeed ?? "fast", 2));
-  return result;
 }
 
 /**

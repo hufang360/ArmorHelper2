@@ -32,25 +32,10 @@
     </nav>
 
     <div class="lang">
-      <select id="language" class="form-select form-select-sm" title="Language">
-        <option value="zh_CN">中文</option>
-        <option value="en">English</option>
-      </select>
+      <!-- the label names the language it switches to: "En" in Chinese, "中" in English -->
+      <button class="btn btn-sm btn-secondary lang-toggle" type="button" id="language"
+              data-i18n-label="web.languageHint">En</button>
     </div>
-
-    <!-- Where the armor IDs come from: the wiki page, in the reader's language.
-         `app.js` swaps the href when the language changes. -->
-    <a class="icon-btn wiki-link" id="wiki-link"
-       href="https://terraria.wiki.gg/zh/wiki/Armor_IDs" target="_blank" rel="noopener">
-      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-        <path d="M8 1.4 4.4 6.2h7.2z" fill="none" stroke="currentColor" stroke-width="1.3"
-              stroke-linejoin="round"/>
-        <path d="M8 4.6 3.2 10.4h9.6z" fill="none" stroke="currentColor" stroke-width="1.3"
-              stroke-linejoin="round"/>
-        <path d="M8 10.4v4.2" fill="none" stroke="currentColor" stroke-width="1.4"
-              stroke-linecap="round"/>
-      </svg>
-    </a>
 
     <!-- the source: the site is nothing but these static files.
          Icon: the GitHub mark, from GitHub's Octicons (MIT). -->
@@ -121,11 +106,38 @@
 
                 <!-- hidden until a template is loaded: with no picture the box
                      has nothing to show and would only take up the row -->
-                <div class="preview-box" hidden>
-                  <div class="preview-stage">
-                    <!-- a canvas, not an <img>: the transport below steps the
-                         frames one by one, which a playing GIF cannot do -->
+                <!-- the 20 frame player: the picture on the left, one control per
+                     row on the right, the transport under the selects -->
+                <div class="preview-box gif-player" hidden>
+                  <div class="gif-player-stage">
                     <canvas id="preview-gif" class="pixel" width="40" height="56" hidden></canvas>
+                  </div>
+                  <div class="gif-player-opts">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="opt-female">
+                      <label class="form-check-label" for="opt-female" data-i18n="web.female"></label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="opt-player">
+                      <label class="form-check-label" for="opt-player" data-i18n="web.player"></label>
+                      <span class="info-icon" id="player-info" tabindex="0" role="img">
+                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                          <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                          <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                          <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                        </svg>
+                      </span>
+                    </div>
+                    <select id="export-gif-speed" class="form-select form-select-sm" data-i18n-label="web.gifSpeed">
+                      <option value="fast" data-i18n="web.gifSpeedFast"></option>
+                      <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+                      <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+                    </select>
+                    <select id="export-gif-size" class="form-select form-select-sm" data-i18n-label="web.gifSize">
+                      <option value="1" data-i18n="web.gifSizeNative"></option>
+                      <option value="2" data-i18n="web.gifSizeDouble"></option>
+                      <option value="4" data-i18n="web.gifSizeQuad"></option>
+                    </select>
                     <div class="preview-frames">
                       <button class="icon-btn" type="button" id="gif-play" aria-pressed="true">
                         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -145,35 +157,6 @@
                         </svg>
                       </button>
                       <span class="preview-count" id="gif-count">0/0</span>
-                    </div>
-                  </div>
-                  <div class="preview-opts">
-                    <div class="form-check form-check-inline">
-                      <input class="form-check-input" type="checkbox" id="opt-female">
-                      <label class="form-check-label" for="opt-female" data-i18n="web.female"></label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                      <input class="form-check-input" type="checkbox" id="opt-player">
-                      <label class="form-check-label" for="opt-player" data-i18n="web.player"></label>
-                      <span class="info-icon" id="player-info" tabindex="0" role="img">
-                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                          <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                          <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                          <circle cx="8" cy="5" r=".8" fill="currentColor"/>
-                        </svg>
-                      </span>
-                    </div>
-                    <div class="preview-gif-opts">
-                      <select id="export-gif-speed" class="form-select form-select-sm" data-i18n-label="web.gifSpeed">
-                        <option value="fast" data-i18n="web.gifSpeedFast"></option>
-                        <option value="medium" data-i18n="web.gifSpeedMedium"></option>
-                        <option value="slow" data-i18n="web.gifSpeedSlow"></option>
-                      </select>
-                      <select id="export-gif-size" class="form-select form-select-sm" data-i18n-label="web.gifSize">
-                        <option value="1" data-i18n="web.gifSizeNative"></option>
-                        <option value="2" data-i18n="web.gifSizeDouble"></option>
-                        <option value="4" data-i18n="web.gifSizeQuad"></option>
-                      </select>
                     </div>
                   </div>
                 </div>
@@ -206,122 +189,190 @@
         <div class="card-body">
           <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.gifsTitle"></h2>
 
-          <div class="slots">
-            <div class="slot" data-role="head">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.headTitle"></span>
+          <div class="gifs-split">
+            <div class="gifs-input">
+              <div class="slots">
+                <div class="slot" data-role="head">
+                  <div class="slot-drop thin-scroll" id="sheet-head-slot" tabindex="0" role="button">
+                    <button class="icon-btn slot-clear" type="button" id="sheet-head-clear" hidden>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M4.5 4.5l7 7m0-7l-7 7"
+                              fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn slot-swap" type="button" id="sheet-head-swap" hidden>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
+                              stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
+                              stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
+                    <span id="sheet-head-hint" class="small" data-i18n="web.slot.headDrop"></span>
+                    <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+                  </div>
+                  <span class="slot-foot">
+                    <span class="slot-label" data-i18n="web.slot.headTitle"></span>
+                    <span class="info-icon" id="sheet-head-info" role="img" tabindex="0" hidden>
+                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </span>
+                </div>
+                <div class="slot" data-role="body">
+                  <div class="slot-drop" id="sheet-body-slot" tabindex="0" role="button">
+                    <button class="icon-btn slot-clear" type="button" id="sheet-body-clear" hidden>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M4.5 4.5l7 7m0-7l-7 7"
+                              fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
+                    <span id="sheet-body-hint" class="small" data-i18n="web.slot.bodyDrop"></span>
+                    <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+                  </div>
+                  <span class="slot-foot">
+                    <span class="slot-label" data-i18n="web.slot.bodyTitle"></span>
+                    <span class="info-icon" id="sheet-body-info" role="img" tabindex="0" hidden>
+                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </span>
+                </div>
+                <div class="slot" data-role="legs">
+                  <div class="slot-drop thin-scroll" id="sheet-legs-slot" tabindex="0" role="button">
+                    <button class="icon-btn slot-clear" type="button" id="sheet-legs-clear" hidden>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M4.5 4.5l7 7m0-7l-7 7"
+                              fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn slot-swap" type="button" id="sheet-legs-swap" hidden>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
+                              stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
+                              stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
+                    <span id="sheet-legs-hint" class="small" data-i18n="web.slot.legsDrop"></span>
+                    <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+                  </div>
+                  <span class="slot-foot">
+                    <span class="slot-label" data-i18n="web.slot.legsTitle"></span>
+                    <span class="info-icon" id="sheet-legs-info" role="img" tabindex="0" hidden>
+                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </span>
+                </div>
               </div>
-              <div class="slot-drop" id="sheet-head-slot" tabindex="0" role="button">
-                <button class="icon-btn slot-clear" type="button" id="sheet-head-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-                <button class="icon-btn slot-swap" type="button" id="sheet-head-swap" hidden>
-                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
-                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
-                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-                <img id="sheet-head-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-head-hint" class="small" data-i18n="web.slot.headDrop"></span>
-                <input type="file" id="sheet-head-input" accept=".png,.bmp,image/png,image/bmp" hidden>
+
+              <p class="text-body-secondary small mb-0" id="sheet-status"></p>
+
+
+              <div class="actions">
+                <button class="btn btn-sm btn-primary" id="upload-sheets" data-i18n="web.upload"></button>
+                <button class="btn btn-sm btn-secondary" id="load-sheets-demo" data-i18n="web.demo"></button>
+                <!-- only offered once the three sheets are in: it makes the pack -->
+                <button class="btn btn-sm btn-primary" id="do-pack" data-i18n="web.packMake" disabled hidden></button>
+                <input type="file" id="sheet-bulk-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
               </div>
-              <p class="slot-info small mb-0" id="sheet-head-name" hidden></p>
+
+              <!-- pack.json fields of the resource pack; the export page edits the same three -->
+              <div class="pack-info input-group input-group-sm" id="sheet-pack-info" hidden>
+                <input type="text" class="form-control is-short" id="sheet-pack-name"
+                       data-i18n-placeholder="web.packName" data-i18n-label="web.packName">
+                <input type="text" class="form-control is-short" id="sheet-pack-author"
+                       data-i18n-placeholder="web.packAuthor" data-i18n-label="web.packAuthor">
+                <input type="text" class="form-control is-long" id="sheet-pack-desc"
+                       data-i18n-placeholder="web.packDescription" data-i18n-label="web.packDescription">
+              </div>
+
             </div>
 
-            <div class="slot" data-role="body">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.bodyTitle"></span>
+            <div class="gifs-output">
+              <!-- the export page's 20 frame player, laid out in two columns: the
+                 picture on the left, one control per row on the right, and the
+                 transport under the selects -->
+              <div class="preview-box gif-player" id="sheet-preview-box" hidden>
+                <div class="gif-player-stage">
+                  <canvas id="sheet-preview-gif" class="pixel" width="40" height="56" hidden></canvas>
+                </div>
+                <div class="gif-player-opts">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="sheet-opt-female">
+                    <label class="form-check-label" for="sheet-opt-female" data-i18n="web.female"></label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="sheet-opt-player">
+                    <label class="form-check-label" for="sheet-opt-player" data-i18n="web.player"></label>
+                    <span class="info-icon" id="sheet-player-info" tabindex="0" role="img">
+                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </div>
+                  <select id="sheet-preview-speed" class="form-select form-select-sm" data-i18n-label="web.gifSpeed">
+                    <option value="fast" data-i18n="web.gifSpeedFast"></option>
+                    <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+                    <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+                  </select>
+                  <select id="sheet-preview-size" class="form-select form-select-sm" data-i18n-label="web.gifSize">
+                    <option value="1" data-i18n="web.gifSizeNative"></option>
+                    <option value="2" data-i18n="web.gifSizeDouble"></option>
+                    <option value="4" data-i18n="web.gifSizeQuad"></option>
+                  </select>
+                  <div class="preview-frames">
+                    <button class="icon-btn" type="button" id="sheet-gif-play" aria-pressed="true">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path id="sheet-gif-play-icon" d="M5 3.5v9l7-4.5z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="sheet-gif-prev">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path d="M4 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M12 3.5v9L5.5 8z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="sheet-gif-next">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M4 3.5v9l6.5-4.5z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <span class="preview-count" id="sheet-gif-count">0/0</span>
+                  </div>
+                  <hr class="preview-rule">
+                  <!-- the PNG the two switches above name; hover shows its pixels -->
+                  <p class="sheet-player-file-row">
+                    <a class="sheet-player-file" id="sheet-preview-file" href="#" download hidden></a>
+                    <span class="info-icon gif-player-info" id="sheet-preview-info" tabindex="0" role="img">
+                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div class="slot-drop" id="sheet-body-slot" tabindex="0" role="button">
-                <button class="icon-btn slot-clear" type="button" id="sheet-body-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-                <img id="sheet-body-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-body-hint" class="small" data-i18n="web.slot.bodyDrop"></span>
-                <input type="file" id="sheet-body-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-              <p class="slot-info small mb-0" id="sheet-body-name" hidden></p>
-            </div>
 
-            <div class="slot" data-role="legs">
-              <div class="slot-head">
-                <span class="small text-body-secondary" data-i18n="web.slot.legsTitle"></span>
-              </div>
-              <div class="slot-drop" id="sheet-legs-slot" tabindex="0" role="button">
-                <button class="icon-btn slot-clear" type="button" id="sheet-legs-clear" hidden>
-                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M4.5 4.5l7 7m0-7l-7 7"
-                          fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  </svg>
-                </button>
-                <button class="icon-btn slot-swap" type="button" id="sheet-legs-swap" hidden>
-                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M3.5 5.5h9m0 0-2-2m2 2-2 2" fill="none" stroke="currentColor"
-                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12.5 10.5h-9m0 0 2-2m-2 2 2 2" fill="none" stroke="currentColor"
-                          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-                <img id="sheet-legs-thumb" class="slot-thumb pixel" alt="" hidden>
-                <span id="sheet-legs-hint" class="small" data-i18n="web.slot.legsDrop"></span>
-                <input type="file" id="sheet-legs-input" accept=".png,.bmp,image/png,image/bmp" hidden>
-              </div>
-              <p class="slot-info small mb-0" id="sheet-legs-name" hidden></p>
             </div>
           </div>
-          <p class="text-body-secondary small mb-0" id="sheet-status"></p>
-
-
-          <div class="opts-inline d-flex flex-wrap align-items-end gap-2 mt-2">
-            <div class="field">
-              <label class="form-label small text-body-secondary mb-1" for="gif-speed" data-i18n="web.gifSpeed"></label>
-              <select id="gif-speed" class="form-select form-select-sm">
-                <option value="fast" data-i18n="web.gifSpeedFast"></option>
-                <option value="medium" data-i18n="web.gifSpeedMedium"></option>
-                <option value="slow" data-i18n="web.gifSpeedSlow"></option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="form-label small text-body-secondary mb-1" for="gif-size" data-i18n="web.gifSize"></label>
-              <select id="gif-size" class="form-select form-select-sm">
-                <option value="1" data-i18n="web.gifSizeNative"></option>
-                <option value="2" data-i18n="web.gifSizeDouble"></option>
-                <option value="4" data-i18n="web.gifSizeQuad"></option>
-              </select>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="gif-player">
-              <label class="form-check-label" for="gif-player" data-i18n="web.player"></label>
-              <span class="info-icon" id="gif-player-info" tabindex="0" role="img">
-                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                  <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                  <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                  <circle cx="8" cy="5" r=".8" fill="currentColor"/>
-                </svg>
-              </span>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="btn btn-sm btn-primary" id="upload-sheets" data-i18n="web.upload"></button>
-            <button class="btn btn-sm btn-secondary" id="load-sheets-demo" data-i18n="web.demo"></button>
-            <!-- only offered once the three sheets are in: it makes the pack -->
-            <button class="btn btn-sm btn-primary" id="do-pack" data-i18n="web.packMake" disabled hidden></button>
-            <input type="file" id="sheet-bulk-input" accept=".png,.bmp,image/png,image/bmp" multiple hidden>
-          </div>
-
-          <!-- the heading only exists once there is something to show -->
-          <h3 class="h6 text-uppercase text-body-secondary mt-3" id="gif-results-title"
-              data-i18n="web.results" hidden></h3>
-          <div id="gif-results" class="results"></div>
         </div>
       </div>
 
@@ -363,6 +414,10 @@
                 </div>
               </div>
               <p class="text-body-secondary small mb-1" id="images-status"></p>
+              <!-- the wiki lists every armor ID, in the reader's language -->
+              <a class="wiki-link" id="wiki-link"
+                 href="https://terraria.wiki.gg/zh/wiki/Armor_IDs" target="_blank" rel="noopener"
+                 data-i18n="web.wikiHint"></a>
 
               <!-- this page owns its own guide switch and speed: the other pages keep their own -->
               <div class="rev-settings">
@@ -410,6 +465,35 @@
                 </div>
               </div>
               <p class="text-body-secondary small mb-2" data-i18n="web.idsHint"></p>
+
+              <!-- the 20 frame animation of the set being previewed -->
+              <div class="preview-box gif-player" id="rev-preview-box" hidden>
+                <div class="gif-player-stage">
+                  <canvas id="rev-preview-gif" class="pixel" width="40" height="56" hidden></canvas>
+                </div>
+                <div class="gif-player-opts">
+                  <div class="preview-frames">
+                    <button class="icon-btn" type="button" id="rev-gif-play" aria-pressed="true">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path id="rev-gif-play-icon" d="M5 3.5v9l7-4.5z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="rev-gif-prev">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path d="M4 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M12 3.5v9L5.5 8z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" type="button" id="rev-gif-next">
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M4 3.5v9l6.5-4.5z" fill="currentColor"/>
+                      </svg>
+                    </button>
+                    <span class="preview-count" id="rev-gif-count">0/0</span>
+                  </div>
+                </div>
+              </div>
 
               <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
             </div>

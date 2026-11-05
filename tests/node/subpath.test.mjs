@@ -47,8 +47,11 @@ test("the app works when it is served from a subdirectory", { skip }, async () =
     const reverse = payload.builtin;
     assert.equal(reverse.error, undefined, reverse.error);
     assert.deepEqual(reverse.files, ["ArmorTemplate_星尘板甲_190.png"]);
-    assert.equal(reverse.previews, 3);
-    assert.equal(reverse.widths[2], 128 * 2);
+    // only the drawing template is an image: the animation is a player
+    assert.equal(reverse.previews, 1);
+    assert.equal(reverse.widths[0], 128 * 2);
+    assert.equal(reverse.player.hidden, false);
+    assert.deepEqual(reverse.player.canvas, [80, 112]);
 
     // the service worker is registered for the subdirectory, not for the root.
     // (`controlled` needs a reload after the first install, so it is only

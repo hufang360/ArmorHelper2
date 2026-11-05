@@ -216,6 +216,13 @@ async function runReverse(doc) {
         widths: [...images].map((img) => img.naturalWidth),
         heights: [...images].map((img) => img.naturalHeight),
         sections: doc.querySelectorAll("#reverse-result .previews").length,
+        // the animation is a player above the result now
+        player: {
+          hidden: doc.querySelector("#rev-preview-box").hidden,
+          canvas: [doc.querySelector("#rev-preview-gif").width, doc.querySelector("#rev-preview-gif").height],
+          count: doc.querySelector("#rev-gif-count").textContent,
+          render: doc.querySelector("#rev-preview-gif").dataset.render ?? "",
+        },
         files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
         fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
         actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
@@ -394,15 +401,44 @@ function cardHeights(doc, panelId) {
 }
 
 /**
- * The "preview sheets" tab: three labelled slots, speed/size selects and the
- * generated PNGs plus animated GIFs.  Also checks that a sheet dropped into the
- * wrong slot is rejected with a translated message instead of silently used.
+ * The "preview sheets" tab: three slots, the 20 frame player and the PNG link
+ * under it.  Also checks that a sheet dropped into the wrong slot is rejected
+ * with a translated message instead of silently used.
  */
 async function runSheetGifs(doc) {
   // the box sizes are only measurable while the tab is on screen
   doc.querySelector('[data-tab="gifs"]').click();
   await sleep(60);
   const sheets = await makeSheets();
+
+  /** Wait until the player has drawn the frames of the current sheets. */
+  const waitPlayer = async () => {
+    const canvas = doc.querySelector("#sheet-preview-gif");
+    for (let tick = 0; tick < 400; tick += 1) {
+      await sleep(25);
+      if (!canvas.hidden && canvas.dataset.render) {
+        await sleep(200); // let the PNG link land as well
+        return true;
+      }
+    }
+    return false;
+  };
+  const playerState = () => {
+    const canvas = doc.querySelector("#sheet-preview-gif");
+    const link = doc.querySelector("#sheet-preview-file");
+    const box = doc.querySelector("#sheet-preview-box");
+    return {
+      boxHeight: Math.round(box.getBoundingClientRect().height),
+      boxHidden: box.hidden,
+      canvas: [canvas.width, canvas.height],
+      count: doc.querySelector("#sheet-gif-count").textContent,
+      link: link.textContent,
+      download: link.getAttribute("download"),
+      href: (link.getAttribute("href") || "").slice(0, 5),
+      linkHidden: link.hidden,
+      tooltip: doc.querySelector("#sheet-preview-info").dataset.tooltip,
+    };
+  };
 
   // the demo button fills all three slots from the bundled vanilla atlas
   const packHidden = doc.querySelector("#do-pack").hidden;
@@ -414,8 +450,12 @@ async function runSheetGifs(doc) {
     buttonOrder: [...doc.querySelectorAll("#tab-gifs .actions .btn")].map((el) => el.id),
     packHiddenAtStart: packHidden,
     version: doc.querySelector("#app-version").textContent.trim(),
-    slots: [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[0]),
-    sizes: [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[1]),
+    slots: [...doc.querySelectorAll(".slot-foot [data-tooltip]")].map(
+      (el) => el.dataset.tooltip.split("\n")[0],
+    ),
+    sizes: [...doc.querySelectorAll(".slot-foot [data-tooltip]")].map(
+      (el) => el.dataset.tooltip.split("\n")[1],
+    ),
     enabled: !doc.querySelector("#do-pack").disabled,
   };
   for (const role of ["head", "body", "legs"]) {
@@ -436,15 +476,8 @@ async function runSheetGifs(doc) {
   for (const role of ["head", "body", "legs"]) {
     await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
   }
-  // no generate button any more: the card draws itself once the three are in
-  const waitResults = async () => {
-    for (let tick = 0; tick < 400; tick += 1) {
-      await sleep(25);
-      if (doc.querySelectorAll("#gif-results .preview img").length) return true;
-    }
-    return false;
-  };
-  const drewItself = await waitResults();
+  // no generate button any more: the player draws itself once the three are in
+  const drewItself = await waitPlayer();
   const disabled = doc.querySelector("#do-pack").disabled;
   // the main action moves: upload is primary until the three are in
   const uploadAfter = doc.querySelector("#upload-sheets");
@@ -456,7 +489,7 @@ async function runSheetGifs(doc) {
     packSecondary: packButton.classList.contains("btn-secondary"),
     hasClear: !!doc.querySelector("#clear-sheets"),
     hasUploadInput: !!doc.querySelector("#sheet-bulk-input"),
-    playerInfo: doc.querySelector("#gif-player-info")?.dataset.tooltip ?? "",
+    playerInfo: doc.querySelector("#sheet-player-info")?.dataset.tooltip ?? "",
     hintParagraph: !!doc.querySelector('[data-i18n="web.gifPlayerHint"]'),
   };
 
@@ -484,7 +517,9 @@ async function runSheetGifs(doc) {
     await sleep(25);
     if (!doc.querySelector("#do-pack").disabled) break;
   }
-  buttons.bulkNames = [...doc.querySelectorAll(".slot-info")].map((el) => el.textContent.split("\n")[0]);
+  buttons.bulkNames = [...doc.querySelectorAll(".slot-foot [data-tooltip]")].map(
+    (el) => el.dataset.tooltip.split("\n")[0],
+  );
   // one tall sheet alone cannot be split: the card asks for a manual drop
   doc.querySelector("#sheet-head-clear").click();
   doc.querySelector("#sheet-legs-clear").click();
@@ -495,29 +530,37 @@ async function runSheetGifs(doc) {
   bulkInput.dispatchEvent(new Event("change", { bubbles: true }));
   await sleep(300);
   buttons.lonelyStatus = doc.querySelector("#sheet-status").textContent.trim();
+  // a cleared slot also clears the player
+  buttons.playerHiddenWhenEmpty = doc.querySelector("#sheet-preview-box").hidden;
 
   // put the three real sheets back for the steps that follow
   for (const role of ["head", "body", "legs"]) {
     await putFiles(doc, `#sheet-${role}-input`, [sheets[role]]);
     await sleep(60);
   }
-  await waitResults();
+  await waitPlayer();
 
   // the swap trades the head sheet for the legs sheet
-  const headBefore = doc.querySelector("#sheet-head-name").textContent;
-  const legsBefore = doc.querySelector("#sheet-legs-name").textContent;
+  const nameOf = (role) => doc.querySelector(`#sheet-${role}-info`).dataset.tooltip;
+  const headBefore = nameOf("head");
+  const legsBefore = nameOf("legs");
+  const drawnBefore = doc.querySelector("#sheet-preview-gif").dataset.render;
   doc.querySelector("#sheet-legs-swap").click();
   await sleep(150);
-  buttons.swapped =
-    doc.querySelector("#sheet-head-name").textContent === legsBefore &&
-    doc.querySelector("#sheet-legs-name").textContent === headBefore;
+  buttons.swapped = nameOf("head") === legsBefore && nameOf("legs") === headBefore;
+  // the player has to be redrawn from the swapped sheets, not kept as it was
+  for (let tick = 0; tick < 400; tick += 1) {
+    if (doc.querySelector("#sheet-preview-gif").dataset.render !== drawnBefore) break;
+    await sleep(25);
+  }
+  buttons.swappedRedraws = doc.querySelector("#sheet-preview-gif").dataset.render !== drawnBefore;
   doc.querySelector("#sheet-head-swap").click();
   await sleep(150);
-  buttons.swappedBack = doc.querySelector("#sheet-head-name").textContent === headBefore;
+  buttons.swappedBack = nameOf("head") === headBefore;
   const sheetStatus = doc.querySelector("#sheet-status").textContent.trim();
   const filled = [...doc.querySelectorAll(".slot")].map((slot) => slot.classList.contains("is-filled"));
   // each slot has to show its own title and a thumbnail of what was dropped
-  const titles = [...doc.querySelectorAll(".slot-head > span")].map((el) => el.textContent.trim());
+  const titles = [...doc.querySelectorAll(".slot-label")].map((el) => el.textContent.trim());
   const thumbs = [...doc.querySelectorAll(".slot-thumb")].map((img) => ({
     hidden: img.hidden,
     src: (img.getAttribute("src") || "").slice(0, 5),
@@ -540,63 +583,71 @@ async function runSheetGifs(doc) {
     visible: !el.hidden,
     tooltip: el.dataset.tooltip ?? "",
   }));
-  // the file name and its size are two lines, not one joined by a dot
-  const slotInfo = [...doc.querySelectorAll(".slot-info")].map((el) => ({
-    lines: el.textContent.split("\n"),
-    height: Math.round(el.getBoundingClientRect().height),
+  // the file name and its size are two lines in the info icon's tooltip
+  const slotInfo = [...doc.querySelectorAll(".slot-foot [data-tooltip]")].map((el) => ({
+    lines: el.dataset.tooltip.split("\n"),
+    label: el.closest(".slot-foot").querySelector(".slot-label").textContent.trim(),
+    icon: !!el.querySelector("svg"),
+    // the name sits under the box, left aligned with it
+    corner: (() => {
+      const box = el.closest(".slot").querySelector(".slot-drop").getBoundingClientRect();
+      const foot = el.closest(".slot-foot").getBoundingClientRect();
+      return foot.top >= box.bottom - 1 && Math.abs(foot.left - box.left) < 4;
+    })(),
   }));
   if (disabled) return { error: "the pack button stayed disabled", sheetStatus, wrongSlotStatus };
 
-  await sleep(150); // let the layout settle after the slots are filled
-  // a GIF setting change has to redraw the card by itself: the first preview
-  // must become a different picture
-  const beforeSrc = doc.querySelector("#gif-results .preview img")?.src ?? "";
+  await sleep(200); // let the layout settle after the slots are filled
+  const at2x = playerState();
 
-  // slow GIFs at 2x, so the test can see the settings really reach the encoder
-  const speed = doc.querySelector("#gif-speed");
-  speed.value = "slow";
-  speed.dispatchEvent(new Event("change", { bubbles: true }));
-  const size = doc.querySelector("#gif-size");
-  size.value = "2";
+  // the size select reaches the canvas, and the card keeps its 4x height
+  const size = doc.querySelector("#sheet-preview-size");
+  size.value = "4";
   size.dispatchEvent(new Event("change", { bubbles: true }));
-
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
-    const images = doc.querySelectorAll("#gif-results .preview img");
-    if (images.length && images[0].src !== beforeSrc) {
-      // GIFs decode lazily: wait so naturalWidth is the real frame size
-      await Promise.all([...images].map((img) => img.decode().catch(() => null)));
-      const widths = [...images].map((img) => img.naturalWidth);
-      const gif = doc.querySelector('#gif-results .files a[download$=".gif"]');
-      return {
-        disabled,
-        drewItself,
-        demo,
-        buttons,
-        sheetStatus,
-        wrongSlotStatus,
-        wrongSlotFilled,
-        filled,
-        titles,
-        thumbs,
-        boxes,
-        clearIcons,
-        swapIcons,
-        slotInfo,
-        previews: images.length,
-        widths,
-        gifSize: gif ? gif.textContent : null,
-        captions: [...doc.querySelectorAll("#gif-results figcaption")].map((el) => el.textContent),
-        files: [...doc.querySelectorAll("#gif-results .files a")].map((a) => a.textContent),
-        sizes: [...doc.querySelectorAll("#gif-results .files li .muted")].map((el) => el.textContent),
-        sources: [...images].map((img) => img.src.slice(0, 5)),
-        status: doc.querySelector("#status").textContent.trim(),
-        settings: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.settings") || "{}"),
-        history: doc.querySelectorAll("#history-list li img").length,
-      };
-    }
+    if (doc.querySelector("#sheet-preview-gif").width === 160) break;
   }
-  return { error: "no GIF result", sheetStatus };
+  const at4x = playerState();
+  size.value = "2";
+  size.dispatchEvent(new Event("change", { bubbles: true }));
+  await sleep(500);
+
+  // the female switch names the female PNG under the player
+  doc.querySelector("#sheet-opt-female").click();
+  for (let tick = 0; tick < 400; tick += 1) {
+    await sleep(25);
+    if (doc.querySelector("#sheet-preview-file").textContent.startsWith("FullArmorFemale")) break;
+  }
+  const femaleLink = doc.querySelector("#sheet-preview-file").textContent;
+  doc.querySelector("#sheet-opt-female").click();
+  await sleep(400);
+
+  return {
+    disabled,
+    drewItself,
+    demo,
+    buttons,
+    sheetStatus,
+    wrongSlotStatus,
+    wrongSlotFilled,
+    filled,
+    titles,
+    thumbs,
+    boxes,
+    clearIcons,
+    swapIcons,
+    slotInfo,
+    at2x,
+    at4x,
+    femaleLink,
+    // the result block of the old layout is gone
+    hasResults: !!doc.querySelector("#gif-results"),
+    hasOwnFileTable: doc.querySelectorAll("#tab-gifs .sheet-table").length,
+    hasLeftOptions: !!doc.querySelector("#gif-size") || !!doc.querySelector("#gif-player"),
+    status: doc.querySelector("#status").textContent.trim(),
+    settings: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.settings") || "{}"),
+  };
 }
 
 /**
@@ -604,75 +655,57 @@ async function runSheetGifs(doc) {
  * player textures (`data/player/`), which is what makes it usable on a phone.
  */
 async function runPlayerOverlay(doc) {
-  doc.querySelector("#gif-player").checked = true;
-  doc.querySelector("#gif-player").dispatchEvent(new Event("change", { bubbles: true }));
-
   // the player note is an info icon next to the switch, not a paragraph
-  const optPlayer = doc.querySelector("#opt-player");
-  optPlayer.checked = true;
-  optPlayer.dispatchEvent(new Event("change", { bubbles: true }));
-  const info = doc.querySelector("#player-info");
-  const hintText = info?.dataset.tooltip ?? "";
-
-  // ticking the switch redraws the card by itself
-  for (let tick = 0; tick < 400; tick += 1) {
-    await sleep(25);
-    const links = doc.querySelectorAll("#gif-results .files a");
-    if (links.length > 4) {
-      const report = {
-        hintText,
-        files: [...links].map((a) => a.textContent),
-        previews: doc.querySelectorAll("#gif-results .preview img").length,
-        warnings: [...doc.querySelectorAll("#gif-results .warn")].map((el) => el.textContent),
-        status: doc.querySelector("#status").textContent.trim(),
-      };
-      // each slot's own × empties it, and the card follows with no button press
-      for (const role of ["head", "body", "legs"]) {
-        doc.querySelector(`#sheet-${role}-clear`).click();
-        await sleep(60);
+  const hintText = doc.querySelector("#sheet-player-info")?.dataset.tooltip ?? "";
+  const redraw = (async () => {
+    const before = doc.querySelector("#sheet-preview-gif").dataset.render;
+    doc.querySelector("#sheet-opt-player").click();
+    for (let tick = 0; tick < 400; tick += 1) {
+      await sleep(25);
+      const canvas = doc.querySelector("#sheet-preview-gif");
+      if (canvas.dataset.render !== before && doc.querySelector("#sheet-preview-file").textContent.includes("Player")) {
+        return true;
       }
-      for (let wait = 0; wait < 200 && doc.querySelectorAll("#gif-results .preview img").length; wait += 1) {
-        await sleep(25);
-      }
-      report.clearedPreviews = doc.querySelectorAll("#gif-results .preview img").length;
-      report.clearedText = doc.querySelector("#gif-results").textContent.trim();
-      return report;
     }
+    return false;
+  })();
+
+  const redrew = await redraw;
+  const report = {
+    hintText,
+    redrew,
+    link: doc.querySelector("#sheet-preview-file").textContent,
+    canvas: [doc.querySelector("#sheet-preview-gif").width, doc.querySelector("#sheet-preview-gif").height],
+    status: doc.querySelector("#status").textContent.trim(),
+  };
+  doc.querySelector("#sheet-opt-player").click();
+  await sleep(300);
+
+  // each slot's own × empties it, and the player follows with no button press
+  for (const role of ["head", "body", "legs"]) {
+    doc.querySelector(`#sheet-${role}-clear`).click();
+    await sleep(60);
   }
-  return { error: "no player overlay result" };
+  for (let wait = 0; wait < 200 && !doc.querySelector("#sheet-preview-box").hidden; wait += 1) {
+    await sleep(25);
+  }
+  report.cleared = doc.querySelector("#sheet-preview-box").hidden;
+  return report;
 }
 
 /**
- * Click "make resource pack" and hand the produced zip back to Python, which
- * unzips it and checks the entry names, `pack.json` and every PNG.
+ * Click "make resource pack": the zip goes straight to the browser now, so the
+ * test captures what the page hands to the download.
  */
 async function runResourcePack(doc) {
-  const button = doc.querySelector("#do-pack");
-  const enabled = !button.disabled;
-  button.click();
-
-  let link = null;
-  for (let tick = 0; tick < 400; tick += 1) {
-    // the preview run before this one left its own files in the same card
-    const anchor = [...doc.querySelectorAll("#gif-results .files a")].find(
-      (a) => a.textContent.trim().endsWith("-pack-pc.zip"),
-    );
-    if (anchor && (anchor.getAttribute("href") || "").startsWith("blob:")) {
-      link = anchor;
-      break;
-    }
-    await sleep(25);
-  }
-  if (!link) return { error: "no resource pack was produced", enabled };
-
-  const buffer = new Uint8Array(await (await fetch(link.href)).arrayBuffer());
-  let binary = "";
-  for (const byte of buffer) binary += String.fromCharCode(byte);
+  const enabled = !doc.querySelector("#do-pack").disabled;
+  const download = await captureDownload(frame.contentWindow, doc.querySelector("#do-pack"));
+  if (download.error) return { error: "no resource pack was produced", enabled };
   return {
     enabled,
-    name: link.textContent.trim(),
-    bytes: buffer.length,
-    base64: btoa(binary),
+    signature: download.signature,
+    bytes: download.bytes,
+    base64: download.base64,
     status: doc.querySelector("#status").textContent.trim(),
   };
 }
@@ -775,6 +808,7 @@ async function runExport(doc) {
       tooltip: el?.dataset.tooltip ?? null,
       label: el?.getAttribute("aria-label") ?? null,
       icon: !!el?.querySelector("svg"),
+      text: el?.textContent.trim() ?? "",
     };
   };
   const links = { zh: { wiki: linkInfo("#wiki-link"), repo: linkInfo("#repo-link") } };
@@ -782,17 +816,18 @@ async function runExport(doc) {
   // switching the language has to translate the cards that are already there
   const captions = () => [...doc.querySelectorAll("#results figcaption")].map((el) => el.textContent);
   const before = captions();
+  // the language switch is a button: it names the language it goes to
   const language = doc.querySelector("#language");
-  language.value = "en";
-  language.dispatchEvent(new Event("change", { bubbles: true }));
+  const languageBefore = language.textContent.trim();
+  language.click();
   for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(before); tick += 1) {
     await sleep(25);
   }
   const english = captions();
   const englishFiles = doc.querySelectorAll("#results a[download]").length;
   links.en = { wiki: linkInfo("#wiki-link"), repo: linkInfo("#repo-link") };
-  language.value = "zh_CN";
-  language.dispatchEvent(new Event("change", { bubbles: true }));
+  const languageInEnglish = language.textContent.trim();
+  language.click();
   for (let tick = 0; tick < 200 && JSON.stringify(captions()) === JSON.stringify(english); tick += 1) {
     await sleep(25);
   }
@@ -1035,31 +1070,12 @@ async function runPackCards(doc) {
 
   await pick("1.3");
   const second = readTab();
-  const pack13 = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
-
-  // the third tab holds the full armour outputs and has its own zip
-  await pick("全身盔甲");
-  const fullTab = readTab();
-  const packFull = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
+  // 1.3 has no pack button any more: its table is all it offers
+  const pack13 = { error: "no button" };
 
   await pick("1.4");
-  return { info: [first, second], packs: [pack144, pack13, packFull], full: fullTab };
-}
-
-/** The GIFs of the full armour tab are real files, not just a preview. */
-async function runGifTargets(doc) {
-  const tabs = [...doc.querySelectorAll("#results .pack-tabs .nav-link")].map((el) => el.textContent.trim());
-  const fullTab = () =>
-    [...doc.querySelectorAll("#results .pack-tabs .nav-link")].find((el) => el.textContent.trim() === "全身盔甲");
-  fullTab()?.click();
-  for (let tick = 0; tick < 200; tick += 1) {
-    await sleep(25);
-    if (doc.querySelectorAll("#results a[download$='.gif']").length) break;
-  }
-  await sleep(150);
-  const names = [...doc.querySelectorAll("#results a[download]")].map((a) => a.textContent);
-  const active = doc.querySelector("#results .pack-tabs .nav-link.active")?.textContent.trim() ?? null;
-  return { names, labels: tabs, active };
+  // the full armour tab is gone: the player covers it
+  return { info: [first, second], packs: [pack144, pack13] };
 }
 
 /** Fire "rebuild every set" and cancel it right away. */
@@ -1193,8 +1209,6 @@ const timer = setInterval(async () => {
     // 2. an export from a dropped template, which also fills the history
     step("export");
     const exported = await runExport(doc);
-    step("gif-targets");
-    const gifTargets = await runGifTargets(doc);
     step("pack-cards");
     const packCards = await runPackCards(doc);
     // 3. the same thing again, but with the user's own files uploaded
@@ -1221,7 +1235,6 @@ const timer = setInterval(async () => {
       pick,
       dropTools,
       exported,
-      gifTargets,
       packCards,
       uploaded,
       gifs,

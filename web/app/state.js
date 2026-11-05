@@ -44,9 +44,12 @@ function defaultConfig() {
     skin: 0,
     female: false,
     player: false,
-    gifPlayer: false,
-    gifSpeed: "fast",
-    gifSize: 1,
+    // the preview-sheets page owns its player: these four settings drive that
+    // animation only, never the files the page hands out
+    sheetFemale: false,
+    sheetPlayer: false,
+    sheetGifSpeed: "fast",
+    sheetGifSize: 2,
     // the export page and the reverse page keep their own copies: no page
     // shares a GIF setting with another
     exportGifSpeed: "fast",
