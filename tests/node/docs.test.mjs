@@ -107,7 +107,7 @@ test("every translation is used", () => {
   for (const match of js.matchAll(/"((?:web|target|role|details|group|status|reverse)\.[\w.]+)"/g)) {
     used.add(match[1]);
   }
-  for (const match of html.matchAll(/data-i18n(?:-placeholder)?="([\w.]+)"/g)) used.add(match[1]);
+  for (const match of html.matchAll(/data-i18n(?:-[\w-]+)?="([\w.]+)"/g)) used.add(match[1]);
   for (const name of LAYOUT.targets.all) used.add(`target.${name}`); // t(`target.${name}`)
   for (const role of ["head", "body", "legs"]) {
     used.add(`role.${role}`);

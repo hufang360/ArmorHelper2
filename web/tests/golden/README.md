@@ -1,7 +1,7 @@
 # 冻结的参考输出（金标准）
 
 这里的 PNG 是 **2.0 的 Python 参考实现**在被移除之前生成的，`manifest.json` 记录每张图的
-尺寸、字节数与 sha256。`tests/test_web_core.py` 在 Node 里跑 `web/js/` 核心，把输出与这些
+尺寸、字节数与 sha256。`tests/node/core.test.mjs` 在 Node 里跑 `web/js/` 核心，把输出与这些
 图片**逐像素**比较 —— 所以「只剩一个 JS 实现」并没有丢掉安全网。
 
 | 文件 | 内容 |

@@ -2,7 +2,7 @@
  * Reader for the packed vanilla texture atlases.
  *
  * The 748 bundled armor textures do not ship as 748 files: the packer
- * (`tools/pack_vanilla_textures.py`) puts them into a handful of WebP pages plus
+ * (`tools/pack_vanilla_textures.mjs`) puts them into a handful of WebP pages plus
  * `index.json`, and this module turns a game path such as
  * `Armor_Head_1.png` back into the bitmap the rest of the app expects.
  *
@@ -97,6 +97,9 @@ export function reconstructFromPage(page, rect, strays, scale = 2) {
  *
  * The returned reader maps a game path to a bitmap, or `null` when the bundle
  * does not contain it — the same contract as a missing file.
+ *
+ * @typedef {{ index: any, loadPage: (file: string) => Promise<any>, cacheBytes?: number }} AtlasOptions
+ * @param {Partial<AtlasOptions>} [options]
  */
 export function createAtlasReader({ index, loadPage, cacheBytes = DEFAULT_CACHE_BYTES } = {}) {
   validateIndex(index);

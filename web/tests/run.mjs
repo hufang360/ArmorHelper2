@@ -1,17 +1,18 @@
 /**
- * Node harness for the equivalence tests.
+ * Node harness for the golden-image tests.
  *
- * Runs the web core (no DOM needed) over a raw RGBA template and dumps its
- * output as raw RGBA so the Python test suite can compare it with the Python
- * implementation pixel for pixel.
+ * Runs the web core (no DOM needed) over a raw RGBA template and dumps every
+ * output as raw RGBA or PNG.  `tests/node/core.test.mjs` reads them and compares
+ * them with the frozen reference images in `web/tests/golden/`, pixel for pixel.
  *
  *     node web/tests/run.mjs <workdir>
  *
- * The Python side (`tests/test_web_port.py`) prepares the work directory:
+ * The caller prepares the work directory:
  *   input.rgba                 128x80 template
  *   py_head.rgba               40x1120, for the reverse test
  *   py_legs.rgba               40x1120, for the reverse test
  *   py_body.rgba               360x224, for the reverse test
+ *   py_player_*.rgba           player torso / arm / legs
  *
  * and then checks everything this script writes:
  *   js_head.rgba, js_legs.rgba, js_body.rgba, js_body_glow.rgba,
@@ -242,7 +243,8 @@ writeFileSync(
 
 /* ---- full-body frames straight from the three sheets ------------------ */
 // The same input textures used for the reverse test are composed directly,
-// which is the "sheets -> GIF" feature. Python compares every frame.
+// which is the "sheets -> GIF" feature. `tests/node/core.test.mjs` compares
+// every frame.
 import {
   classifySheets,
   composeFrames,
@@ -341,7 +343,7 @@ writeFileSync(
 /* ---- guide overlay --------------------------------------------------- */
 // The overlay is composited for display only; generation must be unaffected.
 const { decodeBitmap } = await import("../js/fs.js");
-const overlay = null; // filled below when the Python side supplies the pixels
+const overlay = null; // filled below when the caller supplies the pixels
 {
   const { readFileSync: read } = await import("node:fs");
   const overlayPath = join(workdir, "overlay.rgba");
@@ -380,7 +382,7 @@ writeFileSync(join(workdir, "js_head.png"), Buffer.from(await encodePNG(generate
 writeFileSync(join(workdir, "js_sheet.png"), Buffer.from(await encodePNG(contactSheet(frames))));
 writeFileSync(join(workdir, "js_first_frame.rgba"), Buffer.from(frames[0].data.buffer));
 
-// zip with a nested path, so the Python side can check the structure
+// zip with a nested path, so the test can check the structure
 writeFileSync(
   join(workdir, "js_bundle.zip"),
   Buffer.from(
@@ -392,7 +394,7 @@ writeFileSync(
   ),
 );
 
-/* a tiny sanity value the Python side can assert on */
+/* a tiny sanity value the test can assert on */
 writeFileSync(
   join(workdir, "js_summary.json"),
   JSON.stringify({

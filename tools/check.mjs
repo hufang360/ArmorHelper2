@@ -17,9 +17,18 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const WEB = join(ROOT, "web");
-const files = readdirSync(WEB)
-  .filter((name) => name.endsWith(".js"))
-  .map((name) => join(WEB, name));
+
+/** Every `.js` the site ships. `vendor/` only holds CSS. */
+function collectScripts(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name === "vendor") return [];
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return collectScripts(path);
+    return entry.name.endsWith(".js") ? [path] : [];
+  });
+}
+
+const files = collectScripts(WEB).sort();
 
 const problems = [];
 const scratch = mkdtempSync(join(tmpdir(), "armorhelper-check-"));
@@ -27,8 +36,9 @@ const scratch = mkdtempSync(join(tmpdir(), "armorhelper-check-"));
 try {
   for (const path of files) {
     const name = path.slice(WEB.length + 1);
-    // `node --check` needs the module extension, and `web/` ships `.js`
-    const copy = join(scratch, `${name.replace(/\.js$/, "")}.mjs`);
+    // `node --check` needs the module extension, and `web/` ships `.js`.
+    // The copy is flat, so a nested name has to stay unique.
+    const copy = join(scratch, `${name.replaceAll("/", "__").replace(/\.js$/, "")}.mjs`);
     copyFileSync(path, copy);
     const result = spawnSync(process.execPath, ["--check", copy], { encoding: "utf8" });
     if (result.status !== 0) {
@@ -75,12 +85,16 @@ const GLOBALS = new Set([
   "Headers", "confirm", "alert", "prompt", "getComputedStyle", "matchMedia", "parseInt",
   "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent", "console",
   "Uint8ClampedArray", "SVGElement", "HTMLElement", "Element", "Node", "HTMLCanvasElement",
+  "CompressionStream", "DecompressionStream",
   // keywords that look like calls
   "if", "for", "while", "switch", "catch", "return", "typeof", "function", "new", "await",
   "delete", "void", "in", "of", "do", "else", "try", "finally", "case", "throw", "yield", "async",
 ]);
 
-/** Remove comments and string contents, so only code remains. */
+/** Characters after which a `/` starts a regex literal, not a division. */
+const REGEX_AFTER = new Set(["", "(", ",", "=", ":", "[", "!", "&", "|", "?", "{", "}", ";", "+", "-", "*", "%", "~", "^", "<", ">"]);
+
+/** Remove comments, string contents and regex literals, so only code remains. */
 function strip(text) {
   let out = "";
   let index = 0;
@@ -95,6 +109,24 @@ function strip(text) {
       const end = text.indexOf("*/", index + 2);
       index = end < 0 ? text.length : end + 2;
       out += " ";
+      continue;
+    }
+    // A regex literal such as `/_\d+$/` would otherwise leak its body into the
+    // code and look like a call.  A `/` is a regex when the last significant
+    // character cannot end an expression.
+    if (char === "/" && REGEX_AFTER.has(out.trimEnd().slice(-1))) {
+      index += 1;
+      let inClass = false;
+      while (index < text.length) {
+        const inner = text[index];
+        if (inner === "\\") { index += 2; continue; }
+        if (inner === "[") inClass = true;
+        else if (inner === "]") inClass = false;
+        else if (inner === "/" && !inClass) { index += 1; break; }
+        else if (inner === "\n") break;
+        index += 1;
+      }
+      out += "";
       continue;
     }
     if (char === '"' || char === "'" || char === "`") {
@@ -135,7 +167,21 @@ function declaredNames(code) {
     }
   }
   for (const match of code.matchAll(/import\s+([A-Za-z_$][\w$]*)\s+from/g)) names.add(match[1]);
+  // Parameters bind names too: `function f(a)`, `(a, b) =>`, `({ key }) =>`.
+  for (const match of code.matchAll(/\bfunction\s*[\w$]*\s*\(([^)]*)\)/g)) addParams(names, match[1]);
+  for (const match of code.matchAll(/\(([^)]*)\)\s*=>/g)) addParams(names, match[1]);
+  for (const match of code.matchAll(/(?<![\w.$])([A-Za-z_$][\w$]*)\s*=>/g)) names.add(match[1]);
   return names;
+}
+
+/** Every name a parameter list binds, including destructured and defaulted ones. */
+function addParams(names, list) {
+  for (const part of list.split(",")) {
+    // drop the default value: `cacheBytes = X` binds `cacheBytes`
+    for (const name of part.split("=")[0].split(":").pop().matchAll(/[A-Za-z_$][\w$]*/g)) {
+      names.add(name[0]);
+    }
+  }
 }
 
 /** Bare calls like `foo(` — method calls and `new foo(` do not count. */
@@ -156,7 +202,7 @@ for (const path of files) {
   }
 }
 
-// Every `t("key")` and every `data-i18n="key"` has to exist in i18n.json.
+// Every `t("key")` and every `data-i18n*="key"` has to exist in i18n.json.
 const messages = JSON.parse(readFileSync(join(WEB, "data", "i18n.json"), "utf8")).messages;
 const known = new Set(Object.keys(messages.zh_CN));
 const sources = [
@@ -167,7 +213,7 @@ for (const text of sources) {
   for (const match of text.matchAll(/(?<![\w.$])t\(\s*["']([\w.]+)["']/g)) {
     if (!known.has(match[1])) problems.push(`missing translation: ${match[1]}`);
   }
-  for (const match of text.matchAll(/data-i18n(?:-placeholder)?="([\w.]+)"/g)) {
+  for (const match of text.matchAll(/data-i18n(?:-[\w-]+)?="([\w.]+)"/g)) {
     if (!known.has(match[1])) problems.push(`missing translation: ${match[1]}`);
   }
 }

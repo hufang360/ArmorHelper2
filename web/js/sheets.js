@@ -41,7 +41,8 @@ function fileStem(path) {
 
 /** An error that the UI can translate: `key` names an i18n string, `vars` fills it. */
 function sheetError(key, vars, message) {
-  const error = new Error(message);
+  /** @type {Error & { key: string, vars: any }} */
+  const error = /** @type {any} */ (new Error(message));
   error.key = key;
   error.vars = vars;
   return error;

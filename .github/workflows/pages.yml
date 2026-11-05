@@ -33,6 +33,13 @@ jobs:
       - name: Install the wasm WebP codec (only the atlas packer needs it)
         run: npm ci
 
+      # Fast structural checks first: a broken edit fails in seconds, before the
+      # browser tests spend a minute finding out.
+      - name: Check the front end
+        run: |
+          npm run typecheck
+          npm run check
+
       # The web app is the only implementation: web/data is the source of truth,
       # and its pixels are pinned by the frozen images in web/tests/golden.
       - name: Check the core, the browser, the bundle and the docs

@@ -19,9 +19,18 @@ import { encodePNG } from "../../web/js/png.js";
 
 const HARNESS = join(import.meta.dirname, "harness.html");
 const chrome = findChrome();
-const skip = chrome ? false : "no Chrome/Chromium available";
+const skip = chrome ? false : "no Chrome/Chromium available (set CHROME_PATH)";
 
 const scratch = () => mkdtempSync(join(tmpdir(), "armorhelper-browser-"));
+
+// A missing browser turns every case below into a skip.  That is fine on a
+// laptop, but on CI it would quietly delete the only end-to-end safety net, so
+// there it is a failure.
+test("headless Chrome is available", () => {
+  if (chrome) return;
+  assert.ok(!process.env.CI, `no Chrome/Chromium; the end-to-end cases would skip`);
+  console.log("# no Chrome/Chromium: the end-to-end cases are skipped");
+});
 
 test("the browser smoke test passes", { skip }, async () => {
   const served = await serve(WEB);
@@ -199,6 +208,23 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(!/\d+ KB/.test(exported.sizes), exported.sizes);
     // the set id is editable inside the 1.4 table
     assert.equal(exported.setId, "0");
+    // editing it renames the tab's files without clicking anything
+    assert.ok(exported.idRename.before.length > 0, "no files before the id edit");
+    // each row owns its own part: editing the head cell renames the head sheet
+    // only, the body and the legs keep their id
+    const headNames = exported.idRename.after.filter((name) => name.includes("Armor_Head"));
+    assert.ok(headNames.length > 0, headNames.join(", "));
+    assert.ok(headNames.every((name) => name.includes("123")), headNames.join(", "));
+    assert.ok(
+      exported.idRename.after.filter((name) => !name.includes("Armor_Head")).every((name) => !name.includes("123")),
+      exported.idRename.after.join(", "),
+    );
+    assert.notDeepEqual(exported.idRename.after, exported.idRename.before);
+    // and the name column follows the id
+    assert.ok(
+      exported.idRename.headNames.some((name) => name.length > 0),
+      exported.idRename.headNames.join(", "),
+    );
     assert.ok(exported.history.length >= 1);
     assert.ok(exported.history[0].includes("MyArmor"), exported.history[0]);
     // the history counts every generated file: 6 sheets + 4 PNG + 4 GIF

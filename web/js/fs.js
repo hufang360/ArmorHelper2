@@ -82,7 +82,9 @@ export const canUseFolders = typeof window !== "undefined" && "showDirectoryPick
 export async function pickFolder(id = "read") {
   if (!canUseFolders) return null;
   try {
-    return await window.showDirectoryPicker({ id, mode: id === "readwrite" ? "readwrite" : "read" });
+    // Not in lib.dom yet: the File System Access API is Chromium only.
+    const picker = /** @type {any} */ (window);
+    return await picker.showDirectoryPicker({ id, mode: id === "readwrite" ? "readwrite" : "read" });
   } catch {
     return null; // the user cancelled
   }

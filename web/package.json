@@ -5,7 +5,7 @@
   "type": "module",
   "description": "ArmorHelper web app — pure static, no build step",
   "scripts": {
-    "serve": "python3 -m http.server 8000",
+    "serve": "node ../tools/serve.mjs web 8000",
     "test": "node tests/run.mjs /tmp/armorhelper-web-test"
   }
 }

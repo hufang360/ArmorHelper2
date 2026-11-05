@@ -40,7 +40,7 @@ function check(name, condition, detail = "") {
 /**
  * Report to the test server, if one is listening.
  *
- * `tests/test_web_port.py` serves this page with a handler that answers
+ * `tests/node/lib/browser.mjs` serves this page with a handler that answers
  * `/__done`; opening the page by hand just gets a 404, which is ignored.  This
  * makes the headless run deterministic instead of relying on virtual time.
  */
@@ -129,7 +129,7 @@ async function run() {
   const decoded = await decodeBitmap(png);
   check("png encodes and decodes", countDifferences(decoded, head) === 0);
 
-  // GIF — checked structurally here; the Python suite decodes it frame by frame.
+  // GIF — checked structurally here; `tests/node/lib/gif.mjs` decodes it frame by frame.
   const gifBytes = encodeGIF(frames, { order: gifFrameOrder() });
   const signature = String.fromCharCode(...gifBytes.slice(0, 6));
   const screen = gifBytes[6] | (gifBytes[7] << 8);

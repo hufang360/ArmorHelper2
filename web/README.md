@@ -9,7 +9,8 @@
 
 当前版本 **2.2.0**。版本号只写在 `web/data/version.json`，页头标题右侧显示 `v2.2.0`；
 根 `package.json` 与 `web/package.json` 必须与它一致（`tests/node/site.test.mjs` 断言）。
-`web/sw.js` 的 `VERSION` 是离线缓存的代号，改任何站点文件都要往上加，否则旧缓存会命中。
+`web/sw.js` 的 `FINGERPRINT` 是离线缓存指纹：改任何站点文件后跑 `npm run sw:stamp`，
+否则 `tests/node/site.test.mjs` 会报指纹过期。
 
 ---
 
@@ -17,7 +18,7 @@
 
 ### 本地打开
 
-浏览器不允许 `file://` 下的 ES 模块，用一个静态服务器打开即可（Python 自带就够）：
+浏览器不允许 `file://` 下的 ES 模块，用仓库自带的静态服务器打开即可：
 
 ```bash
 npm start
@@ -156,7 +157,8 @@ Content/Images/Armor/Armor_<id>.png
 ### 离线与安装
 
 `sw.js` 会预缓存启动所需的全部文件（`CORE` 清单），内置贴图（17 页 WebP 图集，约 290 KB）
-改成首次使用时再缓存，所以断网也能打开，刷新也不用重新下载。`manifest.webmanifest` 让 Chrome / Edge 可以把它
+改成首次使用时再缓存，所以断网也能打开，刷新也不用重新下载。缓存的命中会在后台重新拉取，
+所以一次部署忘了更新指纹，第二次加载也会自愈。`manifest.webmanifest` 让 Chrome / Edge 可以把它
 「安装」成独立窗口。首屏是 `file://` 打开时不会有 Service Worker（浏览器限制），
 用静态服务器（本地或 Pages）即可。
 
@@ -255,7 +257,17 @@ web/
   index.html            单页应用（Bootstrap 结构与工具类）
   style.css             配色覆盖 + 站点自有组件（拖放区 / 槽位 / 像素预览 / 状态栏）
   vendor/               随包发布的 Bootstrap 5.3 CSS 与许可证，不请求 CDN
-  app.js                UI 逻辑（导入 / 导出 / 还原 / 预览贴图 / 设置）
+  app.js                UI 编排（导入 / 导出 / 还原 / 预览贴图 / 设置）
+  app/
+    dom.js              DOM 取元素 / 绑定事件 / 状态栏；记下缺失的元素
+    i18n.js             文案表与 t()
+    state.js            state 对象与 localStorage 里的设置
+    ids.js              盔甲 ID ⇄ 名称、输出文件名
+    gifs.js             GIF 速率 / 尺寸 / 编码，以及 20 帧播放器
+    result.js           结果卡：材质包卡片、文件表、悬浮预览
+    jobs.js             进度条、取消按钮与任务状态
+    folders.js          输出目录与 Content/Images 的授权与状态文案
+    history.js          「最近导出」的读写与渲染
   sw.js                 Service Worker：离线缓存（CORE 清单 + 内置贴图按需缓存）
   manifest.webmanifest  Web App Manifest（可安装成独立窗口）
   js/
@@ -291,9 +303,10 @@ web/
 ## 测试
 
 ```bash
-npm ci                              # devDependency：wasm WebP 编解码器（打包工具与图集用例用）
+npm ci                              # devDependencies：wasm WebP 编解码器（打包工具与图集用例用）、TypeScript
 npm run check                       # 约 1 秒：语法、重复声明、未声明的名字、i18n 键
-npm test                            # 全部 165 项：核心逐像素 + 浏览器端到端 + 子目录 + 图集 + 站点 + 文档
+npm run typecheck                   # 约 0.3 秒：JSDoc 类型检查（jsconfig.json，checkJs）
+npm test                            # 全部用例：核心逐像素 + 浏览器端到端 + 子目录 + 图集 + 站点 + 文档
 
 # 浏览器自检：起个静态服务器后打开 web/tests/smoke.html
 npm start
@@ -317,5 +330,5 @@ Service Worker 的 `CORE` 清单完整、Manifest 合法，并在无头 Chrome �
 | 无法自动定位游戏目录 | 浏览器拿不到本机路径，需要你自己选一次目录 |
 | 没有 `.xnb` 解码 | 需要已解包的 PNG 资源目录 |
 | 还原时只读三张贴图 | 也可以手动上传 `Armor_Head_N.png` / `Armor_N.png` / `Armor_Legs_N.png` |
-| 内置贴图不含玩家皮肤 | 「叠加玩家」预览仍需自备 `Player_0_0/0_1/0_3/0_7/0_10.png` |
+| 内置玩家皮肤只有默认款 | 「叠加玩家」可用 `data/player/`（skin 0）；其它肤色要在设置里选自己的 `Content/Images` |
 | 大文件内存 | 全部在内存里处理；一次导出几十套盔甲没问题，几百套建议分批 |

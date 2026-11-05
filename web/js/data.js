@@ -1,10 +1,9 @@
 /**
  * Shared data: the layout tables, the vanilla armor set table and the strings.
  *
- * Everything here is generated from the Python package by
- * `tools/export_web.py`, so the two versions cannot drift apart.  The layout is
- * injected rather than fetched so the core modules also run under Node (see
- * `web/tests/run.mjs`).
+ * The layout, the set table and the strings live in `web/data/*.json` and are
+ * the only source.  The layout is injected rather than fetched so the core
+ * modules also run under Node (see `web/tests/run.mjs`).
  */
 
 let layout = null;

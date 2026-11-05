@@ -7,12 +7,13 @@
  * (17 WebP atlas pages, ~290 KB) are cached on first use instead, so installing
  * the worker stays cheap on a phone.
  *
- * Bump `VERSION` whenever the files below change; the old cache is dropped on
- * activate.
+ * The cache name carries a fingerprint of the precached bytes, so a changed file
+ * is never served from a stale cache.  `npm run sw:stamp` rewrites it; a test
+ * fails when the stamp is out of date.  The old cache is dropped on activate.
  */
 
-const VERSION = "2.5.0";
-const CACHE = `armorhelper-${VERSION}`;
+const FINGERPRINT = "b7d9959fb716";
+const CACHE = `armorhelper-${FINGERPRINT}`;
 
 /** Everything needed to start the app; kept in sync by a test. */
 const CORE = [
@@ -21,6 +22,15 @@ const CORE = [
   "style.css",
   "vendor/bootstrap.min.css",
   "app.js",
+  "app/dom.js",
+  "app/history.js",
+  "app/i18n.js",
+  "app/folders.js",
+  "app/jobs.js",
+  "app/result.js",
+  "app/gifs.js",
+  "app/ids.js",
+  "app/state.js",
   "manifest.webmanifest",
   "data/icon.png",
   "data/layout.json",
@@ -90,19 +100,21 @@ self.addEventListener("fetch", (event) => {
     caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
   };
 
-  // Cache first: an offline reload has to work, and the files are versioned.
+  // Cache first: an offline reload has to work, and the bytes are fingerprinted.
+  // A hit is also refreshed in the background, so a deploy that forgot
+  // `npm run sw:stamp` heals on the next load instead of sticking until the
+  // reader clears the cache.  Offline that fetch fails and the hit stands.
+  const ours = (name) => name.startsWith(RUNTIME_PREFIX) || CORE.includes(name) || name === "";
+
   event.respondWith(
     caches.match(request, { ignoreSearch: true }).then((hit) => {
       if (hit) {
-        // Refresh bundled textures in the background; they are the big files.
-        if (path.startsWith(RUNTIME_PREFIX)) {
-          fetch(request).then(remember).catch(() => {});
-        }
+        if (ours(path)) fetch(request).then(remember).catch(() => {});
         return hit;
       }
       return fetch(request)
         .then((response) => {
-          if (path.startsWith(RUNTIME_PREFIX) || CORE.includes(path)) remember(response);
+          if (ours(path)) remember(response);
           return response;
         })
         .catch(async () => (await caches.match("index.html")) ?? Response.error());

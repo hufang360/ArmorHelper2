@@ -815,6 +815,32 @@ async function runExport(doc) {
     status: doc.querySelector("#status").textContent.trim(),
   };
 
+  // editing a row's ID renames that tab's files with no click of its own
+  const names = () => [...doc.querySelectorAll("#results a[download]")].map((a) => a.textContent);
+  const idField = doc.querySelector("#results .sheet-id");
+  report.idRename = { before: names() };
+  if (idField) {
+    const type = (value) => {
+      idField.value = value;
+      idField.dispatchEvent(new frame.contentWindow.Event("change", { bubbles: true }));
+    };
+    type("123");
+    for (let tick = 0; tick < 200; tick += 1) {
+      await sleep(25);
+      if (names().some((name) => name.includes("123"))) break;
+    }
+    report.idRename.after = names();
+    report.idRename.headNames = [...doc.querySelectorAll("#results .id-cell .id-name")].map((el) =>
+      el.textContent.trim(),
+    );
+    // put the settings back for the steps that follow
+    type("0");
+    for (let tick = 0; tick < 200; tick += 1) {
+      await sleep(25);
+      if (names().every((name) => !name.includes("123"))) break;
+    }
+  }
+
   // a wrong size is refused: no result, and the status line says why
   await putFiles(doc, "#file-input", [["WrongSize.png", sheets.head]]);
   for (let tick = 0; tick < 200; tick += 1) {

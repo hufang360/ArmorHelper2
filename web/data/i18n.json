@@ -58,6 +58,9 @@
       "web.saveSettings": "保存设置",
       "web.saved": "设置已保存",
       "web.connected": "就绪 · 纯前端，全部在本机处理",
+      "web.about": "ArmorHelper {version} · 纯前端，无服务端",
+      "web.aboutBuiltin": "ArmorHelper {version} · 纯前端，无服务端 · 内置原版贴图 {vanilla}（{count} 张）",
+      "web.progress": "进度",
       "web.empty": "还没有内容。",
       "web.working": "处理中...",
       "web.playerHint": "玩家贴图已内置，勾选即可叠加；在「设置」里选泰拉 Content/Images 可换成你自己的。",
@@ -222,6 +225,9 @@
       "web.saveSettings": "Save settings",
       "web.saved": "Settings saved",
       "web.connected": "Ready — everything runs locally",
+      "web.about": "ArmorHelper {version} · runs entirely in the browser",
+      "web.aboutBuiltin": "ArmorHelper {version} · runs entirely in the browser · bundled vanilla textures {vanilla} ({count} textures)",
+      "web.progress": "Progress",
       "web.empty": "Nothing here yet.",
       "web.working": "Working...",
       "web.playerHint": "The player textures are bundled, just tick it. Pick your own Content/Images in Settings to use that instead.",
@@ -330,5 +336,5 @@
       "web.verifyFailed": "self check failed: {error}"
     }
   },
-  "note": "Interface strings for the web app.  This file is the source of truth (it used to be exported from the Python package); every key here must be reachable from web/, which tests/test_docs.py checks."
+  "note": "Interface strings for the web app.  This file is the source of truth; every key here must be reachable from web/, which tests/node/docs.test.mjs checks."
 }

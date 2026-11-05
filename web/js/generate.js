@@ -146,6 +146,7 @@ export function generateLegs(template, scale = 2) {
   // The main leg pieces.
   layout.legMapping.forEach((targets, index) => {
     const column = index >= 5 ? regions.legColumnRight : regions.legColumnLeft;
+    /** @type {[number, number, number, number]} */
     const rect = [column[0], column[1] + (index % 5) * 10, regions.legPiece[0], regions.legPiece[1]];
     for (const frame of targets) {
       copyRegion(sheet, template, rect, [3, frame * h + 19]);
@@ -183,6 +184,10 @@ export function generateBodyLegacy(template, female = false, scale = 2) {
 
 /* ------------------------------------------------------------ composite -- */
 
+/**
+ * @param {[number, number]} cell
+ * @returns {[number, number]} the pixel origin of that frame cell
+ */
 function cellOrigin(cell) {
   const { w, h } = L().frame;
   return [cell[0] * w, cell[1] * h];
@@ -210,7 +215,8 @@ export function generateBodyComposite(template, options = {}) {
 
   // --- walking front arms
   for (const [key, frame] of Object.entries(layout.cells.frontArmOwner)) {
-    const cell = key.split(",").map(Number);
+    /** @type {[number, number]} */
+    const cell = /** @type {[number, number]} */ (key.split(",").map(Number));
     const layer = frontArmLayer(frame);
     if (!layer) continue;
     const [rect, offset, ignore] = layer;
@@ -220,7 +226,8 @@ export function generateBodyComposite(template, options = {}) {
 
   // --- walking back arms
   for (const [key, frame] of Object.entries(layout.cells.backArmOwner)) {
-    const cell = key.split(",").map(Number);
+    /** @type {[number, number]} */
+    const cell = /** @type {[number, number]} */ (key.split(",").map(Number));
     const layer = backArmLayer(frame);
     if (!layer) continue;
     const origin = cellOrigin(cell);

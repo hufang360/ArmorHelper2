@@ -6,15 +6,18 @@
   "description": "Terraria armor sheet generator — static web app, with Node tooling and tests",
   "scripts": {
     "test": "node --test tests/node/",
-    "test:fast": "node --test tests/node/site.test.mjs tests/node/docs.test.mjs tests/node/core.test.mjs tests/node/harness.test.mjs",
+    "test:fast": "npm run typecheck && node --test tests/node/site.test.mjs tests/node/docs.test.mjs tests/node/core.test.mjs tests/node/harness.test.mjs",
+    "typecheck": "tsc -p jsconfig.json",
     "check": "node tools/check.mjs",
     "start": "node tools/serve.mjs",
     "pack": "node tools/pack_vanilla_textures.mjs",
     "sets": "node tools/build_armor_sets.mjs",
     "players": "node tools/import_player_textures.mjs",
-    "inspect": "node tools/inspect_armor.mjs"
+    "inspect": "node tools/inspect_armor.mjs",
+    "sw:stamp": "node tools/stamp_sw.mjs"
   },
   "devDependencies": {
-    "@jsquash/webp": "1.5.0"
+    "@jsquash/webp": "1.5.0",
+    "typescript": "^7.0.2"
   }
 }

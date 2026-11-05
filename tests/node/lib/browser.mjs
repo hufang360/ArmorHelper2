@@ -138,13 +138,15 @@ export function serve(root, { harness = null, prefix = "/" } = {}) {
 
 export function findChrome() {
   const candidates = [
+    // CI sets this, and so does anyone with Chrome in an unusual place.
+    process.env.CHROME_PATH,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "google-chrome",
     "google-chrome-stable",
     "chromium",
     "chromium-browser",
-  ];
+  ].filter(Boolean);
   for (const candidate of candidates) {
     if (candidate.includes("/")) {
       try {

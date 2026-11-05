@@ -3,14 +3,16 @@
  * the service worker's cache list, the manifest, the bundled textures and the
  * Pages workflow.
  *
- * The interactive half (headless Chrome) lives in `tests/test_web_port.py` for
- * now; everything here is plain file inspection.
+ * The interactive half (headless Chrome) lives in `tests/node/browser.test.mjs`
+ * for now; everything here is plain file inspection.
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, posix, relative, resolve } from "node:path";
+
+import { coreFingerprint } from "../../tools/lib/sw_fingerprint.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
 const WEB = join(ROOT, "web");
@@ -129,7 +131,9 @@ test("the site has no absolute paths", () => {
 
 test("every translation the app uses exists", () => {
   const messages = readJson(join(WEB, "data", "i18n.json")).messages;
-  const used = new Set([...APP.matchAll(/(?<![\w.$])t\("([\w.]+)"/g)].map((m) => m[1]));
+  // the UI layer is app.js plus app/*.js: a key may be used in either
+  const ui = [APP, ...readdirSync(join(WEB, "app")).map((name) => read(join(WEB, "app", name)))].join("\n");
+  const used = new Set([...ui.matchAll(/(?<![\w.$])t\("([\w.]+)"/g)].map((m) => m[1]));
   for (const role of ["head", "body", "legs"]) used.add(`web.slot.${role}`);
   assert.ok(used.size > 40, `${used.size} keys`);
 
@@ -192,8 +196,17 @@ test("the player textures are bundled", () => {
 
 test("the service worker precaches the whole app", () => {
   const script = read(join(WEB, "sw.js"));
-  assert.match(script, /const VERSION = "[^"]+"/);
   assert.ok(script.includes("skipWaiting") && script.includes("clients.claim"));
+
+  // A stale cache fingerprint is the one failure no other test can see: the app
+  // works for the developer and serves old bytes to everybody else.
+  const stamp = /const FINGERPRINT = "([^"]+)";/.exec(script);
+  assert.ok(stamp, "sw.js has no FINGERPRINT constant");
+  assert.equal(
+    stamp[1],
+    coreFingerprint(WEB, script),
+    "sw.js cache fingerprint is stale: run npm run sw:stamp",
+  );
 
   const core = /const CORE = \[([\s\S]*?)\];/.exec(script);
   assert.ok(core, "sw.js has no CORE list");
@@ -205,10 +218,19 @@ test("the service worker precaches the whole app", () => {
     assert.ok(existsSync(join(WEB, name)), `sw.js precaches a missing file: ${name}`);
   }
 
-  // every module the app imports has to be precached, or an offline boot 404s
-  const modules = new Set([...APP.matchAll(/from "\.\/(js\/[^"]+)"/g)].map((m) => m[1]));
-  const missing = [...modules].filter((module) => !files.includes(module));
-  assert.deepEqual(missing, [], `sw.js does not cache ${missing}`);
+  // every module the app imports has to be precached, or an offline boot 404s.
+  // Scan the imported graph, not just `app.js`: `app/*.js` import each other.
+  const importers = ["app.js", ...files.filter((name) => name.startsWith("app/") || name.startsWith("js/"))];
+  const modules = new Set(
+    importers.flatMap((name) => {
+      const directory = posix.dirname(name);
+      return [...read(join(WEB, name)).matchAll(/from "\.\/([^"]+)"/g)].map((match) =>
+        posix.normalize(posix.join(directory, match[1])),
+      );
+    }),
+  );
+  const uncached = [...modules].filter((module) => !files.includes(module));
+  assert.deepEqual(uncached, [], `sw.js does not cache ${uncached}`);
 
   // ...and so has everything index.html pulls off disk, vendor CSS included
   const assets = new Set([
@@ -224,6 +246,11 @@ test("the service worker precaches the whole app", () => {
   // the bundled textures are big: they are cached on use, not on install
   assert.ok(script.includes("data/vanilla/"));
   assert.ok(!files.includes("data/vanilla/version.txt"));
+  // every hit refreshes its own copy, so a missed `sw:stamp` heals on reload
+  assert.ok(
+    /if \(ours\(path\)\) fetch\(request\)/.test(script),
+    "sw.js never refreshes a cache hit",
+  );
   // Pages serves the site from /<repo>/, so paths must be scope-relative
   assert.ok(script.includes("self.registration.scope"));
 });
@@ -249,8 +276,16 @@ test("the web manifest is a valid PWA manifest", () => {
 });
 
 test("the web app holds no Python", () => {
+  // `web/` must ship nothing that needs an interpreter.  Checking the extension
+  // alone was not enough: a `python3 -m http.server` npm script sat in
+  // `web/package.json` for months and nobody noticed.
+  const code = [".js", ".mjs", ".json", ".html", ".webmanifest"];
   for (const path of walk(WEB)) {
     assert.notEqual(path.slice(path.lastIndexOf(".")), ".py", relative(WEB, path));
+    if (!code.includes(path.slice(path.lastIndexOf(".")))) continue;
+    const text = readFileSync(path, "utf8");
+    assert.ok(!/\bpython3?\b/i.test(text), `${relative(WEB, path)} runs Python`);
+    assert.ok(!/\w+\.py\b/.test(text), `${relative(WEB, path)} points at a .py file`);
   }
 });
 
@@ -259,6 +294,10 @@ test("the Pages workflow publishes the web folder", () => {
   assert.ok(workflow.includes("path: web"));
   // the tests must run before the site is published
   assert.ok(workflow.includes("npm test"));
+  // and so must the two second-long guards, or a broken edit / stray markdown
+  // only shows up after the slow suite has already gone red for other reasons
+  assert.ok(workflow.includes("npm run check"), "the workflow skips npm run check");
+  assert.ok(workflow.includes("npm run typecheck"), "the workflow skips npm run typecheck");
   assert.ok(existsSync(join(WEB, ".nojekyll")));
 });
 

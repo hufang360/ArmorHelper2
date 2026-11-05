@@ -77,6 +77,8 @@
 ```text
 ┌──────────────────────── 浏览器（唯一运行环境）────────────────────────┐
 │  index.html + style.css + app.js                                      │
+│    app/  ← DOM 层：dom / i18n / state / ids / gifs / result / jobs /   │
+│             folders / history                                          │
 │    ├─ 文件拖放 / 选择（FileReader、createImageBitmap）                 │
 │    ├─ 设置（localStorage）＋ 目录句柄（IndexedDB）                     │
 │    └─ 结果预览（data URL / object URL）                                │
@@ -222,7 +224,7 @@ npm start        # 仓库自带的 node tools/serve.mjs（或任意静态服务�
 
 `web/sw.js` 与 `web/manifest.webmanifest` 让站点可以离线打开、并被浏览器「安装」成
 独立窗口。`sw.js` 里的 `CORE` 清单必须覆盖启动所需的每个文件，``site.test.mjs``
-会逐一检查；改文件名后记得同时升级 `CORE` 与 `VERSION`。
+会逐一检查；改文件名后记得同时升级 `CORE` 与跑 `npm run sw:stamp`。
 
 ---
 
@@ -470,7 +472,7 @@ Python 时代的验收表）在 [`历史-2.0.md`](历史-2.0.md)。
 | WL-04 | 全部在内存处理，一次几百套盔甲可能吃紧 |
 | WL-05 | `file://` 不能直接用：ES 模块受 CORS 限制，必须经静态服务器打开 |
 | WL-06 | Service Worker 需要 HTTPS / localhost；`file://` 下没有离线缓存（功能本身可用） |
-| WL-07 | 改了 `web/` 的文件却不升 `sw.js` 的 `VERSION`，已安装的旧缓存会继续命中 |
+| WL-07 | 改了 `web/` 的文件却不跑 `npm run sw:stamp`：`site.test.mjs` 会报指纹过期；线上旧缓存继续命中 |
 | WL-08 | 文件夹授权刷新后被浏览器收回，每次操作要再要一次（句柄本身存在 IndexedDB） |
 | WL-09 | 内置玩家贴图只有原版默认肤色；用材质包或自改皮肤时请在设置里选 `Content/Images` |
 | WL-10 | `event.waitUntil()` 只能在事件派发期间调用：放进 `respondWith` 的 `.then()` 会抛 `InvalidStateError` 并让这次 fetch 直接失败，后台缓存必须用普通浮动 promise |
@@ -550,7 +552,7 @@ Chrome，靠页面 `POST /__done` 回报结果，而不是 sleep 等。为此自
 
 ```bash
 npm ci          # devDependency：wasm WebP 编解码器（只有打包工具与图集用例要用）
-npm test        # 全部用例，约 16 秒
+npm test        # 全部用例；有 Chrome 的机器上要跑浏览器用例，耗时以分钟计
 npm start       # 静态服务器：http://127.0.0.1:8000/
 ```
 

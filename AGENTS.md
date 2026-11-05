@@ -18,6 +18,7 @@
 * ES 模块，两空格，双引号，分号。`const` 优先；`camelCase` 函数、`UPPER_SNAKE` 常量、文件名小写。
 * 无构建、无 CDN、无服务端。第三方代码只有 `web/vendor/` 里随包发布的 Bootstrap CSS，页面因此不请求任何外部地址。要再加别的库，先改需求文档，别直接引。
 * `web/js/*` 不碰 DOM：它要能在 Node 下运行，才谈得上逐像素比对。
+* 需要 DOM 或 `localStorage` 的辅助函数放 `web/app/`，`app.js` 只做编排。
 * 常量与坐标只在 `web/data/*.json`。JS 里不复制数据表。
 * 错误信息用小写英文短句：`cannot load <url>: 404`。面向用户的文案走 `i18n.json` 的 key，不写死字符串。
 * 模块顶部一段注释写契约：输入、输出、为什么这么写。注释写英文，文档写中文。
@@ -37,6 +38,13 @@
 * 请用户每轮提交一次。有提交点才能 `git checkout -- <文件>` 回滚。
 
 `npm run check` 查四类问题：语法、重复声明、调用了但未声明的名字、i18n 键。脚本是 `tools/check.mjs`。
+`web/` 下所有 `.js` 都在它的范围内，包括 `web/js/`。
+
+`npm run typecheck` 用 `jsconfig.json` 的 `checkJs` 检查 JSDoc 类型，约 0.3 秒。
+它不在 `npm run check` 里。参数隐式 `any` 已关掉：只报能改的问题。
+
+改了任何被 Service Worker 预缓存的文件后，跑 `npm run sw:stamp`。
+没跑时 `site.test.mjs` 会报「缓存指纹过期」。
 
 它抓不到运行时的逻辑错误。改完 UI 要真实加载一次页面，读状态栏的报错。
 
@@ -55,8 +63,7 @@ README 由用户手动维护。不要改它的结构、措辞或顺序。
 其它文档按本节的规则写。细节进 `docs/`，索引见 `docs/README.md`。
 
 格式由测试与 lint 守住：中文段落不折行、列表用 `-`、代码块写语言、不用裸 URL、
-不留连续空行与行尾空格。改完跑 `npm test` 与
-`npx markdownlint-cli2 "README.md" "docs/*.md" "web/README.md" "AGENTS.md"`。
+不留连续空行与行尾空格。改完跑 `npm test`。
 
 ## 协作
 
