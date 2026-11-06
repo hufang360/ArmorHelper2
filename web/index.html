@@ -380,12 +380,13 @@
 
     <!-- =========================== 反向还原 =========================== -->
     <section class="panel tab-pane" id="tab-reverse">
-      <div class="row g-2">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
 
-        <div class="col-12 col-lg-6 stack">
-          <div class="card">
-            <div class="card-body">
-              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
+          <!-- one card, two columns: the inputs on the left, the preview on the right -->
+          <div class="rev-split">
+            <div class="rev-controls">
 
               <div class="field">
                 <label class="form-label small text-body-secondary mb-1" for="set-search" data-i18n="web.reverseSearch"></label>
@@ -425,13 +426,7 @@
                 <button class="btn btn-sm btn-secondary" id="do-reverse-all" data-i18n="web.reverseAll"></button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-lg-6">
-          <div class="card results-card">
-            <div class="card-body">
-              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.previewSheet"></h2>
+            <div class="rev-preview">
 
               <p class="rev-set-name" id="rev-set-name"></p>
 
@@ -524,10 +519,8 @@
             </div>
           </div>
         </div>
-
       </div>
     </section>
-
     <!-- ============================= 设置 ============================= -->
     <section class="panel tab-pane" id="tab-settings">
       <div class="row g-2">
