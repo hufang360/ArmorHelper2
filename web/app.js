@@ -15,7 +15,6 @@ import { getHandle } from "./js/idb.js";
 import { $, missing, say } from "./app/dom.js";
 import { setMessages, t } from "./app/i18n.js";
 import { bindSheets } from "./app/sheets.js";
-import { bindHistory } from "./app/history.js";
 import { loadConfig, state } from "./app/state.js";
 import { bindReverse, reverseOnBoot } from "./app/reverse.js";
 import { bindExportOptions, scheduleExport } from "./app/export.js";
@@ -48,7 +47,6 @@ function wire() {
   bindPlayer();
   bindReverse();
   bindFolders();
-  bindHistory();
   bindCancel();
 }
 

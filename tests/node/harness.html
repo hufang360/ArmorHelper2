@@ -55,7 +55,6 @@ const appInfo = (doc) => ({
   guide: !!doc.querySelector("#rev-guide")?.checked,
   source: doc.querySelector("#images-status").textContent.trim(),
   guideLabel: (doc.querySelector('[data-i18n="web.guideOverlay"]') || {}).textContent || "",
-  historyDisabled: doc.querySelector("#history-toggle")?.disabled ?? null,
   favicon: doc.querySelector('link[rel="icon"]')?.getAttribute("href") || null,
   logo: doc.querySelector(".brand img")?.getAttribute("src") || null,
 });
@@ -800,8 +799,6 @@ async function runExport(doc) {
     uploadSecondaryAfter: doc.querySelector("#upload-file").classList.contains("btn-secondary"),
     uploadLabel: doc.querySelector("#upload-file").textContent.trim(),
     uploadIcon: !!doc.querySelector("#upload-file svg"),
-    historyLabel: doc.querySelector("#history-toggle").dataset.tooltip ?? "",
-    historyHasIcon: !!doc.querySelector("#history-toggle svg"),
     summary: !!doc.querySelector("#file-summary"),
     list: !!doc.querySelector("#file-list"),
     cardActions: [...doc.querySelectorAll("#results .pack-actions > button")].map((button) => button.textContent.trim()),
@@ -946,7 +943,6 @@ async function runExport(doc) {
   await waitRender(doc);
   await settle();
 
-  const history = [...doc.querySelectorAll("#history-list li")].map((li) => li.textContent.trim());
   // read the result card before the next step, which clears it on purpose
   const report = {
     heightsBefore,
@@ -960,7 +956,6 @@ async function runExport(doc) {
     sizes: doc.querySelector("#results .sheet-table tbody tr:not(.id-row) td:nth-child(2)")?.textContent.trim() ?? "",
     setId: doc.querySelector("#results .sheet-id")?.value ?? null,
     idNames: [...doc.querySelectorAll("#results .id-cell .id-name")].map((el) => el.textContent.trim()),
-    history,
     playerChanged,
     femaleChanged,
     previewVisible,
@@ -1147,8 +1142,7 @@ async function runReverseAll(doc) {
     status: doc.querySelector("#status").textContent.trim(),
     files: doc.querySelectorAll("#reverse-result .files a").length,
     actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
-    history: doc.querySelectorAll("#history-list li img").length,
-  };
+    };
 }
 
 /**

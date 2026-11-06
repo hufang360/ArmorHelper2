@@ -120,7 +120,6 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(payload.favicon, "data/icon.png");
     assert.equal(payload.logo, "data/icon.png");
     // on a clean profile: nothing to open yet
-    assert.equal(payload.historyDisabled, true);
 
     // the bundled textures are what a phone user relies on
     assert.ok(payload.source.includes("内置"), payload.source);
@@ -200,11 +199,10 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "载入内置绘制模板作为示例",
     ]);
     assert.deepEqual(dropTools.pressed, ["true", "false"]);
-    // the tools read top to bottom: clear, guide, history, download
+    // the tools read top to bottom: clear, guide, download
     assert.deepEqual(dropTools.beforeLoad.tools, [
       "drop-clear",
       "drop-guide",
-      "history-toggle",
       "drop-download",
     ]);
     // they only appear on hover now, so they no longer need to be faint;
@@ -231,7 +229,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.ok(dropTools.changed > 0, JSON.stringify(dropTools));
     assert.equal(dropTools.plainMatchesFlat, true);
 
-    // a plain export, and the history entry it leaves behind
+    // a plain export still records its history entry in localStorage
     const exported = payload.exported;
     assert.ok(exported.files.length > 0);
     // the animation sits beside the drop area, not in the result card
@@ -275,8 +273,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       exported.idRename.headNames.some((name) => name.length > 0),
       exported.idRename.headNames.join(", "),
     );
-    assert.ok(exported.history.length >= 1);
-    assert.ok(exported.history[0].includes("MyArmor"), exported.history[0]);
+    assert.ok(exported.stored[0].title.includes("MyArmor"), exported.stored[0].title);
     // the history counts every generated file: the six sheets of the two tabs
     assert.equal(exported.stored[0].files, 6);
     assert.ok(exported.stored[0].thumb.startsWith("data:image/png"), exported.stored[0].thumb);
@@ -436,9 +433,6 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // a template is loaded here, so the button demoted itself to a secondary one
     assert.equal(ui.uploadSecondaryAfter, true);
     assert.equal(payload.uploadPrimaryAtStart, true);
-    // history is an icon in the drop area now, named by its tooltip
-    assert.equal(ui.historyLabel, "最近导出");
-    assert.equal(ui.historyHasIcon, true);
     assert.equal(ui.uploadIcon, false);
     // the pack button lives in the tab content, as a primary action
     assert.equal(ui.cardActions.includes("下载材质包"), true);
@@ -610,7 +604,6 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(reverseAll.sawFill, true);
     assert.ok(reverseAll.files > 100, `${reverseAll.files} files`);
     assert.ok(reverseAll.status.includes("已还原"), reverseAll.status);
-    assert.ok(reverseAll.history >= 2, `${reverseAll.history} history entries`);
     // a batch is the only case with the zip button
     assert.deepEqual(reverseAll.actions, ["打包下载 (zip)"], reverseAll.actions.join(" | "));
   } finally {

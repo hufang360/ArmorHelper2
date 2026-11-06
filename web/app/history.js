@@ -4,10 +4,11 @@
  * An entry is `{ at, title, files, thumb }`: a timestamp, what was exported, how
  * many files, and a small data URL.  The list is a convenience, so every storage
  * failure is swallowed — a full quota must never fail an export.
+ *
+ * Nothing shows the list any more: the icon button in the drop area is gone, so
+ * the entries are only written.  Keeping them costs a few hundred bytes and
+ * leaves the data in place if the panel comes back.
  */
-
-import { $, on, say } from "./dom.js";
-import { t } from "./i18n.js";
 
 const HISTORY_KEY = "armorhelper.history";
 const HISTORY_LIMIT = 20;
@@ -34,87 +35,4 @@ export function addHistory(title, files, thumbnail) {
   const entries = loadHistory();
   entries.unshift({ at: Date.now(), title, files: files.length, thumb: thumbnail ?? null });
   saveHistory(entries);
-  renderHistory();
-}
-
-function formatTime(ms) {
-  const date = new Date(ms);
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-export function renderHistory() {
-  const list = $("#history-list");
-  if (!list) return;
-  const entries = loadHistory();
-  // nothing recorded yet: the button would open an empty panel
-  const toggle = $("#history-toggle");
-  if (toggle) toggle.disabled = entries.length === 0;
-  list.innerHTML = "";
-  if (!entries.length) {
-    const li = document.createElement("li");
-    li.className = "text-body-secondary small";
-    li.textContent = t("web.historyEmpty");
-    list.append(li);
-    return;
-  }
-  for (const entry of entries) {
-    const li = document.createElement("li");
-    if (entry.thumb) {
-      const img = document.createElement("img");
-      img.src = entry.thumb;
-      img.alt = "";
-      img.className = "pixel";
-      li.append(img);
-    }
-    const when = document.createElement("span");
-    when.className = "when";
-    when.textContent = formatTime(entry.at);
-    const what = document.createElement("span");
-    what.className = "what";
-    what.textContent = entry.title;
-    const count = document.createElement("span");
-    count.className = "count";
-    count.textContent = t("web.historyEntry", { count: entry.files });
-    li.append(when, what, count);
-    list.append(li);
-  }
-}
-
-export function clearHistory() {
-  saveHistory([]);
-  renderHistory();
-  say(t("web.historyCleared"));
-}
-
-/** Bind the controls this module owns. */
-export function bindHistory() {
-on("#clear-history", "click", clearHistory);
-
-// The history moved out of the page and behind an icon button, so it opens on
-// click and closes on a click outside or Escape.
-const historyToggle = $("#history-toggle");
-const historyPop = $("#history-pop");
-if (historyToggle && historyPop) {
-  const closeHistory = () => {
-    historyPop.hidden = true;
-    historyToggle.setAttribute("aria-expanded", "false");
-  };
-  historyToggle.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const open = historyPop.hidden;
-    historyPop.hidden = !open;
-    historyToggle.setAttribute("aria-expanded", String(open));
-  });
-  document.addEventListener("click", (event) => {
-    if (historyPop.hidden) return;
-    if (historyPop.contains(event.target) || historyToggle.contains(event.target)) return;
-    closeHistory();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || historyPop.hidden) return;
-    closeHistory();
-    historyToggle.focus();
-  });
-}
 }

@@ -28,7 +28,6 @@ const TOOLTIPS = [
   ["#drop-guide", "web.guideTooltip"],
   ["#drop-download", "web.downloadTooltip"],
   ["#drop-clear", "web.clearTooltip"],
-  ["#history-toggle", "web.historyTitle"],
   ["#load-demo", "web.demoTooltip"],
   ["#load-sheets-demo", "web.demoSheetsTooltip"],
   ["#wiki-link", "web.wikiHint"],
