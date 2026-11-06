@@ -898,6 +898,22 @@ async function runExport(doc) {
   const nextDelta = (at() - pausedAt + frames) % frames;
   doc.querySelector("#gif-prev").click();
   const prevDelta = (at() - pausedAt + frames) % frames;
+  // the PNG link under the player, and its info icon
+  const fileLink = () => doc.querySelector("#export-preview-file");
+  const fileInfo = () => doc.querySelector("#export-preview-info");
+  for (let tick = 0; tick < 400 && fileLink().hidden; tick += 1) await sleep(25);
+  const playerFile = {
+    text: fileLink().textContent,
+    download: fileLink().getAttribute("download"),
+    href: (fileLink().getAttribute("href") || "").slice(0, 5),
+    hidden: fileLink().hidden,
+    tooltip: fileInfo().dataset.tooltip,
+    // the icon sits right beside the link, inside the player
+    gap: Math.round(
+      fileInfo().getBoundingClientRect().left -
+        (fileLink().getBoundingClientRect().left + fileLink().getBoundingClientRect().width),
+    ),
+  };
   const transport = {
     playingAtStart,
     advanced,
@@ -938,6 +954,7 @@ async function runExport(doc) {
     femaleChanged,
     previewVisible,
     transport,
+    playerFile,
     stored: JSON.parse(frame.contentWindow.localStorage.getItem("armorhelper.history") || "[]"),
     status: doc.querySelector("#status").textContent.trim(),
   };

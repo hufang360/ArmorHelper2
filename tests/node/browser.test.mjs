@@ -408,6 +408,16 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     ]);
     // 1.3 hands out no zip: the tab has no pack button
     assert.equal(pack13.error, "no button");
+    // the PNG link under the player follows the two switches, and its icon
+    // says what the file holds
+    // the last run left both switches off, so the male PNG is the one on show
+    assert.equal(exported.playerFile.text, "FullArmor.png");
+    assert.equal(exported.playerFile.download, "FullArmor.png");
+    assert.equal(exported.playerFile.href, "blob:");
+    assert.equal(exported.playerFile.hidden, false);
+    assert.equal(exported.playerFile.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。");
+    assert.ok(exported.playerFile.gap >= 2 && exported.playerFile.gap <= 8, String(exported.playerFile.gap));
+
     // the player switch and the female switch both redraw the animation
     assert.equal(exported.previewVisible, true);
     assert.equal(exported.playerChanged, true);

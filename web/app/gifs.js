@@ -9,10 +9,12 @@
  */
 
 import { $, on } from "./dom.js";
+import { t } from "./i18n.js";
 import { state } from "./state.js";
-import { upscale } from "../js/bitmap.js";
+import { stackFrames, upscale } from "../js/bitmap.js";
 import { gifFrameOrder } from "../js/compose.js";
 import { gifBlob } from "../js/gif.js";
+import { pngBlob } from "../js/png.js";
 
 /** Per-frame delay of the three GIF speeds offered in the UI. */
 const GIF_SPEEDS = { fast: 100, medium: 500, slow: 1000 };
@@ -68,6 +70,8 @@ const PLAYER_IDS = {
     prev: "#gif-prev",
     next: "#gif-next",
     count: "#gif-count",
+    link: "#export-preview-file",
+    info: "#export-preview-info",
   },
   reverse: {
     canvas: "#rev-preview-gif",
@@ -84,6 +88,8 @@ const PLAYER_IDS = {
     prev: "#sheet-gif-prev",
     next: "#sheet-gif-next",
     count: "#sheet-gif-count",
+    link: "#sheet-preview-file",
+    info: "#sheet-preview-info",
   },
 };
 
@@ -197,6 +203,53 @@ export function setReversePreview(frames, speed, size) {
 /** Show the preview-sheets page's animation; `null` clears it. */
 export function setSheetPreview(frames, speed, size) {
   players.sheet.set(frames, speed, size);
+}
+
+/**
+ * Say what the PNG under a player holds, in the reader's language.
+ *
+ * Both pages show the same sentence, so it is written for every info icon at
+ * once; a language switch only has to call this again.
+ */
+export function renderPlayerInfo() {
+  const text = t("web.playerFileInfo", {
+    desc: t("web.sheetDesc.full"),
+    count: gifFrameOrder().length,
+  });
+  for (const ids of Object.values(PLAYER_IDS)) {
+    const info = ids.info ? $(ids.info) : null;
+    if (!info) continue;
+    info.dataset.tooltip = text;
+    info.setAttribute("aria-label", text);
+  }
+}
+
+/** The PNG each link was given; a newer render revokes the older one. */
+const playerFiles = new Map();
+
+/**
+ * Point the link under a player at the PNG of the frames on screen.
+ *
+ * The file is encoded here: the page hands out what the animation shows, and
+ * the name says which variant it is.  A slower, earlier call is dropped.
+ */
+export async function showPlayerFile(page, name, frames) {
+  const ids = PLAYER_IDS[page];
+  const link = ids?.link ? $(ids.link) : null;
+  if (!link) return;
+  const run = (playerFiles.get(page)?.run ?? 0) + 1;
+  const url = URL.createObjectURL(await pngBlob(stackFrames(frames)));
+  if (playerFiles.get(page)?.run === run) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+  const previous = playerFiles.get(page)?.url;
+  if (previous) URL.revokeObjectURL(previous);
+  playerFiles.set(page, { run, url });
+  link.href = url;
+  link.download = name;
+  link.textContent = name;
+  link.hidden = false;
 }
 
 /** Bind the transport buttons of both players. */

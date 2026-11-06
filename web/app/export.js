@@ -17,7 +17,7 @@ import { renderFolders } from "./folders.js";
 import { effectiveIds, outputNames } from "./ids.js";
 import { addHistory } from "./history.js";
 import { clearResult, keepUrl, showResult } from "./result.js";
-import { exportGif, setPreviewGif } from "./gifs.js";
+import { exportGif, renderPlayerInfo, setPreviewGif, showPlayerFile } from "./gifs.js";
 import { resourcePackBlob } from "./pack.js";
 import { countDifferences } from "../js/bitmap.js";
 import { SKIN_TINT, fullArmorFrames, overlay, playerFrames, tintFrames } from "../js/compose.js";
@@ -176,6 +176,10 @@ async function renderExport() {
     if (run !== exportRun) return;
     showResult("export", [{ tabs: packTabs, warnings }]);
     setPreviewGif(previewFrames, exportGif().speed, exportGif().size);
+    // the link under the player hands out the PNG of what is on screen
+    const variant = female ? (wantsPlayer ? "PlayerFemale" : "Female") : (wantsPlayer ? "Player" : "");
+    renderPlayerInfo();
+    showPlayerFile("export", `FullArmor${variant}.png`, previewFrames).catch((error) => console.error(error));
     if (historyFile !== file) {
       historyFile = file;
       addHistory(stem, sheetBlobs, keepUrl(file.bitmap));

@@ -12,13 +12,12 @@ import { SHEET_ROLES, saveConfig, state } from "./state.js";
 import { bindFilePreview, bindPackField, keepUrl } from "./result.js";
 import { doResourcePack } from "./pack.js";
 import { loadPlayerParts, textureReader } from "./textures.js";
-import { setSheetPreview } from "./gifs.js";
-import { stackFrames, upscale } from "../js/bitmap.js";
-import { SKIN_TINT, gifFrameOrder, overlay, playerFrames, tintFrames } from "../js/compose.js";
+import { setSheetPreview, showPlayerFile } from "./gifs.js";
+import { upscale } from "../js/bitmap.js";
+import { SKIN_TINT, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import { loadTextures } from "../js/reverse.js";
 import { classifySheets, composeFrames, validateSheet } from "../js/sheets.js";
 import { decodeBitmap } from "../js/fs.js";
-import { pngBlob } from "../js/png.js";
 
 /* ------------------------------------------------------- preview sheets -- */
 
@@ -62,16 +61,6 @@ export function renderSheetPreviewOptions() {
   if (speed) speed.value = state.config.sheetGifSpeed ?? "fast";
   const size = $("#sheet-preview-size");
   if (size) size.value = String(state.config.sheetGifSize ?? 2);
-  // the icon names what the link holds, including the animation's frame count
-  const info = $("#sheet-preview-info");
-  if (info) {
-    const text = t("web.sheetPreviewInfo", {
-      desc: t("web.sheetDesc.full"),
-      count: gifFrameOrder().length,
-    });
-    info.dataset.tooltip = text;
-    info.setAttribute("aria-label", text);
-  }
 }
 
 /** Show what each of the three slots holds, and what is still missing. */
@@ -222,32 +211,6 @@ export async function addSheetFiles(fileList, role = null) {
   renderSlots();
 }
 
-/**
- * The download link under the player.
- *
- * It hands out the PNG of the animation that is on screen, so its name follows
- * the two switches above it.  The picture is encoded here instead of taken from
- * the result table: those two switches never add files to that table.
- */
-let previewFileUrl = null;
-
-async function renderPreviewFile(name, frames, run) {
-  const link = $("#sheet-preview-file");
-  if (!link) return;
-  const url = URL.createObjectURL(await pngBlob(stackFrames(frames)));
-  // a slower, earlier run must not replace the newer picture
-  if (run !== gifsRun) {
-    URL.revokeObjectURL(url);
-    return;
-  }
-  if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
-  previewFileUrl = url;
-  link.href = url;
-  link.download = name;
-  link.textContent = name;
-  link.hidden = false;
-}
-
 /** A change must not be overwritten by a slower, earlier run. */
 let gifsRun = 0;
 let gifsTimer = null;
@@ -290,7 +253,7 @@ async function renderGifs() {
     setSheetPreview(shown, state.config.sheetGifSpeed, state.config.sheetGifSize);
     // the link under the player hands out the PNG of what is being shown
     const variant = female ? (wantsPlayer ? "PlayerFemale" : "Female") : (wantsPlayer ? "Player" : "");
-    renderPreviewFile(`FullArmor${variant}.png`, shown, run).catch((error) => console.error(error));
+    showPlayerFile("sheet", `FullArmor${variant}.png`, shown).catch((error) => console.error(error));
   } catch (error) {
     if (run !== gifsRun) return;
     console.error(error);

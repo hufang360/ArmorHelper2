@@ -157,7 +157,7 @@
       "web.sheetDesc.bodyFemale": "女性身体，20 帧",
       "web.sheetDesc.arm": "手臂，20 帧",
       "web.sheetDesc.full": "全身盔甲，20 帧",
-      "web.sheetPreviewInfo": "{desc}。GIF 预览 {count} 帧。",
+      "web.playerFileInfo": "{desc}。GIF 预览 {count} 帧。",
       "web.sheetDesc.legs": "腿部，20 帧",
       "web.verifyMismatch": "自检不一致（{detail}）",
       "web.verifyFailed": "自检失败：{error}"
@@ -318,7 +318,7 @@
       "web.sheetDesc.bodyFemale": "Female body, 20 frames",
       "web.sheetDesc.arm": "Arms, 20 frames",
       "web.sheetDesc.full": "Full armour, 20 frames",
-      "web.sheetPreviewInfo": "{desc}. GIF preview: {count} frames.",
+      "web.playerFileInfo": "{desc}. GIF preview: {count} frames.",
       "web.sheetDesc.legs": "Legs, 20 frames",
       "web.verifyMismatch": "self check mismatch ({detail})",
       "web.verifyFailed": "self check failed: {error}"
