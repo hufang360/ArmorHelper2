@@ -352,8 +352,8 @@
                   </div>
                   <hr class="preview-rule">
                   <!-- the PNG the two switches above name; hover shows its pixels -->
-                  <p class="sheet-player-file-row">
-                    <a class="sheet-player-file" id="sheet-preview-file" href="#" download hidden></a>
+                  <p class="gif-player-file-row">
+                    <a class="gif-player-file" id="sheet-preview-file" href="#" download hidden></a>
                     <span class="info-icon gif-player-info" id="sheet-preview-info" tabindex="0" role="img">
                       <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
                         <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
@@ -380,13 +380,12 @@
 
     <!-- =========================== 反向还原 =========================== -->
     <section class="panel tab-pane" id="tab-reverse">
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
+      <div class="row g-2 rev-row">
 
-          <!-- one card, two columns: the inputs on the left, the preview on the right -->
-          <div class="rev-split">
-            <div class="rev-controls">
+        <div class="col-12 col-lg-6">
+          <div class="card rev-card">
+            <div class="card-body">
+              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.reverseTitle"></h2>
 
               <div class="field">
                 <label class="form-label small text-body-secondary mb-1" for="set-search" data-i18n="web.reverseSearch"></label>
@@ -397,6 +396,25 @@
                 <label class="form-label small text-body-secondary mb-1" for="set-select" data-i18n="web.reverseSet"></label>
                 <select id="set-select" class="form-select form-select-sm" size="8"></select>
               </div>
+
+              <div class="row g-2">
+              <div class="col-4">
+              <input type="number" class="form-control form-control-sm" id="rev-head" min="0" max="999"
+              data-i18n-placeholder="web.slot.head">
+              <span class="d-block small text-body-secondary mt-1" id="rev-head-name"></span>
+              </div>
+              <div class="col-4">
+              <input type="number" class="form-control form-control-sm" id="rev-body" min="0" max="999"
+              data-i18n-placeholder="web.slot.body">
+              <span class="d-block small text-body-secondary mt-1" id="rev-body-name"></span>
+              </div>
+              <div class="col-4">
+              <input type="number" class="form-control form-control-sm" id="rev-legs" min="0" max="999"
+              data-i18n-placeholder="web.slot.legs">
+              <span class="d-block small text-body-secondary mt-1" id="rev-legs-name"></span>
+              </div>
+              </div>
+              <p class="text-body-secondary small mb-2" data-i18n="web.idsHint"></p>
 
               <hr class="my-2">
 
@@ -414,7 +432,6 @@
                  href="https://terraria.wiki.gg/zh/wiki/Armor_IDs" target="_blank" rel="noopener"
                  data-i18n="web.wikiHint"></a>
 
-              <!-- this page owns its own guide switch and speed: the other pages keep their own -->
               <div class="rev-settings">
                 <div class="form-check mb-0">
                   <input class="form-check-input" type="checkbox" id="rev-guide">
@@ -426,98 +443,93 @@
                 <button class="btn btn-sm btn-secondary" id="do-reverse-all" data-i18n="web.reverseAll"></button>
               </div>
             </div>
-            <div class="rev-preview">
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card results-card rev-card">
+            <div class="card-body">
+              <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.previewSheet"></h2>
 
               <p class="rev-set-name" id="rev-set-name"></p>
 
-              <div class="row g-2">
-                <div class="col-4">
-                  <input type="number" class="form-control form-control-sm" id="rev-head" min="0" max="999"
-                         data-i18n-placeholder="web.slot.head">
-                  <span class="d-block small text-body-secondary mt-1" id="rev-head-name"></span>
-                </div>
-                <div class="col-4">
-                  <input type="number" class="form-control form-control-sm" id="rev-body" min="0" max="999"
-                         data-i18n-placeholder="web.slot.body">
-                  <span class="d-block small text-body-secondary mt-1" id="rev-body-name"></span>
-                </div>
-                <div class="col-4">
-                  <input type="number" class="form-control form-control-sm" id="rev-legs" min="0" max="999"
-                         data-i18n-placeholder="web.slot.legs">
-                  <span class="d-block small text-body-secondary mt-1" id="rev-legs-name"></span>
-                </div>
-              </div>
-              <p class="text-body-secondary small mb-2" data-i18n="web.idsHint"></p>
-
-              <!-- the 20 frame animation of the set being previewed -->
               <div class="preview-box gif-player" id="rev-preview-box" hidden>
-                <div class="gif-player-stage">
-                  <canvas id="rev-preview-gif" class="pixel" width="40" height="56" hidden></canvas>
-                </div>
-                <div class="gif-player-opts">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="rev-opt-female">
-                    <label class="form-check-label" for="rev-opt-female" data-i18n="web.female"></label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="rev-opt-player">
-                    <label class="form-check-label" for="rev-opt-player" data-i18n="web.player"></label>
-                    <span class="info-icon" id="rev-player-info" tabindex="0" role="img">
-                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
-                      </svg>
-                    </span>
-                  </div>
-                  <select id="rev-gif-speed" class="form-select form-select-sm" data-i18n-label="web.gifSpeed">
-                    <option value="fast" data-i18n="web.gifSpeedFast"></option>
-                    <option value="medium" data-i18n="web.gifSpeedMedium"></option>
-                    <option value="slow" data-i18n="web.gifSpeedSlow"></option>
-                  </select>
-                  <select id="rev-gif-size" class="form-select form-select-sm" data-i18n-label="web.gifSize">
-                    <option value="1" data-i18n="web.gifSizeNative"></option>
-                    <option value="2" data-i18n="web.gifSizeDouble"></option>
-                    <option value="4" data-i18n="web.gifSizeQuad"></option>
-                  </select>
-                  <div class="preview-frames">
-                    <button class="icon-btn" type="button" id="rev-gif-play" aria-pressed="true">
-                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                        <path id="rev-gif-play-icon" d="M5 3.5v9l7-4.5z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button class="icon-btn" type="button" id="rev-gif-prev">
-                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                        <path d="M4 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                        <path d="M12 3.5v9L5.5 8z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button class="icon-btn" type="button" id="rev-gif-next">
-                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                        <path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                        <path d="M4 3.5v9l6.5-4.5z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <span class="preview-count" id="rev-gif-count">0/0</span>
-                  </div>
-                  <hr class="preview-rule">
-                  <!-- the PNG of what is shown; hover shows its pixels -->
-                  <p class="gif-player-file-row">
-                    <a class="gif-player-file" id="rev-preview-file" href="#" download hidden></a>
-                    <span class="info-icon gif-player-info" id="rev-preview-info" tabindex="0" role="img">
-                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                        <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                        <circle cx="8" cy="5" r=".8" fill="currentColor"/>
-                      </svg>
-                    </span>
-                  </p>
-                </div>
+              <div class="gif-player-stage">
+              <canvas id="rev-preview-gif" class="pixel" width="40" height="56" hidden></canvas>
+              </div>
+              <div class="gif-player-opts">
+              <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="rev-opt-female">
+              <label class="form-check-label" for="rev-opt-female" data-i18n="web.female"></label>
+              </div>
+              <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="rev-opt-player">
+              <label class="form-check-label" for="rev-opt-player" data-i18n="web.player"></label>
+              <span class="info-icon" id="rev-player-info" tabindex="0" role="img">
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+              </svg>
+              </span>
+              </div>
+              <select id="rev-gif-speed" class="form-select form-select-sm" data-i18n-label="web.gifSpeed">
+              <option value="fast" data-i18n="web.gifSpeedFast"></option>
+              <option value="medium" data-i18n="web.gifSpeedMedium"></option>
+              <option value="slow" data-i18n="web.gifSpeedSlow"></option>
+              </select>
+              <select id="rev-gif-size" class="form-select form-select-sm" data-i18n-label="web.gifSize">
+              <option value="1" data-i18n="web.gifSizeNative"></option>
+              <option value="2" data-i18n="web.gifSizeDouble"></option>
+              <option value="4" data-i18n="web.gifSizeQuad"></option>
+              </select>
+              <div class="preview-frames">
+              <button class="icon-btn" type="button" id="rev-gif-play" aria-pressed="true">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path id="rev-gif-play-icon" d="M5 3.5v9l7-4.5z" fill="currentColor"/>
+              </svg>
+              </button>
+              <button class="icon-btn" type="button" id="rev-gif-prev">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M4 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M12 3.5v9L5.5 8z" fill="currentColor"/>
+              </svg>
+              </button>
+              <button class="icon-btn" type="button" id="rev-gif-next">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M12 3.5v9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M4 3.5v9l6.5-4.5z" fill="currentColor"/>
+              </svg>
+              </button>
+              <span class="preview-count" id="rev-gif-count">0/0</span>
+              </div>
+              <hr class="preview-rule">
+              <!-- the PNG of what is shown; hover shows its pixels -->
+              <p class="gif-player-file-row">
+              <a class="gif-player-file" id="rev-preview-file" href="#" download hidden></a>
+              <span class="info-icon gif-player-info" id="rev-preview-info" tabindex="0" role="img">
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="8" cy="5" r=".8" fill="currentColor"/>
+              </svg>
+              </span>
+              </p>
+              </div>
               </div>
 
+              <hr class="preview-rule">
               <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
             </div>
           </div>
+        </div>
+
+      </div>
+
+      <div class="card help-card">
+        <div class="card-body">
+          <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.helpReverseTitle"></h2>
+          <p class="mb-0 small help-text" data-i18n="web.helpReverse"></p>
         </div>
       </div>
     </section>

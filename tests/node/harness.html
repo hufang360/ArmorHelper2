@@ -200,6 +200,12 @@ async function runDropTools(doc) {
 
 /** Type the three ids, which rebuilds on its own, and wait for the card. */
 async function runReverse(doc) {
+  // the page rebuilds a set while it boots: wait for that result to land, then
+  // wait for the one this step asks for, or the old file name is read instead
+  const fileNames = () => [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent.trim()).join("|");
+  for (let tick = 0; tick < 400 && !fileNames(); tick += 1) await new Promise((r) => setTimeout(r, 25));
+  const before = fileNames();
+
   doc.querySelector("#rev-head").value = "189";
   doc.querySelector("#rev-body").value = "190";
   doc.querySelector("#rev-legs").value = "130";
@@ -208,7 +214,10 @@ async function runReverse(doc) {
   for (let tick = 0; tick < 400; tick += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
     const images = doc.querySelectorAll("#reverse-result .preview img");
-    if (images.length) {
+    // the same ids as before rebuild the same file name: accept it once the run
+    // has had time to finish, which `settled` below tells apart from a stale card
+    const changed = fileNames() && fileNames() !== before;
+    if (images.length && (changed || (tick > 120 && fileNames() === before))) {
       const report = {
         previews: images.length,
         captions: [...doc.querySelectorAll("#reverse-result figcaption")].map((el) => el.textContent),

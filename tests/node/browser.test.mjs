@@ -152,7 +152,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       assert.equal(reverse.player.size, "2", label);
       assert.equal(reverse.player.link, "FullArmor.png", label);
       assert.equal(reverse.player.href, "blob:", label);
-      assert.equal(reverse.player.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。", label);
+      assert.equal(reverse.player.tooltip, "全身盔甲，20 帧，一帧一个姿态，竖向排列。GIF 预览 52 帧：行走两轮、停 4 帧、跳跃 4 帧、停 4 帧。", label);
       // the guide switch is checked here: this is the only template preview left
       assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
       // one set offers one download button; the zip and the folder write are gone
@@ -419,7 +419,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(exported.playerFile.download, "FullArmor.png");
     assert.equal(exported.playerFile.href, "blob:");
     assert.equal(exported.playerFile.hidden, false);
-    assert.equal(exported.playerFile.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。");
+    assert.equal(exported.playerFile.tooltip, "全身盔甲，20 帧，一帧一个姿态，竖向排列。GIF 预览 52 帧：行走两轮、停 4 帧、跳跃 4 帧、停 4 帧。");
     assert.ok(exported.playerFile.gap >= 2 && exported.playerFile.gap <= 8, String(exported.playerFile.gap));
 
     // the player switch and the female switch both redraw the animation
@@ -529,7 +529,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(gifs.at2x.href, "blob:");
     assert.equal(gifs.at2x.linkHidden, false);
     // the icon's tooltip says what the file holds and how long the animation is
-    assert.equal(gifs.at2x.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。");
+    assert.equal(gifs.at2x.tooltip, "全身盔甲，20 帧，一帧一个姿态，竖向排列。GIF 预览 52 帧：行走两轮、停 4 帧、跳跃 4 帧、停 4 帧。");
     // 4x really reaches the canvas, and the card keeps one height for 1x-4x
     assert.deepEqual(gifs.at4x.canvas, [160, 224]);
     assert.equal(gifs.at4x.boxHeight, gifs.at2x.boxHeight);

@@ -149,8 +149,9 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .gif-player-opts .preview-frames .icon-btn { width: 1.5rem; height: 1.5rem; }
 .gif-player-opts .preview-count { font-size: .7rem; }
 /* the PNG under the transport is named by the two switches above it */
+/* the link and its info icon share one line, centred on each other */
 .gif-player-file-row {
-  display: flex; align-items: baseline; gap: .25rem;
+  display: flex; align-items: center; gap: .25rem;
   margin: .25rem 0 0; min-width: 0;
 }
 .gif-player-file {
@@ -176,11 +177,10 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 /* The name of the set being previewed, one size up from the body text. */
 .rev-set-name { margin: 0 0 .5rem; font-size: 1.05rem; line-height: 1.3; color: var(--text); }
 
-/* The template page: one card, inputs on the left and the preview on the right.
-   A narrow window stacks them. */
-.rev-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
-.rev-controls, .rev-preview { min-width: 0; display: flex; flex-direction: column; }
-@media (max-width: 991.98px) { .rev-split { grid-template-columns: minmax(0, 1fr); } }
+/* The template page: two cards side by side, always the same height. The row
+   stretches its columns and each card fills its column. */
+.rev-row { align-items: stretch; }
+.rev-card { height: 100%; }
 
 /* The reverse page's guide switch and GIF speed share one row. */
 .rev-settings {
