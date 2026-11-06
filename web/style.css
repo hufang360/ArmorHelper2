@@ -140,7 +140,7 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .gif-player-opts .form-check { margin: 0; }
 .gif-player-opts .form-check-label { font-size: .75rem; }
 .gif-player-opts .form-select {
-  width: 11.2rem; max-width: 100%; font-size: .7rem;
+  width: 132px; max-width: 100%; font-size: .7rem;
   padding: .1rem 1.2rem .1rem .4rem;
   background-position: right .4rem center; background-size: 12px 9px;
 }
@@ -382,6 +382,8 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 /* Buttons with a leading icon: the icon is a sibling of the label span. */
 .actions .btn { display: inline-flex; align-items: center; gap: .25rem; }
 .actions .btn svg { flex: none; }
+/* a slot holds one module's result buttons inside another module's action row */
+.actions-slot { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 
 /* --------------------------------------------------------------- results */
 .results { display: flex; flex-direction: column; gap: 1rem; }
@@ -422,13 +424,11 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .thin-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(154, 163, 181, .38); }
 .thin-scroll::-webkit-scrollbar-thumb:hover { background: rgba(154, 163, 181, .6); }
 
-/* The 材质包 card: actions on top, era tabs below them, then one scrolling
-   body for the table and the sheets. */
-.pack-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-top: 1rem; }
-.pack-actions .pack-info { flex: 1 1 18rem; min-width: 11rem; }
-/* the same three fields sit under the preview-sheets slots; the width is fixed
-   so the input group cannot stretch the left half over the result */
-#sheet-pack-info { margin-top: .5rem; width: 34rem; max-width: 100%; }
+/* The material pack: era tabs on top, then one scrolling body for the table
+   and the sheets. */
+/* the same three fields sit under the action row of two pages; the width is
+   fixed so the input group cannot stretch the column over its neighbour */
+#sheet-pack-info, #export-pack-info { margin-top: .5rem; width: 34rem; max-width: 100%; }
 .pack-info .is-short { flex: 0 1 8rem; }
 .pack-info .is-long { flex: 1 1 14rem; }
 .pack-tabs { margin: .5rem 0 .25rem; --bs-nav-underline-gap: 1rem; }
@@ -479,16 +479,16 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .export-stack { display: flex; flex-direction: column; }
 /* two columns: the template and its buttons on the left, the player and the
    material pack on the right.  A narrow window stacks them. */
-.export-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+/* one column: the drop area, its action row, the player, then the results */
+.export-split { display: flex; flex-direction: column; gap: 1rem; }
 .export-left, .export-right { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-@media (max-width: 991.98px) { .export-split { grid-template-columns: minmax(0, 1fr); } }
 .export-results { margin-top: 0; }
-/* The preview-sheets card has two halves: the inputs on the left, the result on
-   the right.  When the window is too narrow the result wraps under the inputs. */
-.gifs-split { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: flex-start; }
-.gifs-input { flex: 0 1 auto; min-width: 0; }
-/* The right half holds the 20 frame player. */
-.gifs-output { flex: 1 1 26rem; min-width: 20rem; display: flex; flex-direction: column; gap: 1rem; }
+/* The preview-sheets card stacks: inputs on top, the player under them. */
+/* one column: the slots, the action row, the pack fields, then the player */
+.gifs-split { display: flex; flex-direction: column; gap: 1rem; }
+.gifs-input { min-width: 0; }
+/* The bottom half holds the 20 frame player. */
+.gifs-output { min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
 /* The help card sits under the working card and explains the flow. */
 .help-card { margin-top: .5rem; }
 .help-card .card-body { padding: 1rem 1rem; }
@@ -496,8 +496,15 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, s
 .pack { display: flex; flex-direction: column; }
 .result-block { padding: 0; }
 
-/* The language switch is a word: it names the language it goes to. */
-.lang-toggle { min-width: 2.6rem; font-size: .75rem; }
+/* The language switch is a ghost button: a word with no fill and no border
+   until it is hovered or focused. */
+.lang-toggle {
+  min-width: 2.6rem; font-size: .75rem;
+  color: var(--muted); background: none; border-color: transparent;
+}
+.lang-toggle:hover, .lang-toggle:focus-visible {
+  color: var(--text); border-color: var(--line); background: rgba(154, 163, 181, .12);
+}
 /* the wiki page, as a text link under the texture source */
 .wiki-link { font-size: .78rem; }
 

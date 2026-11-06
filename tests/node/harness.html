@@ -244,7 +244,9 @@ async function runReverse(doc) {
         })(),
         files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
         fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
-        actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
+        actions: [...doc.querySelectorAll("#reverse-actions > *")].map((el) => el.textContent),
+        resultActions: doc.querySelectorAll("#reverse-result .actions").length,
+        slotAfter: doc.querySelector("#do-reverse-all").nextElementSibling?.id ?? null,
         warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
         status: doc.querySelector("#status").textContent.trim(),
       };
@@ -355,7 +357,7 @@ async function runReverseFallback(doc) {
       return {
         files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
         fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
-        actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
+        actions: [...doc.querySelectorAll("#reverse-actions > *")].map((el) => el.textContent),
         warnings: [...doc.querySelectorAll("#reverse-result .warn")].map((el) => el.textContent),
         status: doc.querySelector("#status").textContent.trim(),
       };
@@ -794,6 +796,12 @@ async function runExport(doc) {
   const sheets = await makeSheets();
   // there is no export button: the card is drawn as soon as a template lands
   const heightsBefore = cardHeights(doc, "#tab-export");
+  // nothing to pack before a template lands: the button is disabled and the
+  // pack.json fields stay hidden
+  const packBarAtStart = {
+    disabled: doc.querySelector("#export-pack").disabled,
+    infoHidden: doc.querySelector("#export-pack-info").hidden,
+  };
   await putFiles(doc, "#file-input", [["MyArmor.png", sheets.template]]);
   for (let tick = 0; tick < 400; tick += 1) {
     await sleep(25);
@@ -801,8 +809,8 @@ async function runExport(doc) {
   }
   await sleep(120);
   const heightsAfter = cardHeights(doc, "#tab-export");
-  // the export actions live inside the active tab now
-  const buttons = await clickResultButtons(doc, "#tab-export", "#results .pack-actions > button");
+  // the pack button sits next to the demo button, in the input card
+  const buttons = await clickResultButtons(doc, "#tab-export", "#export-pack");
   const ui = {
     // the upload button is the main action only while nothing is loaded
     uploadSecondaryAfter: doc.querySelector("#upload-file").classList.contains("btn-secondary"),
@@ -810,9 +818,11 @@ async function runExport(doc) {
     uploadIcon: !!doc.querySelector("#upload-file svg"),
     summary: !!doc.querySelector("#file-summary"),
     list: !!doc.querySelector("#file-list"),
-    cardActions: [...doc.querySelectorAll("#results .pack-actions > button")].map((button) => button.textContent.trim()),
-    packButtonPrimary: doc.querySelector("#results .pack-actions > button")?.classList.contains("btn-primary") ?? false,
+    cardActions: [...doc.querySelectorAll("#export-pack")].map((button) => button.textContent.trim()),
+    packButtonPrimary: doc.querySelector("#export-pack")?.classList.contains("btn-primary") ?? false,
     cards: [...doc.querySelectorAll("#results .job h3")].map((el) => el.textContent.trim()),
+    packBarAtStart,
+    packButtonEnabled: !doc.querySelector("#export-pack").disabled,
   };
 
   // the two corner links: the wiki page follows the language, the source does not
@@ -1075,9 +1085,12 @@ async function runPackCards(doc) {
     }
     await sleep(150);
   };
+  const packButton = () => doc.querySelector("#export-pack");
+  const packInfo = () => doc.querySelector("#export-pack-info");
   const readTab = () => ({
-    button: card().querySelector(".pack-actions > button")?.textContent.trim() ?? null,
-    inputs: [...card().querySelectorAll(".pack-info input")].map((input) => input.placeholder),
+    button: packButton()?.textContent.trim() ?? null,
+    packDisabled: packButton()?.disabled ?? null,
+    inputs: packInfo()?.hidden ? [] : [...packInfo().querySelectorAll("input")].map((input) => input.placeholder),
     rows: [...card().querySelectorAll(".sheet-table tbody tr")].map((tr) =>
       [...tr.children].map((td) => td.textContent.trim()),
     ),
@@ -1098,16 +1111,18 @@ async function runPackCards(doc) {
   // the tab is remembered across runs, so pick 1.4.4+ explicitly
   await pick("1.4");
   const first = readTab();
-  const pack144 = await captureDownload(frame.contentWindow, card().querySelector(".pack-actions > button"));
+  const pack144 = await captureDownload(frame.contentWindow, packButton());
 
   await pick("1.3");
   const second = readTab();
-  // 1.3 has no pack button any more: its table is all it offers
-  const pack13 = { error: "no button" };
+  // 1.3 has no resource pack: the button stays disabled and the fields are gone
+  const pack13 = { disabled: packButton().disabled };
 
   await pick("1.4");
+  // the fields come back as soon as the 1.4.4 tab is picked again
+  const back = readTab().inputs;
   // the full armour tab is gone: the player covers it
-  return { info: [first, second], packs: [pack144, pack13] };
+  return { info: [first, second], packs: [pack144, pack13], back };
 }
 
 /** Fire "rebuild every set" and cancel it right away. */
@@ -1150,7 +1165,7 @@ async function runReverseAll(doc) {
     sawFill,
     status: doc.querySelector("#status").textContent.trim(),
     files: doc.querySelectorAll("#reverse-result .files a").length,
-    actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),
+    actions: [...doc.querySelectorAll("#reverse-actions > *")].map((el) => el.textContent),
     };
 }
 

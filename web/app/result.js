@@ -12,12 +12,12 @@
  * `app.js` installs with `setExportScheduler()`.
  */
 
-import { $, $$, say } from "./dom.js";
+import { $, $$ } from "./dom.js";
 import { t } from "./i18n.js";
 import { saveConfig, state } from "./state.js";
 import { armorName, effectiveIds } from "./ids.js";
 import { setPreviewGif } from "./gifs.js";
-import { bitmapToDataURL, canUseFolders, downloadBlob } from "../js/fs.js";
+import { bitmapToDataURL, canUseFolders } from "../js/fs.js";
 import { pngBlob } from "../js/png.js";
 import { composeOverlay, TEMPLATE_PREVIEW_SCALE } from "../js/compose.js";
 import { upscale } from "../js/bitmap.js";
@@ -27,6 +27,18 @@ let scheduleExport = () => {};
 
 export function setExportScheduler(callback) {
   scheduleExport = callback;
+}
+
+/**
+ * `export.js` installs its pack bar refresh here.
+ *
+ * The era tab lives in this file, so the file that owns the pack button has to
+ * be told when it changes; the button has nothing to do on 1.3.
+ */
+let onPackTab = () => {};
+
+export function setPackTabListener(callback) {
+  onPackTab = callback;
 }
 
 /**
@@ -56,8 +68,14 @@ export function watchResultHeights() {
   }
 }
 
-/** Where each panel shows its result. */
+/**
+ * Where each panel shows its result.
+ *
+ * A panel listed in `ACTION_SLOTS` sends its result buttons into that slot, so
+ * they sit in the input card; the others keep them at the bottom of the result.
+ */
 const RESULT_HOSTS = { export: "#results", reverse: "#reverse-result" };
+const ACTION_SLOTS = { reverse: "#reverse-actions" };
 
 /** Show `result` in one panel's result area and remember it for redraws. */
 export function showResult(panel, results) {
@@ -67,7 +85,7 @@ export function showResult(panel, results) {
   const list = Array.isArray(results) ? results : [results];
   state.results[panel] = list;
   host.innerHTML = "";
-  for (const item of list) host.append(resultCard(item, host));
+  for (const item of list) host.append(resultCard(item, host, panel));
   syncResultHeights();
 }
 
@@ -86,6 +104,8 @@ export function clearResult(panel) {
     }
   }
   if (panel === "export") setPreviewGif(null);
+  const slot = ACTION_SLOTS[panel] ? $(ACTION_SLOTS[panel]) : null;
+  if (slot) slot.innerHTML = "";
   syncResultHeights();
 }
 
@@ -127,30 +147,6 @@ function previewFigure(url, caption, alt, display = null) {
 }
 
 /**
- * The "make resource pack" button of a material pack card.
- *
- * The zip is built on click: most visits never press it, and a resource pack
- * is the one output large enough to notice.
- */
-function packButton(pack) {
-  const button = document.createElement("button");
-  button.className = "btn btn-sm btn-primary";
-  button.textContent = t(pack.labelKey);
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      downloadBlob(await pack.run(), pack.name);
-    } catch (error) {
-      console.error(error);
-      say(String(error.message || error), "bad");
-    } finally {
-      button.disabled = false;
-    }
-  });
-  return button;
-}
-
-/**
  * Reveal the scrollbar of `element` only while it moves.
  *
  * The thumb is transparent at rest, so a long sheet list does not sit behind a
@@ -170,13 +166,6 @@ function thinScroll(element) {
   return element;
 }
 
-/** The `pack.json` fields: empty means the default is used. */
-const PACK_FIELDS = [
-  ["name", "web.packName", "is-short"],
-  ["author", "web.packAuthor", "is-short"],
-  ["description", "web.packDescription", "is-long"],
-];
-
 /**
  * Store one `pack.json` field in the settings.
  *
@@ -190,25 +179,8 @@ export function bindPackField(input, field) {
   });
 }
 
-function packInfoInputs() {
-  const group = document.createElement("div");
-  group.className = "input-group input-group-sm pack-info";
-  for (const [field, key, size] of PACK_FIELDS) {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = `form-control ${size}`;
-    input.placeholder = t(key);
-    input.setAttribute("aria-label", t(key));
-    input.value = state.config.pack?.[field] ?? "";
-    bindPackField(input, field);
-    group.append(input);
-  }
-  return group;
-}
-
 /**
- * The result block: the era tabs, then the actions and the content of the
- * active one.
+ * The result block: the era tabs, then the content of the active one.
  *
  * It is not a card any more: the results sit directly under the input card, so
  * there is no title and no frame around them.
@@ -231,20 +203,12 @@ function packCardBody(tabs) {
         saveConfig();
         // the card is cheap to rebuild: no sheet is generated again
         showResult("export", state.results.export);
+        onPackTab();
       });
       nav.append(button);
     }
     wrap.append(nav);
   }
-
-  // the export actions belong to the tab whose files they hand out
-  const bar = document.createElement("div");
-  bar.className = "pack-actions";
-  if (active.pack) {
-    bar.append(packButton(active.pack));
-    if (active.pack.fields) bar.append(packInfoInputs());
-  }
-  wrap.append(bar);
 
   const body = thinScroll(document.createElement("div"));
   body.className = "sheet-body thin-scroll";
@@ -371,7 +335,7 @@ function sheetColumns(columns) {
   return strip;
 }
 
-function resultCard(result, host = $("#results")) {
+function resultCard(result, host = $("#results"), panel = null) {
   // the export result is a bare block; a panel can ask for that too
   const bare = result.bare === true || !!result.tabs?.length;
   const card = document.createElement("div");
@@ -443,8 +407,11 @@ function resultCard(result, host = $("#results")) {
   }
   if (result.files?.length) card.append(list);
 
-  const actions = document.createElement("div");
-  actions.className = "actions";
+  // the reverse page keeps the download buttons by its own action row
+  const slot = panel && ACTION_SLOTS[panel] ? $(ACTION_SLOTS[panel]) : null;
+  const actions = slot ?? document.createElement("div");
+  if (slot) slot.innerHTML = "";
+  else actions.className = "actions";
   // NB: the locals must not be called `zip` / `save` — that would shadow
   // `result.zip` / `result.save` and make the click handler call the <button>.
   if (result.download) {
@@ -462,7 +429,7 @@ function resultCard(result, host = $("#results")) {
     zipButton.addEventListener("click", () => result.zip.save());
     actions.append(zipButton);
   }
-  if (actions.childElementCount) card.append(actions);
+  if (!slot && actions.childElementCount) card.append(actions);
 
   for (const warning of result.warnings ?? []) {
     const p = document.createElement("p");

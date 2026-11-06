@@ -114,7 +114,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "set-verify",
     ]);
     assert.deepEqual(payload.tabs, ["拆图", "预览", "模板", "设置"]);
-    assert.ok(payload.subtitle.includes("网页版"), payload.subtitle);
+    assert.equal(payload.subtitle, "泰拉盔甲贴图工具");
     assert.equal(payload.guide, true);
     assert.ok(payload.guideLabel.includes("叠加标准图"), payload.guideLabel);
     assert.equal(payload.favicon, "data/icon.png");
@@ -157,6 +157,9 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
       // one set offers one download button; the zip and the folder write are gone
       assert.deepEqual(reverse.actions, ["下载"], label);
+      // the button moved into the input card, right of "rebuild every set"
+      assert.equal(reverse.resultActions, 0, label);
+      assert.equal(reverse.slotAfter, "reverse-actions", label);
       assert.deepEqual(reverse.fileMeta, ["128×80px"], label);
     }
 
@@ -321,8 +324,11 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     // the result card's buttons really do something (this used to throw
     // "save.save is not a function" because of a shadowed local)
     const buttons = exported.buttons;
-    // the export action lives inside the active tab
+    // the pack button sits by the demo button, in the input card
     assert.deepEqual(buttons.labels, ["下载材质包"]);
+    // before a template lands there is nothing to pack and no fields to fill
+    assert.deepEqual(exported.ui.packBarAtStart, { disabled: true, infoHidden: true });
+    assert.equal(exported.ui.packButtonEnabled, true);
     assert.deepEqual(exported.ui.cardActions, ["下载材质包"]);
     assert.deepEqual(exported.ui.cards, []);
     assert.ok(!buttons.status.includes("not a function"), buttons.status);
@@ -365,8 +371,12 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.deepEqual(tab144.inputs, ["材质包名称", "作者", "由 ArmorHelper 生成"]);
     assert.deepEqual(tab13.inputs, []);
     assert.equal(tab144.button, "下载材质包");
-    // 1.3 keeps only its table: the zip button was removed
-    assert.equal(tab13.button, null);
+    assert.equal(tab144.packDisabled, false);
+    // 1.3 has no resource pack: the button stays, disabled, and hides the fields
+    assert.equal(tab13.button, "下载材质包");
+    assert.equal(tab13.packDisabled, true);
+    // picking 1.4.4 again brings the fields back
+    assert.deepEqual(packCards.back, tab144.inputs);
     assert.deepEqual(tab144.rows, [
       ["Armor_Head_0.png", "40×1120", "便装假发", "头部，20 帧"],
       ["Armor/Armor_0.png", "360×224", "便装衣", "身体，包括男身和女身"],
@@ -410,8 +420,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "Content/Images/Armor/",
       "Content/Images/Armor/Armor_0.png",
     ]);
-    // 1.3 hands out no zip: the tab has no pack button
-    assert.equal(pack13.error, "no button");
+    // 1.3 hands out no zip: the button is disabled there
+    assert.equal(pack13.disabled, true);
     // the PNG link under the player follows the two switches, and its icon
     // says what the file holds
     // the last run left both switches off, so the male PNG is the one on show
@@ -434,7 +444,7 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
     assert.equal(ui.uploadSecondaryAfter, true);
     assert.equal(payload.uploadPrimaryAtStart, true);
     assert.equal(ui.uploadIcon, false);
-    // the pack button lives in the tab content, as a primary action
+    // the pack button sits by the demo button, as a primary action
     assert.equal(ui.cardActions.includes("下载材质包"), true);
     assert.equal(ui.packButtonPrimary, true);
     // the file summary and the file list are gone: the drop area shows the file

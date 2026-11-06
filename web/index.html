@@ -33,7 +33,7 @@
 
     <div class="lang">
       <!-- the label names the language it switches to: "En" in Chinese, "中" in English -->
-      <button class="btn btn-sm btn-secondary lang-toggle" type="button" id="language"
+      <button class="btn btn-sm lang-toggle" type="button" id="language"
               data-i18n-label="web.languageHint">En</button>
     </div>
 
@@ -93,6 +93,18 @@
                 <div class="actions">
                   <button class="btn btn-sm btn-primary" id="upload-file" data-i18n="web.upload"></button>
                   <button class="btn btn-sm btn-secondary" id="load-demo" data-i18n="web.demo"></button>
+                  <!-- 1.3 has no resource pack: the button stays disabled there -->
+                  <button class="btn btn-sm btn-primary" id="export-pack" data-i18n="web.packMake" disabled></button>
+                </div>
+
+                <!-- pack.json fields, shown only for a 1.4 result -->
+                <div class="pack-info input-group input-group-sm" id="export-pack-info" hidden>
+                  <input type="text" class="form-control is-short" id="export-pack-name"
+                         data-i18n-placeholder="web.packName" data-i18n-label="web.packName">
+                  <input type="text" class="form-control is-short" id="export-pack-author"
+                         data-i18n-placeholder="web.packAuthor" data-i18n-label="web.packAuthor">
+                  <input type="text" class="form-control is-long" id="export-pack-desc"
+                         data-i18n-placeholder="web.packDescription" data-i18n-label="web.packDescription">
                 </div>
               </div>
 
@@ -441,6 +453,8 @@
 
               <div class="actions">
                 <button class="btn btn-sm btn-secondary" id="do-reverse-all" data-i18n="web.reverseAll"></button>
+                <!-- the result's download buttons, filled in when there is a result -->
+                <span class="actions-slot" id="reverse-actions"></span>
               </div>
             </div>
           </div>
@@ -452,6 +466,8 @@
               <h2 class="card-title h6 text-uppercase text-body-secondary" data-i18n="web.previewSheet"></h2>
 
               <p class="rev-set-name" id="rev-set-name"></p>
+              <hr class="preview-rule">
+              <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
 
               <div class="preview-box gif-player" id="rev-preview-box" hidden>
               <div class="gif-player-stage">
@@ -517,9 +533,6 @@
               </p>
               </div>
               </div>
-
-              <hr class="preview-rule">
-              <div id="reverse-result" class="results"><p class="text-body-secondary mb-0" data-i18n="web.empty"></p></div>
             </div>
           </div>
         </div>

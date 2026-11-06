@@ -16,9 +16,10 @@ import { currentSkin, loadPlayerParts } from "./textures.js";
 import { renderFolders } from "./folders.js";
 import { effectiveIds, outputNames } from "./ids.js";
 import { addHistory } from "./history.js";
-import { clearResult, keepUrl, showResult } from "./result.js";
+import { clearResult, bindPackField, keepUrl, setPackTabListener, showResult } from "./result.js";
 import { exportGif, renderPlayerInfo, setPreviewGif, showPlayerFile } from "./gifs.js";
 import { resourcePackBlob } from "./pack.js";
+import { downloadBlob } from "../js/fs.js";
 import { countDifferences } from "../js/bitmap.js";
 import { SKIN_TINT, fullArmorFrames, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import {
@@ -54,6 +55,7 @@ async function renderExport() {
   const file = state.files[0];
   if (!file?.bitmap) {
     clearResult("export");
+    renderExportPack();
     return;
   }
   const run = ++exportRun;
@@ -133,9 +135,6 @@ async function renderExport() {
         ],
         pack: {
           name: `Armor_${ids.body}-pack-pc.zip`,
-          labelKey: "web.packMake",
-          // pack.json is written from the inputs next to the button
-          fields: true,
           run: () => resourcePackBlob(pack144, ids.body, state.config.pack),
         },
       },
@@ -175,6 +174,7 @@ async function renderExport() {
 
     if (run !== exportRun) return;
     showResult("export", [{ tabs: packTabs, warnings }]);
+    renderExportPack();
     setPreviewGif(previewFrames, exportGif().speed, exportGif().size);
     // the link under the player hands out the PNG of what is on screen
     const variant = female ? (wantsPlayer ? "PlayerFemale" : "Female") : (wantsPlayer ? "Player" : "");
@@ -233,9 +233,66 @@ function verifyRoundTrip(template, sheets) {
   }
 }
 
+/** `pack.json` text fields, in the order they sit in the row. */
+const PACK_INPUTS = [
+  ["name", "#export-pack-name"],
+  ["author", "#export-pack-author"],
+  ["description", "#export-pack-desc"],
+];
+
+/** The pack of the era tab on show. 1.3 has none. */
+function activePackTab() {
+  const tabs = state.results.export?.[0]?.tabs ?? [];
+  return tabs.find((tab) => tab.id === state.config.packTab) ?? tabs[0] ?? null;
+}
+
+/**
+ * Enable the pack button and show the `pack.json` fields the tab needs.
+ *
+ * Both wait for a result: before one exists there is nothing to pack. 1.3 has
+ * no resource pack, so its tab disables the button and hides the fields.
+ */
+export function renderExportPack() {
+  const button = $("#export-pack");
+  const info = $("#export-pack-info");
+  if (!button || !info) return;
+  const pack = activePackTab()?.pack ?? null;
+  button.disabled = !pack;
+  info.hidden = !pack;
+  if (!pack) return;
+  // a field keeps what the user is typing
+  for (const [field, selector] of PACK_INPUTS) {
+    const input = $(selector);
+    if (input && document.activeElement !== input) input.value = state.config.pack?.[field] ?? "";
+  }
+}
+
+/** Bake the pack of the tab on show and hand the zip to the browser. */
+async function doExportPack() {
+  const pack = activePackTab()?.pack ?? null;
+  if (!pack) return;
+  $("#export-pack").disabled = true;
+  try {
+    downloadBlob(await pack.run(), pack.name);
+  } catch (error) {
+    console.error(error);
+    say(String(error.message || error), "bad");
+  } finally {
+    renderExportPack();
+  }
+}
+
 /** Bind the controls this module owns. */
 export function bindExportOptions() {
 // the two output switches live on this page: they never touch another panel
+on("#export-pack", "click", () => void doExportPack());
+for (const [field, selector] of PACK_INPUTS) {
+  const input = $(selector);
+  if (input) bindPackField(input, field);
+}
+// the era tab decides whether there is a pack to make
+setPackTabListener(renderExportPack);
+
 on("#opt-female", "change", (event) => {
   state.config.female = event.target.checked;
   saveConfig();
