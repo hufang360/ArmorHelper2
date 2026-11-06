@@ -108,6 +108,8 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       "sheet-opt-female",
       "sheet-opt-player",
       "rev-guide",
+      "rev-opt-female",
+      "rev-opt-player",
       "set-glow",
       "set-verify",
     ]);
@@ -147,6 +149,11 @@ test("the app boots, fills itself in and does every job", { skip }, async () => 
       assert.deepEqual(reverse.player.canvas, [80, 112], label);
       assert.match(reverse.player.count, /^\d+\/\d+$/, reverse.player.count);
       assert.ok(reverse.player.render, label);
+      // the player has the same four controls and PNG link as the other two
+      assert.equal(reverse.player.size, "2", label);
+      assert.equal(reverse.player.link, "FullArmor.png", label);
+      assert.equal(reverse.player.href, "blob:", label);
+      assert.equal(reverse.player.tooltip, "全身盔甲，20 帧。GIF 预览 52 帧。", label);
       // the guide switch is checked here: this is the only template preview left
       assert.equal(reverse.guideChanged, true, `${label} guide overlay`);
       // one set offers one download button; the zip and the folder write are gone

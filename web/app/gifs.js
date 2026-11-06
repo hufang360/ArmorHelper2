@@ -80,6 +80,8 @@ const PLAYER_IDS = {
     prev: "#rev-gif-prev",
     next: "#rev-gif-next",
     count: "#rev-gif-count",
+    link: "#rev-preview-file",
+    info: "#rev-preview-info",
   },
   sheet: {
     canvas: "#sheet-preview-gif",
@@ -224,8 +226,10 @@ export function renderPlayerInfo() {
   }
 }
 
-/** The PNG each link was given; a newer render revokes the older one. */
+/** The PNG each link was given, and the run that wrote it. */
 const playerFiles = new Map();
+/** Counts every call, so the newest one wins even when two run at once. */
+let playerFileRun = 0;
 
 /**
  * Point the link under a player at the PNG of the frames on screen.
@@ -237,9 +241,10 @@ export async function showPlayerFile(page, name, frames) {
   const ids = PLAYER_IDS[page];
   const link = ids?.link ? $(ids.link) : null;
   if (!link) return;
-  const run = (playerFiles.get(page)?.run ?? 0) + 1;
+  const run = (playerFileRun += 1);
   const url = URL.createObjectURL(await pngBlob(stackFrames(frames)));
-  if (playerFiles.get(page)?.run === run) {
+  // a slower, earlier call must not replace the newer picture
+  if (run !== playerFileRun) {
     URL.revokeObjectURL(url);
     return;
   }

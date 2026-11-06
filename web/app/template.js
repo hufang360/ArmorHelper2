@@ -35,6 +35,7 @@ const TOOLTIPS = [
   ["#repo-link", "web.repoHint"],
   ["#player-info", "web.playerHint"],
   ["#sheet-player-info", "web.gifPlayerHint"],
+  ["#rev-player-info", "web.gifPlayerHint"],
   ...["head", "legs"].map((role) => [`#sheet-${role}-swap`, "web.swapHeadLegs"]),
   ["#gif-play", "web.gifPlay"],
   ["#gif-prev", "web.gifPrev"],

@@ -67,7 +67,6 @@ async function main() {
     $("#opt-female").checked = !!state.config.female;
     $("#opt-player").checked = !!state.config.player;
     $("#rev-guide").checked = state.config.revGuide !== false;
-    $("#rev-gif-speed").value = state.config.revGifSpeed ?? "fast";
     $("#export-gif-speed").value = state.config.exportGifSpeed ?? "fast";
     $("#export-gif-size").value = String(state.config.exportGifSize ?? 2);
     $("#set-head").value = state.config.ids.id_head ?? "";

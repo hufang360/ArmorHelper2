@@ -8,23 +8,71 @@
 
 import { $, on, say } from "./dom.js";
 import { t, warnText } from "./i18n.js";
-import { REVERSE_SUBDIR, textureReader } from "./textures.js";
+import { REVERSE_SUBDIR, loadPlayerParts, textureReader } from "./textures.js";
 import { saveConfig, state } from "./state.js";
 import { armorName, asId } from "./ids.js";
 import { loadSetsIndex, pickSet, renderRevNames } from "./sets.js";
 import { addHistory } from "./history.js";
 import { keepUrl, rebakeTemplate, showResult, withGuide } from "./result.js";
-import { setReversePreview } from "./gifs.js";
+import { renderPlayerInfo, setReversePreview, showPlayerFile } from "./gifs.js";
 import { packResult } from "./pack.js";
 import { endJob, jobCancelled, jobProgress, nextFrame, startJob } from "./jobs.js";
 import { allSets, displayName, findSet, partIds, sanitizeFilename, setParts } from "../js/data.js";
 import { downloadBlob } from "../js/fs.js";
-import { fullArmorFrames } from "../js/compose.js";
+import { SKIN_TINT, fullArmorFrames, overlay, playerFrames, tintFrames } from "../js/compose.js";
 import { loadTextures, reverseTemplate } from "../js/reverse.js";
+import { upscale } from "../js/bitmap.js";
 import { pngBlob } from "../js/png.js";
 import { zipBlobAsync } from "../js/zip.js";
 
 /* -------------------------------------------------------------- reverse -- */
+
+/** The reversed template of the set on screen, or `null` when there is none. */
+function reversedTemplate() {
+  return state.results.reverse?.[0]?.templates?.[0]?.raw ?? null;
+}
+
+/**
+ * Show the animation of the reversed template and the PNG under it.
+ *
+ * The four switches only change this player: the template is already built, so
+ * nothing here reverses anything again.
+ */
+async function renderReversePreview() {
+  const template = reversedTemplate();
+  if (!template) return;
+  const female = !!state.config.revFemale;
+  const wantsPlayer = !!state.config.revPlayer;
+  let frames = fullArmorFrames(template, female);
+  let withSkin = false;
+  if (wantsPlayer) {
+    const parts = await loadPlayerParts();
+    if (!parts) {
+      say(t("web.gifPlayerHint"), "warn");
+    } else {
+      // player art is always native 2x; a big template widens the frames
+      const armor = frames[0].width === 40 ? frames : frames.map((frame) => upscale(frame, 40 / frames[0].width));
+      frames = overlay(tintFrames(playerFrames(parts, female), SKIN_TINT), armor);
+      withSkin = true;
+    }
+  }
+  setReversePreview(frames, state.config.revGifSpeed ?? "fast", state.config.revGifSize ?? 2);
+  renderPlayerInfo();
+  const variant = female ? (withSkin ? "PlayerFemale" : "Female") : (withSkin ? "Player" : "");
+  showPlayerFile("reverse", `FullArmor${variant}.png`, frames).catch((error) => console.error(error));
+}
+
+/** Put the settings back into the player's four controls. */
+export function renderReversePreviewOptions() {
+  const female = $("#rev-opt-female");
+  if (female) female.checked = !!state.config.revFemale;
+  const player = $("#rev-opt-player");
+  if (player) player.checked = !!state.config.revPlayer;
+  const speed = $("#rev-gif-speed");
+  if (speed) speed.value = state.config.revGifSpeed ?? "fast";
+  const size = $("#rev-gif-size");
+  if (size) size.value = String(state.config.revGifSize ?? 2);
+}
 
 
 
@@ -101,7 +149,7 @@ export async function doReverse() {
 
     showResult("reverse", result);
     // the animation is the player above the result, never a file
-    setReversePreview(frames, state.config.revGifSpeed ?? "fast", 2);
+    await renderReversePreview();
     say(t("reverse.done", { path: result.files[0].name }));
   } catch (error) {
     console.error(error);
@@ -240,14 +288,26 @@ for (const field of ["#rev-head", "#rev-body", "#rev-legs"]) {
     doReverse();
   });
 }
+// the player's four controls never touch the template
+on("#rev-opt-female", "change", (event) => {
+  state.config.revFemale = event.target.checked;
+  saveConfig();
+  void renderReversePreview();
+});
+on("#rev-opt-player", "change", (event) => {
+  state.config.revPlayer = event.target.checked;
+  saveConfig();
+  void renderReversePreview();
+});
 on("#rev-gif-speed", "change", (event) => {
   state.config.revGifSpeed = event.target.value;
   saveConfig();
-  // the speed only changes the animation, not the template
-  const shown = state.results.reverse;
-  const frames = shown?.[0]?.frames;
-  if (!frames) return;
-  setReversePreview(frames, state.config.revGifSpeed ?? "fast", 2);
+  void renderReversePreview();
+});
+on("#rev-gif-size", "change", (event) => {
+  state.config.revGifSize = Number(event.target.value) || 2;
+  saveConfig();
+  void renderReversePreview();
 });
 on("#do-reverse-all", "click", doReverseAll);
 }

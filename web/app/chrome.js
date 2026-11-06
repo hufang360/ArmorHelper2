@@ -15,6 +15,7 @@ import { renderSlots } from "./sheets.js";
 import { renderFolders } from "./folders.js";
 import { renderHistory } from "./history.js";
 import { renderPlayerInfo } from "./gifs.js";
+import { renderReversePreviewOptions } from "./reverse.js";
 import { showResult, syncResultHeights } from "./result.js";
 import { decodeBitmap } from "../js/fs.js";
 
@@ -48,6 +49,7 @@ export function applyI18n() {
   renderHistory();
   // the sentences of the players' info icons are dynamic, so they need a rerun
   renderPlayerInfo();
+  renderReversePreviewOptions();
   renderAbout();
   // redraw the result cards: their captions and buttons are translated too
   for (const [panel, result] of Object.entries(state.results)) {

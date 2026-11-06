@@ -216,13 +216,24 @@ async function runReverse(doc) {
         widths: [...images].map((img) => img.naturalWidth),
         heights: [...images].map((img) => img.naturalHeight),
         sections: doc.querySelectorAll("#reverse-result .previews").length,
-        // the animation is a player above the result now
-        player: {
+        // the animation is a player above the result now; its PNG link is
+        // encoded right after the frames, so wait for it before reading
+        player: await (async () => {
+          for (let wait = 0; wait < 400; wait += 1) {
+            if (!doc.querySelector("#rev-preview-file").hidden) break;
+            await new Promise((resolve) => setTimeout(resolve, 25));
+          }
+          return {
           hidden: doc.querySelector("#rev-preview-box").hidden,
           canvas: [doc.querySelector("#rev-preview-gif").width, doc.querySelector("#rev-preview-gif").height],
           count: doc.querySelector("#rev-gif-count").textContent,
           render: doc.querySelector("#rev-preview-gif").dataset.render ?? "",
-        },
+          link: doc.querySelector("#rev-preview-file").textContent,
+          href: (doc.querySelector("#rev-preview-file").getAttribute("href") || "").slice(0, 5),
+          tooltip: doc.querySelector("#rev-preview-info").dataset.tooltip,
+          size: doc.querySelector("#rev-gif-size").value,
+          };
+        })(),
         files: [...doc.querySelectorAll("#reverse-result .files a")].map((a) => a.textContent),
         fileMeta: [...doc.querySelectorAll("#reverse-result .files .text-body-secondary")].map((el) => el.textContent),
         actions: [...doc.querySelectorAll("#reverse-result .actions > *")].map((el) => el.textContent),

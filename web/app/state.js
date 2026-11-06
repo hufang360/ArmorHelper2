@@ -54,6 +54,10 @@ function defaultConfig() {
     // shares a GIF setting with another
     exportGifSpeed: "fast",
     revGifSpeed: "fast",
+    // the template page's player: these three only change that animation
+    revGifSize: 2,
+    revFemale: false,
+    revPlayer: false,
     // 2x shows the 40x56 art at a readable size; 1x stays one click away
     exportGifSize: 2,
     verify: false,
